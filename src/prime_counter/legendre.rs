@@ -1,23 +1,27 @@
 extern crate combinations;
 
+use crate::prime_counter::prime_counter::PrimeCounter;
+
 use std::ops::Div;
 
 use self::combinations::Combinations;
 
 type R = f64;
-type Z = i64;
 type ZPlus = u64;
-
-pub trait PrimeCounter {
-    fn pi(&self, x: R) -> ZPlus;
-}
+type Z = i64;
 
 pub struct Legendre {
     primes: Vec<ZPlus>
 }
 
+impl PrimeCounter for Legendre {
+    fn pi(&self, x: R) -> ZPlus {
+        self.pi_prime(x, self.primes.clone())
+    }
+}
+
 impl Legendre {
-    fn new(primes: Vec<ZPlus>) -> Legendre {
+    pub fn new(primes: Vec<ZPlus>) -> Legendre {
         Legendre { primes }
     }
 
@@ -113,14 +117,8 @@ impl Legendre {
     }
 }
 
-impl PrimeCounter for Legendre {
-    fn pi(&self, x: R) -> ZPlus {
-        self.pi_prime(x, self.primes.clone())
-    }
-}
-
 #[cfg(test)]
-mod pi_tests {
+mod legendre_tests {
     use std::path::Path;
 
     use crate::prime_table::PrimeTableReader;
