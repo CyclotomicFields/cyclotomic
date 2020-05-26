@@ -129,7 +129,7 @@ mod pi_tests {
 
     #[test]
     fn test_legendre() {
-        let strategy: Legendre = Legendre::new(vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37]);
+        let strategy: Legendre = Legendre::new(vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61]);
         assert_eq!(strategy.pi(1.0_f64), 0);
         assert_eq!(strategy.pi(2.0_f64), 1);
         assert_eq!(strategy.pi(3.0_f64), 2);
@@ -140,13 +140,14 @@ mod pi_tests {
         assert_eq!(strategy.pi(200.0_f64), 46);
         assert_eq!(strategy.pi(1000.0_f64.sqrt()), 11);
         assert_eq!(strategy.pi(1000.0_f64), 168);
+        assert_eq!(strategy.pi(2000.0_f64), 303);
+        assert_eq!(strategy.pi(3000.0_f64), 430);
+        assert_eq!(strategy.pi(4000.0_f64), 550);
     }
 
     #[test]
     fn test_legendre_big() {
         let strategy: Legendre = Legendre::new(vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97]);
-        assert_eq!(strategy.pi(6000.0_f64), 783);
-        // let strategy: Legendre = Legendre::new(PrimeTableReader::new(Path::new("prime_tables")).first_million_primes());
-        // assert_eq!(strategy.pi(10000.0_f64), 1229);
+        assert_eq!(strategy.pi(5000.0_f64), 669);
     }
 }
