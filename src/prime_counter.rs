@@ -128,7 +128,7 @@ mod pi_tests {
     use super::*;
 
     #[test]
-    fn test_legendre() {
+    fn test_legendre_fast() {
         let strategy: Legendre = Legendre::new(vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61]);
         assert_eq!(strategy.pi(1.0_f64), 0);
         assert_eq!(strategy.pi(2.0_f64), 1);
@@ -146,7 +146,7 @@ mod pi_tests {
     }
 
     #[test]
-    fn test_legendre_big() {
+    fn test_legendre_slow() {
         let strategy: Legendre = Legendre::new(vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97]);
         assert_eq!(strategy.pi(5000.0_f64), 669);
     }
