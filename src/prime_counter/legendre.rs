@@ -1,8 +1,8 @@
 extern crate combinations;
 
-use crate::prime_counter::prime_counter::PrimeCounter;
-
 use std::ops::Div;
+
+use crate::prime_counter::prime_counter::PrimeCounter;
 
 use self::combinations::Combinations;
 
@@ -16,7 +16,7 @@ pub struct Legendre {
 
 impl PrimeCounter for Legendre {
     fn pi(&self, x: R) -> ZPlus {
-        self.pi_prime(x, self.primes.clone())
+        self.pi_prime(x, &self.primes)
     }
 }
 
@@ -40,7 +40,7 @@ impl Legendre {
             + (floor each (x div each-right products of all groups of four primes below sqrt(x))
             ...
     */
-    fn pi_prime(&self, x: R, relevant_primes: Vec<ZPlus>) -> ZPlus {
+    fn pi_prime(&self, x: R, relevant_primes: &Vec<ZPlus>) -> ZPlus {
         return if x < 2.0 {
             0
         } else if x == 2.0 {
@@ -48,72 +48,76 @@ impl Legendre {
         } else if x == 3.0 {
             2
         } else {
-            let mut relevant_primes: Vec<ZPlus> = relevant_primes.clone();
-            relevant_primes.retain(|&p| p <= x.sqrt().floor() as ZPlus);
-            println!("Finding pi({}) using primes: {:?}", x, relevant_primes);
-
-            /*
-            This inline function will divide x by the product of the given prime numbers, to
-            find a term for the number of composite numbers that correspond to this group of
-            primes. The reasoning for this is given just above the loop that sums up these terms.
-            */
-            #[inline]
-            fn composite_numbers_term(x: Z, prime_product_group: &Vec<ZPlus>) -> Z {
-                let mut prime_product = 1;
-                for &q in prime_product_group {
-                    prime_product *= q as u128;
-                }
-                return x.div(prime_product as Z);
-            }
-
-            /*
-            The terms for the composite number component have different signs. This is because of
-            the way the formula accounts for overcompensation in earlier terms in its expansion.
-            More details are in the comment above the loop that adds up these terms. That comment
-            goes into more detail on the composite number count terms.
-            */
-            #[inline]
-            fn composite_term_sign(number_of_primes_in_term_denominator: usize) -> Z {
-                return if number_of_primes_in_term_denominator % 2 == 0 { -1 } else { 1 };
-            }
-
-            /*
-            All composite numbers in the interval [1, x] have at least one prime factor less than
-            or equal to sqrt(x), so if we take the sum of all values of x/p for these primes that
-            should give it to us. In doing this, we don't want to consider the terms 1*p for
-            prime p as composites. This is why we subtract the term pi(sqrt(x)).
-
-            Of course, some of the composites in [1, x] are divisible by two primes!
-            These composites will correspondingly have been accounted for twice, in the
-            previous calculation. We will need to add another corrective factor in the other
-            direction for these composite numbers. Of course this correction then causes an
-            inaccuracy regarding those composites with three prime factors, and so on.
-
-            This is why we have all these corrective terms. It is also why the terms based on
-            even-numbered groups of primes have one sign, and odd-numbered groups of primes have the
-            other.
-            */
-
-            let x_z = x as Z;
-            let mut composite_number_count = 0;
-            for i in 1..relevant_primes.len() {
-                let sign = composite_term_sign(i);
-                composite_number_count += sign * Combinations::new(relevant_primes.clone(), i)
-                    .map(|prime_product_group| composite_numbers_term(x_z, &prime_product_group))
-                    .sum::<Z>();
-            }
-            let sign = composite_term_sign(relevant_primes.len());
-            composite_number_count += sign * composite_numbers_term(x_z, &relevant_primes);
-            composite_number_count -= self.pi_prime(x.sqrt().floor(), relevant_primes) as Z;
-
             /*
             Legendre's method is based on the fact that the number of all integers below x
             (= -1 + x) equals the number of primes (= pi(x), the result) plus the number of
-            composite numbers. The terms accounting for the composite numbers are the most complex,
-            which is detailed above.
+            composite numbers.
             */
-            return ((-1 + x as Z) - composite_number_count) as ZPlus;
+            let mut relevant_primes: Vec<ZPlus> = relevant_primes.clone();
+            relevant_primes.retain(|&p| p <= x.sqrt().floor() as ZPlus);
+            println!("Finding pi({}) using primes: {:?}", x, relevant_primes);
+            return (x as Z - (self.legendre_sum(x, &relevant_primes) - self.pi_prime(x.sqrt().floor(), &relevant_primes) as Z) - 1) as ZPlus;
         };
+    }
+
+    /*
+    This sum is used for the Legendre, Meissel and Lehmer methods for calculating pi(x). It counts
+    the positive integers less than or equal to x, not divisible by any one of the primes in the
+    relevant_primes vector reference.
+    */
+    fn legendre_sum(&self, x: R, relevant_primes: &Vec<ZPlus>) -> Z {
+        /*
+        This inline function will divide x by the product of the given prime numbers, to
+        find a term for the number of composite numbers that correspond to this group of
+        primes. The reasoning for this is given just above the loop that sums up these terms.
+        */
+        #[inline]
+        fn composite_numbers_term(x: Z, prime_product_group: &Vec<ZPlus>) -> Z {
+            let mut prime_product = 1;
+            for &q in prime_product_group {
+                prime_product *= q as u128;
+            }
+            return x.div(prime_product as Z);
+        }
+
+        /*
+        The terms for the composite number component have different signs. This is because of
+        the way the formula accounts for overcompensation in earlier terms in its expansion.
+        More details are in the comment above the loop that adds up these terms. That comment
+        goes into more detail on the composite number count terms.
+        */
+        #[inline]
+        fn composite_term_sign(number_of_primes_in_term_denominator: usize) -> Z {
+            return if number_of_primes_in_term_denominator % 2 == 0 { -1 } else { 1 };
+        }
+
+        /*
+        All composite numbers in the interval [1, x] have at least one prime factor less than
+        or equal to sqrt(x), so if we take the sum of all values of x/p for these primes that
+        should give it to us. In doing this, we don't want to consider the terms 1*p for
+        prime p as composites. This is why we subtract the term pi(sqrt(x)).
+
+        Of course, some of the composites in [1, x] are divisible by two primes!
+        These composites will correspondingly have been accounted for twice, in the
+        previous calculation. We will need to add another corrective factor in the other
+        direction for these composite numbers. Of course this correction then causes an
+        inaccuracy regarding those composites with three prime factors, and so on.
+
+        This is why we have all these corrective terms. It is also why the terms based on
+        even-numbered groups of primes have one sign, and odd-numbered groups of primes have the
+        other.
+        */
+        let x_z = x as Z;
+        let mut legendre_sum = 0;
+        for i in 1..relevant_primes.len() {
+            let sign = composite_term_sign(i);
+            legendre_sum += sign * Combinations::new(relevant_primes.clone(), i)
+                .map(|prime_product_group| composite_numbers_term(x_z, &prime_product_group))
+                .sum::<Z>();
+        }
+        let sign = composite_term_sign(relevant_primes.len());
+        legendre_sum += sign * composite_numbers_term(x_z, &relevant_primes);
+        return legendre_sum;
     }
 }
 
