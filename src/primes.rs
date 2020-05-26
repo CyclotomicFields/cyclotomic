@@ -10,6 +10,11 @@ pub struct Primes {
     primes: Vec<ZPlus>
 }
 
+/*
+A collection type for in-memory prime numbers, used to make computations involving bigger prime
+numbers. For example, you require a prime number table for fast calculation of large values of
+pi(x).
+*/
 impl Primes {
     pub fn new(primes: Vec<ZPlus>) -> Primes {
         Primes::assert_sorted_ascending(&primes);
@@ -107,7 +112,7 @@ impl Primes {
 
 #[cfg(test)]
 pub mod primes_test {
-    use crate::primes::Primes;
+    use crate::primes::{Primes, ZPlus};
 
     #[test]
     fn test_first_n() {
@@ -141,6 +146,7 @@ pub mod primes_test {
         assert_eq!(*primes.range(0, 5).unwrap().to_vec(), vec![2, 3, 5]);
         assert_eq!(*primes.range(3, 5).unwrap().to_vec(), vec![5]);
         assert_eq!(*primes.range(7, 13).unwrap().to_vec(), vec![11, 13]);
+        assert_eq!(primes.range(0, 15), None);
         assert_eq!(primes.range(15, 20), None);
         assert_eq!(primes.range(10, 20), None);
         assert_eq!(primes.range(2, 2), None);

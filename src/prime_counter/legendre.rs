@@ -5,23 +5,24 @@ use std::ops::Div;
 use crate::prime_counter::prime_counter::PrimeCounter;
 
 use self::combinations::Combinations;
+use crate::primes::Primes;
 
 type R = f64;
 type ZPlus = u64;
 type Z = i64;
 
-pub struct Legendre<'a> {
-    primes: &'a Vec<ZPlus>
+pub struct Legendre {
+    primes: Primes
 }
 
-impl<'a> PrimeCounter for Legendre<'a> {
+impl PrimeCounter for Legendre {
     fn pi(&self, x: R) -> ZPlus {
         self.pi_prime(x, &self.primes)
     }
 }
 
-impl<'a> Legendre<'a> {
-    pub fn new(primes: &Vec<ZPlus>) -> Legendre {
+impl Legendre {
+    pub fn new(primes: Primes) -> Legendre {
         Legendre { primes }
     }
 
@@ -40,7 +41,7 @@ impl<'a> Legendre<'a> {
             + (floor each (x div each-right products of all groups of four primes below sqrt(x))
             ...
     */
-    fn pi_prime(&self, x: R, relevant_primes: &Vec<ZPlus>) -> ZPlus {
+    fn pi_prime(&self, x: R, relevant_primes: &Primes) -> ZPlus {
         return if x < 2.0 {
             0
         } else if x == 2.0 {
@@ -48,15 +49,18 @@ impl<'a> Legendre<'a> {
         } else if x == 3.0 {
             2
         } else {
-            /*
-            Legendre's method is based on the fact that the number of all integers below x
-            (= -1 + x) equals the number of primes (= pi(x), the result) plus the number of
-            composite numbers.
-            */
-            let mut relevant_primes: Vec<ZPlus> = relevant_primes.clone();
-            relevant_primes.retain(|&p| p <= x.sqrt().floor() as ZPlus);
-            println!("Finding pi({}) using primes: {:?}", x, relevant_primes);
-            return (self.legendre_sum(x, &relevant_primes) + self.pi_prime(x.sqrt().floor(), &relevant_primes) as Z - 1) as ZPlus;
+            if let Some(primes) = relevant_primes.range(0, x.sqrt().floor() as ZPlus) {
+                let primes_vec = primes.to_vec();
+                println!("Finding pi({}) using primes: {:?}", x, primes_vec);
+                /*
+                Legendre's method is based on the fact that the number of all integers below x
+                (= -1 + x) equals the number of primes (= pi(x), the result) plus the number of
+                composite numbers.
+                */
+                return (self.legendre_sum(x, primes_vec) + self.pi_prime(x.sqrt().floor(), &primes) as Z - 1) as ZPlus;
+            } else {
+                panic!("Not enough in-memory primes to compute pi({})", x);
+            }
         };
     }
 
@@ -138,8 +142,8 @@ mod legendre_tests {
 
     #[test]
     fn test_legendre_fast() {
-        let primes = vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61];
-        let strategy: Legendre = Legendre::new(&primes);
+        let primes = Primes::new(vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67]);
+        let strategy: Legendre = Legendre::new(primes);
         assert_eq!(strategy.pi(1.0_f64), 0);
         assert_eq!(strategy.pi(2.0_f64), 1);
         assert_eq!(strategy.pi(3.0_f64), 2);
@@ -157,8 +161,8 @@ mod legendre_tests {
 
     #[test]
     fn test_legendre_slow() {
-        let primes = vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97];
-        let strategy: Legendre = Legendre::new(&primes);
+        let primes = Primes::new(vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101]);
+        let strategy: Legendre = Legendre::new(primes);
         assert_eq!(strategy.pi(5000.0_f64), 669);
     }
 }
