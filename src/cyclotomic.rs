@@ -15,28 +15,23 @@
 //
 // \begin{abstract}
 //
-// Currently, there is no standalone, high perfomance, open source
-// implementation of cyclotomic field arithmetic. Existing
-// implementations are usually part of a computer algebra system and
-// thus not standalone. Examples of this are GAP's and Magma's
-// implementations. This makes it difficult to benchmark and compare
-// various encodings of cyclotomic fields, as well as algorithms for
-// the field operations. Our objective is to produce a well-tested,
-// well-documented, performant library for arithmetic with the
-// cyclotomic numbers.
+// This paper presents a library for arithmetic using elements of the
+// fields $\mathbb{Q}(\zeta_n)$, for $n < 2^{64}$. Existing
+// implementations of this are usually part of a computer algebra
+// system and thus not standalone. Examples of this are GAP's and
+// Magma's implementations. This makes it difficult to benchmark and
+// compare various encodings of elements of cyclotomic fields and
+// algorithms for the field operations. We implement the algorithms of
+// GAP and Magma, describe several original algorithms, and present
+// detailed benchmarks.
 //
 // \end{abstract}
 //
 // \section{Introduction}
 //
-// We used this library for $\mathbb{Q}$ due to performance or
-// something, idk.
+// TODO: write something about GAP, Magma, cite some of those papers
+// about sparse and dense representations.
 //
-extern crate num;
-
-use std::vec::Vec;
-type Q = num::rational::BigRational;
-
 // \section{Implementation of GAP's algorithms}
 //
 // Suppose $z \in \mathbb{Q}(\zeta_n)$ where $\zeta_n$ is an nth root
@@ -55,9 +50,14 @@ type Q = num::rational::BigRational;
 // $$z = \sum_{i=0}^{N-1} \text{coefficients}[i]
 // \zeta_{\text{order}}^{\text{exponents[i]}}$$
 //
-// Although we are implementing this algorithm in Rust, not C, we are
-// aiming to match GAP's algorithm as closely as possible - this is
-// the reference implementation.
+// Although we are implementing this library in Rust, not C, we are
+// aiming to match GAP's implementation as closely as possible, for
+// comparison purposes with later encodings and algorithms.
+extern crate num;
+
+use std::vec::Vec;
+type Q = num::rational::BigRational;
+
 #[derive(Debug)]
 struct Cyclotomic {
     order: u64,
