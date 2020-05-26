@@ -55,19 +55,22 @@ impl Legendre {
             */
             #[inline]
             fn composite_numbers_term(x: Z, prime_product_group: &Vec<ZPlus>) -> Z {
-                return if prime_product_group.len() % 2 == 0 {
-                    let mut prime_product = 1;
-                    for &q in prime_product_group {
-                        prime_product *= q as u128;
-                    }
-                    -x.div(prime_product as Z)
-                } else {
-                    let mut prime_product = 1;
-                    for &q in prime_product_group {
-                        prime_product *= q as u128;
-                    }
-                    x.div(prime_product as Z)
-                };
+                let mut prime_product = 1;
+                for &q in prime_product_group {
+                    prime_product *= q as u128;
+                }
+                return x.div(prime_product as Z);
+            }
+
+            /*
+            The terms for the composite number component have different signs. This is because of
+            the way the formula accounts for overcompensation in earlier terms in its expansion.
+            More details are in the comment above the loop that adds up these terms. That comment
+            goes into more detail on the composite number count terms.
+            */
+            #[inline]
+            fn composite_term_sign(number_of_primes_in_term_denominator: usize) -> Z {
+                return if number_of_primes_in_term_denominator % 2 == 0 { -1 } else { 1 };
             }
 
             /*
@@ -86,17 +89,17 @@ impl Legendre {
             even-numbered groups of primes have one sign, and odd-numbered groups of primes have the
             other.
             */
+
             let x_z = x as Z;
             let mut composite_number_count = 0;
-            for i in 1..relevant_primes.len() + 1 {
-                if i == relevant_primes.len() {
-                    composite_number_count += composite_numbers_term(x_z, &relevant_primes);
-                } else {
-                    for prime_product_group in Combinations::new(relevant_primes.clone(), i) {
-                        composite_number_count += composite_numbers_term(x_z, &prime_product_group);
-                    }
-                }
+            for i in 1..relevant_primes.len() {
+                let sign = composite_term_sign(i);
+                composite_number_count += sign * Combinations::new(relevant_primes.clone(), i)
+                    .map(|prime_product_group| composite_numbers_term(x_z, &prime_product_group))
+                    .sum::<Z>();
             }
+            let sign = composite_term_sign(relevant_primes.len());
+            composite_number_count += sign * composite_numbers_term(x_z, &relevant_primes);
             composite_number_count -= self.pi_prime(x.sqrt().floor(), relevant_primes) as Z;
 
             /*
