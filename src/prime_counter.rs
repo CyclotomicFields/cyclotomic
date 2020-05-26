@@ -2,7 +2,6 @@ extern crate combinations;
 
 use self::combinations::Combinations;
 use std::ops::Div;
-use std::panic::resume_unwind;
 
 type R = f64;
 type Z = i64;
@@ -23,71 +22,90 @@ impl Legendre {
 }
 
 impl PrimeCounter for Legendre {
-    // pi(x) = -1 + pi(sqrt(x)) + x
-    //         - (floor each (x div each-right primes below sqrt(x))
-    //         + (floor each (x div each-right products of all pairs of primes below sqrt(x))
-    //         - (floor each (x div each-right products of all groups of three primes below sqrt(x))
-    //         + (floor each (x div each-right products of all groups of four primes below sqrt(x))
-    //         ...
+    /*
+    Legendre's method in a sentence:
+
+    The number of primes below x equals the total number of numbers below x minus the number of
+    composites below x.
+
+    The formula looks like this:
+
+    pi(x) = -1 + x + pi(sqrt(x))
+            - (floor each (x div each-right primes below sqrt(x))
+            + (floor each (x div each-right products of all pairs of primes below sqrt(x))
+            - (floor each (x div each-right products of all groups of three primes below sqrt(x))
+            + (floor each (x div each-right products of all groups of four primes below sqrt(x))
+            ...
+    */
     fn pi(&self, x: R) -> Z {
         return if x < 2.0 {
             0
         } else if x == 2.0 {
             1
+        } else if x == 3.0 {
+            2
         } else {
-            println!("\nFinding pi({})", x);
             let sqrt_x = x.sqrt().floor();
-            let pi_sqrt_x: ZPlus = self.pi(sqrt_x) as ZPlus;
-            println!("sqrt(x) = {}", sqrt_x);
-            println!("pi(sqrt(x)) = {}", pi_sqrt_x);
             let mut relevant_primes = self.primes.clone();
             relevant_primes.retain(|&p| p <= sqrt_x as ZPlus);
-            println!("Using primes {:?}", relevant_primes);
 
-            let mut result: Z = 0;
-
-            result += pi_sqrt_x as Z;
-            result += x as Z;
-            result -= 1;
-
-            println!("The result before the corrective terms is {}", result);
-
-            if relevant_primes.is_empty() {
-                return result as Z;
-            }
-
-            let mut corrective_term_sum = 0;
-
-            fn add_corrective_term(x: R, prime_product_group: Vec<ZPlus>) -> Z {
+            /*
+            This inline function will divide x by the product of the given prime numbers, to
+            find a term for the number of composite numbers that correspond to this group of
+            primes. The reasoning for this is given just above the loop that sums up these terms.
+            */
+            #[inline]
+            fn composite_numbers_term(x: R, prime_product_group: Vec<ZPlus>) -> Z {
                 return if prime_product_group.len() % 2 == 0 {
                     let mut prime_product = 1;
                     for q in prime_product_group.clone() {
                         prime_product *= q;
                     }
-                    x.div(prime_product as R)
+                    -x.div(prime_product as R)
                 } else {
                     let mut prime_product = 1;
                     for q in prime_product_group.clone() {
                         prime_product *= q;
                     }
-                    -x.div(prime_product as R)
+                    x.div(prime_product as R)
                 } as Z;
             }
 
+            /*
+            All composite numbers in the interval [1, x] have at least one prime factor less than
+            or equal to sqrt(x), so if we take the sum of all values of x/p for these primes that
+            should give it to us. In doing this, we don't want to consider the terms 1*p for
+            prime p as composites. This is why we subtract the term pi(sqrt(x)).
+
+            Of course, some of the composites in [1, x] are divisible by two primes!
+            These composites will correspondingly have been accounted for twice, in the
+            previous calculation. We will need to add another corrective factor in the other
+            direction for these composite numbers. Of course this correction then causes an
+            inaccuracy regarding those composites with three prime factors, and so on.
+
+            This is why we have all these corrective terms. It is also why the terms based on
+            even-numbered groups of primes have one sign, and odd-numbered groups of primes have the
+            other.
+            */
+            let mut composite_number_count = 0;
             for i in 1..relevant_primes.len() + 1 {
-                println!("Finding prime groups of size {}", i);
                 if i == relevant_primes.len() {
-                    corrective_term_sum += add_corrective_term(x, relevant_primes.clone());
+                    composite_number_count += composite_numbers_term(x, relevant_primes.clone());
                 } else {
                     for prime_product_group in Combinations::new(relevant_primes.clone(), i) {
-                        corrective_term_sum += add_corrective_term(x, prime_product_group);
+                        composite_number_count += composite_numbers_term(x, prime_product_group);
                     }
                 }
             }
+            composite_number_count -= self.pi(sqrt_x) as Z;
 
-            println!("The corrective term is {}", corrective_term_sum);
-
-            return (result + corrective_term_sum) as Z;
+            /*
+            Legendre's method is based on the fact that the number of all integers below x
+            (= -1 + x) equals the number of primes (= pi(x), the result) plus the number of
+            composite numbers. The terms accounting for the composite numbers are the most complex,
+            which is detailed above.
+            */
+            return (-1 + x as Z) - composite_number_count;
         };
     }
 }
@@ -95,21 +113,6 @@ impl PrimeCounter for Legendre {
 #[cfg(test)]
 mod pi_tests {
     use super::*;
-
-    #[test]
-    fn test_combinations() {
-        let computed: Vec<_> = Combinations::new(vec![1, 2, 2, 3, 4], 3).collect();
-        let expected = vec![
-            vec![1, 2, 2],
-            vec![1, 2, 3],
-            vec![1, 2, 4],
-            vec![1, 3, 4],
-            vec![2, 2, 3],
-            vec![2, 2, 4],
-            vec![2, 3, 4],
-        ];
-        assert!(computed == expected)
-    }
 
     #[test]
     fn test_legendre() {
@@ -123,5 +126,6 @@ mod pi_tests {
         assert_eq!(strategy.pi(100.0_f64), 25);
         assert_eq!(strategy.pi(200.0_f64), 46);
         assert_eq!(strategy.pi(1000.0_f64.sqrt()), 11);
+        assert_eq!(strategy.pi(1000.0_f64), 168);
     }
 }

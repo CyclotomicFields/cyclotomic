@@ -14,7 +14,7 @@ impl<'a> PrimeTableReader<'a> {
         return PrimeTableReader { directory_path };
     }
 
-    fn first_million_primes(&self) -> Vec<ZPlus> {
+    pub fn first_million_primes(&self) -> Vec<ZPlus> {
         let primes_text_file_path: PathBuf = self.directory_path.join("primes1.txt");
         assert!(primes_text_file_path.is_file());
         let mut primes_text_file: File = File::open(primes_text_file_path).unwrap();
