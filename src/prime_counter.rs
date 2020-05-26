@@ -1,14 +1,15 @@
 extern crate combinations;
 
-use self::combinations::Combinations;
 use std::ops::Div;
+
+use self::combinations::Combinations;
 
 type R = f64;
 type Z = i64;
 type ZPlus = u64;
 
 pub trait PrimeCounter {
-    fn pi(&self, x: R) -> Z;
+    fn pi(&self, x: R) -> ZPlus;
 }
 
 pub struct Legendre {
@@ -19,9 +20,7 @@ impl Legendre {
     fn new(primes: Vec<ZPlus>) -> Legendre {
         Legendre { primes }
     }
-}
 
-impl PrimeCounter for Legendre {
     /*
     Legendre's method in a sentence:
 
@@ -37,7 +36,7 @@ impl PrimeCounter for Legendre {
             + (floor each (x div each-right products of all groups of four primes below sqrt(x))
             ...
     */
-    fn pi(&self, x: R) -> Z {
+    fn pi_prime(&self, x: R, relevant_primes: Vec<ZPlus>) -> ZPlus {
         return if x < 2.0 {
             0
         } else if x == 2.0 {
@@ -45,9 +44,9 @@ impl PrimeCounter for Legendre {
         } else if x == 3.0 {
             2
         } else {
-            let sqrt_x = x.sqrt().floor();
-            let mut relevant_primes = self.primes.clone();
-            relevant_primes.retain(|&p| p <= sqrt_x as ZPlus);
+            let mut relevant_primes: Vec<ZPlus> = relevant_primes.clone();
+            relevant_primes.retain(|&p| p <= x.sqrt().floor() as ZPlus);
+            println!("Finding pi({}) using primes: {:?}", x, relevant_primes);
 
             /*
             This inline function will divide x by the product of the given prime numbers, to
@@ -55,20 +54,20 @@ impl PrimeCounter for Legendre {
             primes. The reasoning for this is given just above the loop that sums up these terms.
             */
             #[inline]
-            fn composite_numbers_term(x: R, prime_product_group: Vec<ZPlus>) -> Z {
+            fn composite_numbers_term(x: Z, prime_product_group: &Vec<ZPlus>) -> Z {
                 return if prime_product_group.len() % 2 == 0 {
                     let mut prime_product = 1;
-                    for q in prime_product_group.clone() {
-                        prime_product *= q;
+                    for &q in prime_product_group {
+                        prime_product *= q as u128;
                     }
-                    -x.div(prime_product as R)
+                    -x.div(prime_product as Z)
                 } else {
                     let mut prime_product = 1;
-                    for q in prime_product_group.clone() {
-                        prime_product *= q;
+                    for &q in prime_product_group {
+                        prime_product *= q as u128;
                     }
-                    x.div(prime_product as R)
-                } as Z;
+                    x.div(prime_product as Z)
+                };
             }
 
             /*
@@ -87,17 +86,18 @@ impl PrimeCounter for Legendre {
             even-numbered groups of primes have one sign, and odd-numbered groups of primes have the
             other.
             */
+            let x_z = x as Z;
             let mut composite_number_count = 0;
             for i in 1..relevant_primes.len() + 1 {
                 if i == relevant_primes.len() {
-                    composite_number_count += composite_numbers_term(x, relevant_primes.clone());
+                    composite_number_count += composite_numbers_term(x_z, &relevant_primes);
                 } else {
                     for prime_product_group in Combinations::new(relevant_primes.clone(), i) {
-                        composite_number_count += composite_numbers_term(x, prime_product_group);
+                        composite_number_count += composite_numbers_term(x_z, &prime_product_group);
                     }
                 }
             }
-            composite_number_count -= self.pi(sqrt_x) as Z;
+            composite_number_count -= self.pi_prime(x.sqrt().floor(), relevant_primes) as Z;
 
             /*
             Legendre's method is based on the fact that the number of all integers below x
@@ -105,13 +105,23 @@ impl PrimeCounter for Legendre {
             composite numbers. The terms accounting for the composite numbers are the most complex,
             which is detailed above.
             */
-            return (-1 + x as Z) - composite_number_count;
+            return ((-1 + x as Z) - composite_number_count) as ZPlus;
         };
+    }
+}
+
+impl PrimeCounter for Legendre {
+    fn pi(&self, x: R) -> ZPlus {
+        self.pi_prime(x, self.primes.clone())
     }
 }
 
 #[cfg(test)]
 mod pi_tests {
+    use std::path::Path;
+
+    use crate::prime_table::PrimeTableReader;
+
     use super::*;
 
     #[test]
@@ -127,5 +137,13 @@ mod pi_tests {
         assert_eq!(strategy.pi(200.0_f64), 46);
         assert_eq!(strategy.pi(1000.0_f64.sqrt()), 11);
         assert_eq!(strategy.pi(1000.0_f64), 168);
+    }
+
+    #[test]
+    fn test_legendre_big() {
+        let strategy: Legendre = Legendre::new(vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97]);
+        assert_eq!(strategy.pi(6000.0_f64), 783);
+        // let strategy: Legendre = Legendre::new(PrimeTableReader::new(Path::new("prime_tables")).first_million_primes());
+        // assert_eq!(strategy.pi(10000.0_f64), 1229);
     }
 }
