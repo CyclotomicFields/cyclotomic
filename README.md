@@ -3,8 +3,8 @@
 #### The Dream
 
 This is a library for exact arithmetic in cyclotomic fields that is
-fast, parallel and user friendly. There's also a paper embedded in the
-comments that you can build.
+well-tested, well-documented, and possibly fast. There's also a paper
+embedded in the comments that you can build.
 
 ## Getting Started
 
@@ -72,3 +72,19 @@ about when it comes to performance. For me, at least.
 #### Contributors
 
 Rob Moore, Kaashif Hymabaccus
+
+## Copyright
+
+Copyright (C) 2020 Rob Moore, Kaashif Hymabaccus
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU Lesser General Public License as
+published by the Free Software Foundation; either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Lesser General Public License for more details.
+
+The full license text can be found in the [LICENSE file](/LICENSE).
