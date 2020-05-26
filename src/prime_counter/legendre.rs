@@ -10,18 +10,18 @@ type R = f64;
 type ZPlus = u64;
 type Z = i64;
 
-pub struct Legendre {
-    primes: Vec<ZPlus>
+pub struct Legendre<'a> {
+    primes: &'a Vec<ZPlus>
 }
 
-impl PrimeCounter for Legendre {
+impl<'a> PrimeCounter for Legendre<'a> {
     fn pi(&self, x: R) -> ZPlus {
         self.pi_prime(x, &self.primes)
     }
 }
 
-impl Legendre {
-    pub fn new(primes: Vec<ZPlus>) -> Legendre {
+impl<'a> Legendre<'a> {
+    pub fn new(primes: &Vec<ZPlus>) -> Legendre {
         Legendre { primes }
     }
 
@@ -56,7 +56,7 @@ impl Legendre {
             let mut relevant_primes: Vec<ZPlus> = relevant_primes.clone();
             relevant_primes.retain(|&p| p <= x.sqrt().floor() as ZPlus);
             println!("Finding pi({}) using primes: {:?}", x, relevant_primes);
-            return (x as Z - (self.legendre_sum(x, &relevant_primes) - self.pi_prime(x.sqrt().floor(), &relevant_primes) as Z) - 1) as ZPlus;
+            return (self.legendre_sum(x, &relevant_primes) + self.pi_prime(x.sqrt().floor(), &relevant_primes) as Z - 1) as ZPlus;
         };
     }
 
@@ -64,8 +64,15 @@ impl Legendre {
     This sum is used for the Legendre, Meissel and Lehmer methods for calculating pi(x). It counts
     the positive integers less than or equal to x, not divisible by any one of the primes in the
     relevant_primes vector reference.
+
+    For input x and a set of primes P, the legendre sum is equal to:
+
+    floor(x) - sum[over P](x / p_i) + sum[over P](x / p_i*p_j) - sum[over P](x / p_i*p_j*p_k) ...
+
+    It is denoted with a capital Phi as a function Phi(x, n), which yields the legendre sum of x
+    using the first n primes.
     */
-    fn legendre_sum(&self, x: R, relevant_primes: &Vec<ZPlus>) -> Z {
+    pub fn legendre_sum(&self, x: R, relevant_primes: &Vec<ZPlus>) -> Z {
         /*
         This inline function will divide x by the product of the given prime numbers, to
         find a term for the number of composite numbers that correspond to this group of
@@ -108,15 +115,15 @@ impl Legendre {
         other.
         */
         let x_z = x as Z;
-        let mut legendre_sum = 0;
+        let mut legendre_sum = x_z;
         for i in 1..relevant_primes.len() {
             let sign = composite_term_sign(i);
-            legendre_sum += sign * Combinations::new(relevant_primes.clone(), i)
+            legendre_sum -= sign * Combinations::new(relevant_primes.clone(), i)
                 .map(|prime_product_group| composite_numbers_term(x_z, &prime_product_group))
                 .sum::<Z>();
         }
         let sign = composite_term_sign(relevant_primes.len());
-        legendre_sum += sign * composite_numbers_term(x_z, &relevant_primes);
+        legendre_sum -= sign * composite_numbers_term(x_z, &relevant_primes);
         return legendre_sum;
     }
 }
@@ -131,7 +138,8 @@ mod legendre_tests {
 
     #[test]
     fn test_legendre_fast() {
-        let strategy: Legendre = Legendre::new(vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61]);
+        let primes = vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61];
+        let strategy: Legendre = Legendre::new(&primes);
         assert_eq!(strategy.pi(1.0_f64), 0);
         assert_eq!(strategy.pi(2.0_f64), 1);
         assert_eq!(strategy.pi(3.0_f64), 2);
@@ -149,7 +157,8 @@ mod legendre_tests {
 
     #[test]
     fn test_legendre_slow() {
-        let strategy: Legendre = Legendre::new(vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97]);
+        let primes = vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97];
+        let strategy: Legendre = Legendre::new(&primes);
         assert_eq!(strategy.pi(5000.0_f64), 669);
     }
 }
