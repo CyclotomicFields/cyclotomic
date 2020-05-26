@@ -18,12 +18,12 @@
 // This paper presents a library for arithmetic using elements of the
 // fields $\mathbb{Q}(\zeta_n)$, for $n < 2^{64}$. Existing
 // implementations of this are usually part of a computer algebra
-// system and thus not standalone. Examples of this are GAP's and
-// Magma's implementations. This makes it difficult to benchmark and
-// compare various encodings of elements of cyclotomic fields and
-// algorithms for the field operations. We implement the algorithms of
-// GAP and Magma, describe several original algorithms, and present
-// detailed benchmarks.
+// system and thus not standalone. Examples are the implementations
+// included with GAP and Magma. This makes it difficult to compare
+// various encodings of elements of cyclotomic fields, and algorithms
+// for the field operations. We implement the algorithms of GAP and
+// Magma, describe several original algorithms, and present detailed
+// benchmarks.
 //
 // \end{abstract}
 //
@@ -44,7 +44,7 @@
 // choose a particularly nice basis that minimises the amount of
 // computation we have to do.
 //
-// If we let $N = \# \text{coefficients} = \# \text{exponents}$, then
+// If we let $N = |\text{coefficients}| = |\text{exponents}|$, then
 // our encoding of $z$ is:
 //
 // $$z = \sum_{i=0}^{N-1} \text{coefficients}[i]
