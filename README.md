@@ -3,7 +3,8 @@
 #### The Dream
 
 This is a library for exact arithmetic in cyclotomic fields that is
-fast, parallel and user friendly.
+fast, parallel and user friendly. There's also a paper embedded in the
+comments that you can build.
 
 ## Getting Started
 
@@ -14,6 +15,16 @@ fast, parallel and user friendly.
 5. Check that all the tests pass using `cargo test`
 6. Add your name to the contributors list in this README and push, to confirm
    that you have push permissions
+
+## Building the paper
+
+* Install `texlive` or some other distribution of LaTeX that comes
+  with a decent amount of stuff. For example,
+  `texlive-latex-recommended` is a good package to install on Debian.
+* Change to the `paper/` directory
+* Run `make`
+
+The built paper will be in `paper.pdf`.
 
 ## Motivation
 
