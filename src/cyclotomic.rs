@@ -2,7 +2,7 @@
 // \usepackage{amsfonts}
 // \usepackage{amsmath}
 // \usepackage{parskip}
-// \usepackage{geometry}[margin=1in]
+// \usepackage[margin=1in]{geometry}
 //
 // \title{High-performance dense and sparse implementations of
 // cyclotomic field arithmetic}
