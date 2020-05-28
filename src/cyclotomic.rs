@@ -44,8 +44,8 @@
 //
 // If we suppose $n$ is minimal, then GAP encodes $z$ as $(n, c, e)$
 // where $n \in \mathbb{Z}_{>0}$, $c \in \mathbb{Q}^N$, $e \in
-// [0..n-1]^N$, and $N \in \mathbb{Z}_{>0}$. Additionally, the vector
-// $e$ is sorted and duplicate-free. That is, if $i < j$, then $e_i <
+// [0..n-1]^N$, and $0 < N \leq n$. Additionally, the vector $e$ is
+// sorted and duplicate-free. That is, if $i < j$, then $e_i <
 // e_j$. This imposes a unique ordering on the terms of the sum. In
 // essence, we have written $z$ as an element of the quotient ring
 // $\mathbb{Q}[x]/(\Phi_n(x))$, while imposing an order on the terms
