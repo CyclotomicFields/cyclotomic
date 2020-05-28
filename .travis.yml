@@ -1,0 +1,14 @@
+before_install:
+  - sudo apt-get install texlive-latex-base texlive-latex-recommended python3
+
+script:
+  - cd paper && make
+
+deploy:
+  provider: pages
+  skip_cleanup: true
+  github_token: $GITHUB_TOKEN
+  keep_history: true
+  local_dir: paper
+  on:
+    branch: gh-pages
