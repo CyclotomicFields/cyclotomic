@@ -11,4 +11,4 @@ deploy:
   keep_history: true
   local_dir: paper
   on:
-    branch: gh-pages
+    branch: master
