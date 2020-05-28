@@ -1,3 +1,5 @@
+language: minimal
+
 before_install:
   - sudo apt-get install texlive-latex-base texlive-latex-recommended python3
 
