@@ -34,25 +34,22 @@
 //
 // \section{Implementation of GAP's algorithms}
 //
-// Suppose $z \in \mathbb{Q}(\zeta_n)$ where $\zeta_n$ is an nth root
-// of unity.  Then it is possible to write $z = \sum_{i=0}^{n-1} q_i
-// \zeta_n^i$ where $q_i \in \mathbb{Q}$. Note that the degree of the
-// field extension $\mathbb{Q}(\zeta_n)/\mathbb{Q}$ is only $\phi(n)$,
-// so this sum is not unique unless $n$ is prime. This is because the
-// set $\{ \zeta_n^i : 0 \leq i \leq n-1 \}$ is not linearly
-// independent over $\mathbb{Q}$. We will see later on that we can
-// choose a particularly nice basis that minimises the amount of
-// computation we have to do.
-//
-// If we let $N = |\text{coefficients}| = |\text{exponents}|$, then
-// our encoding of $z$ is:
-//
-// $$z = \sum_{i=0}^{N-1} \text{coefficients}[i]
-// \zeta_{\text{order}}^{\text{exponents[i]}}$$
-//
 // Although we are implementing this library in Rust, not C, we are
 // aiming to match GAP's implementation as closely as possible, for
 // comparison purposes with later encodings and algorithms.
+//
+// Suppose $z \in \mathbb{Q}(\zeta_n)$ where $\zeta_n$ is an $n$th
+// root of unity. We can write $z = \sum_{i=0}^{n-1} c_i
+// \zeta_n^{e_i}$ for some $c_i \in \mathbb{Q}$, $e_i \in \mathbb{Z}$.
+//
+// If we suppose $n$ is minimal, then GAP encodes $z$ as $(n, c, e)$
+// where $n \in \mathbb{Z}_{>0}$, $c \in \mathbb{Q}^N$, $e \in
+// [0..n-1]^N$, and $N \in \mathbb{Z}_{>0}$. Additionally, the vector
+// $e$ is sorted and duplicate-free. That is, if $i < j$, then $e_i <
+// e_j$. This imposes a unique ordering on the terms of the sum. In
+// essence, we have written $z$ as an element of the quotient ring
+// $\mathbb{Q}[x]/(\Phi_n(x))$, while imposing an order on the terms
+// of the polynomial.
 extern crate num;
 
 use std::cmp::Eq;
@@ -64,10 +61,26 @@ type Q = num::rational::BigRational;
 
 #[derive(Debug)]
 struct Cyclotomic {
-    order: u64,
-    coeffs: Vec<Q>,
-    exps: Vec<u64>,
+    order: u64, // n
+    coeffs: Vec<Q>, // c
+    exps: Vec<u64>, // e
 }
+
+// Without imposing further restrictions, the encoding of $z$ is not
+// unique. Since we have chosen $n$ minimal, for uniqueness, we need
+// only choose a basis for $K = \mathbb{Q}(\zeta_n)$. $K/\mathbb{Q}$
+// is a degree $\phi(n)$ extension, and there is a natural choice of
+// basis: $\{ \zeta_n^i : 0 \leq i \leq \phi(n)-1 \}$. This basis
+// proves difficult to compute with. The choice of basis used in GAP
+// is the set of $\zeta_n^i$ such that $i \notin
+// (n/q)*[-(q/p-1)/2..(q/p-1)/2]$ mod $q$, for every odd prime divisor
+// $p$ of $n$, where $q$ is the maximal power of $p$ in $n$, and $i
+// \notin (n/q)*[q/2..q-1]$, if $q$ is the maximal power of 2 in $n$.
+// It is not too difficult to see, that this gives in fact $\phi(n)$
+// roots.
+
+// TODO: I'm pretty sure it's very difficult to see. Maybe give a
+// proof.
 
 // TODO: tests!!! aaah
 
