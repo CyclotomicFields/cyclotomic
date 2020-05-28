@@ -60,10 +60,20 @@ type Z = num::bigint::BigInt;
 type Q = num::rational::BigRational;
 
 #[derive(Debug)]
-struct Cyclotomic {
-    order: u64, // n
+pub struct Cyclotomic {
+    order: u64,     // n
     coeffs: Vec<Q>, // c
     exps: Vec<u64>, // e
+}
+
+impl Cyclotomic {
+    pub fn new(order: u64, coeffs: Vec<Q>, exps: Vec<u64>) -> Cyclotomic {
+        Cyclotomic {
+            order,
+            coeffs,
+            exps,
+        }
+    }
 }
 
 // Without imposing further restrictions, the encoding of $z$ is not
@@ -79,8 +89,7 @@ struct Cyclotomic {
 // It is not too difficult to see, that this gives in fact $\phi(n)$
 // roots.
 
-// TODO: I'm pretty sure it's very difficult to see. Maybe give a
-// proof.
+// TODO: I'm pretty sure it's very difficult to see. Maybe give a proof.
 
 // TODO: tests!!! aaah
 
@@ -88,100 +97,80 @@ struct Cyclotomic {
 
 // TODO: implement reduction so the order doesn't blow up
 
-impl Cyclotomic {
-    pub fn new(order: u64, coeffs: Vec<Q>, exps: Vec<u64>) -> Cyclotomic {
-        Cyclotomic {
-            order,
-            coeffs,
-            exps,
-        }
-    }
-    pub fn zero() -> Cyclotomic {
-        Cyclotomic::new(1, vec![Q::new(Z::from(0), Z::from(1))], vec![0])
-    }
-    pub fn one() -> Cyclotomic {
-        Cyclotomic::new(1, vec![Q::new(Z::from(1), Z::from(1))], vec![0])
-    }
-    // Expresses self as a sum of powers of the Nth root of unity
-    pub fn increase_order_to(&self, new_order: u64) -> Cyclotomic {
-        Cyclotomic::new(
-            new_order,
-            self.coeffs.clone(),
-            self.exps
-                .clone()
-                .into_iter()
-                .map(|k| new_order * k / self.order)
-                .collect(),
-        )
-    }
-
-    // Returns a pair of cyclotomics representing the same numbers, but
-    // expressed as elements of the same cyclotomic field
-    pub fn match_orders(z1: &Cyclotomic, z2: &Cyclotomic) -> (Cyclotomic, Cyclotomic) {
-        let new_order = num::integer::lcm(z1.order.clone(), z2.order.clone());
-        // TODO: Use Rob's code to actually do some reductions here?
-        // TODO: Reduce in-place?
-        (
-            z1.increase_order_to(new_order),
-            z2.increase_order_to(new_order),
-        )
-    }
+pub fn zero() -> Cyclotomic {
+    Cyclotomic::new(1, vec![Q::new(Z::from(0), Z::from(1))], vec![0])
 }
 
-impl PartialEq for Cyclotomic {
-    fn eq(&self, other: &Self) -> bool {
-        let (new_self, new_other) = Cyclotomic::match_orders(self, other);
-
-        // Since we assume the exponent list is sorted, we can just do a
-        // comparison of the coeff and exp vectors, the number is in
-        // canonical form
-        new_self.coeffs == new_other.coeffs && new_self.exps == new_other.exps
-    }
+pub fn one() -> Cyclotomic {
+    Cyclotomic::new(1, vec![Q::new(Z::from(1), Z::from(1))], vec![0])
 }
 
-impl Eq for Cyclotomic {}
+// TODO: right now we INCREASE the orders to get compatibility... we should try to
+// DECREASE order first!
+pub fn increase_order_to(z: &mut Cyclotomic, new_order: u64) -> () {
+    z.exps = z
+        .exps
+        .clone()
+        .into_iter()
+        .map(|k| new_order * k / z.order)
+        .collect();
 
-impl Add for Cyclotomic {
-    type Output = Cyclotomic;
+    z.order = new_order
+}
 
-    fn add(self, other: Cyclotomic) -> Cyclotomic {
-        let (new_self, new_other) = Cyclotomic::match_orders(&self, &other);
+// TODO: Use Rob's code to actually do some reductions here?
+pub fn match_orders(z1: &mut Cyclotomic, z2: &mut Cyclotomic) -> () {
+    let new_order = num::integer::lcm(z1.order, z2.order);
+    increase_order_to(z1, new_order);
+    increase_order_to(z2, new_order);
+}
 
-        let mut self_i = 0;
-        let mut other_i = 0;
-        let mut result = Cyclotomic::zero();
+// Note: checking equality mutates the encoding of $z_1$ and $z_2$, but does not
+// change the values represented. Since we mutate, we cannot use the Rust traits
+// \tt{Eq} and \tt{PartialEq}. The same is true for all arithmetic operations.
+pub fn eq(z1: &mut Cyclotomic, z2: &mut Cyclotomic) -> bool {
+    match_orders(z1, z2);
+    // Since we assume the exponent list is sorted, we can just do a
+    // comparison of the coeff and exp vectors, the number is in
+    // canonical form.
+    z1.coeffs == z2.coeffs && z1.exps == z2.exps
+}
 
-        // We are producing a result cyclotomic in canonical form assuming the
-        // inputs are in canonical form. That is, we build the result term by
-        // term, assuming that the exponent lists are sorted.
+pub fn add(z1: &mut Cyclotomic, z2: &mut Cyclotomic) -> Cyclotomic {
+    match_orders(z1, z2);
 
-        while self_i < new_self.exps.len() || other_i < new_other.exps.len() {
-            while self_i < new_self.exps.len() && new_self.exps[self_i] < new_other.exps[other_i] {
-                result.coeffs.push(new_self.coeffs[self_i].clone());
-                result.exps.push(new_self.exps[self_i].clone());
-                self_i += 1;
-            }
+    let mut z1_i = 0;
+    let mut z2_i = 0;
+    let mut result = zero();
 
-            while other_i < new_other.exps.len() && new_other.exps[other_i] < new_self.exps[self_i]
-            {
-                result.coeffs.push(new_other.coeffs[other_i].clone());
-                result.exps.push(new_other.exps[other_i].clone());
-                other_i += 1;
-            }
-
-            // If the exponents match up, we just add the coefficients - they are for the same term
-            if new_self.exps[self_i] == new_other.exps[other_i] {
-                result
-                    .coeffs
-                    .push(new_self.coeffs[self_i].clone() + new_other.coeffs[other_i].clone());
-                result.exps.push(new_self.exps[self_i]);
-                self_i += 1;
-                other_i += 1
-            }
+    // We are producing a result cyclotomic in canonical form assuming the
+    // inputs are in canonical form. That is, we build the result term by
+    // term, assuming that the exponent lists are sorted.
+    while z1_i < z1.exps.len() || z2_i < z2.exps.len() {
+        while z1_i < z1.exps.len() && z1.exps[z1_i] < z2.exps[z2_i] {
+            result.coeffs.push(z1.coeffs[z1_i].clone());
+            result.exps.push(z1.exps[z1_i].clone());
+            z1_i += 1;
         }
 
-        result
+        while z2_i < z2.exps.len() && z2.exps[z2_i] < z1.exps[z1_i] {
+            result.coeffs.push(z2.coeffs[z2_i].clone());
+            result.exps.push(z2.exps[z2_i].clone());
+            z2_i += 1;
+        }
+
+        // If the exponents match up, we just add the coefficients - they are for the same term
+        if z1.exps[z1_i] == z2.exps[z2_i] {
+            result
+                .coeffs
+                .push(z1.coeffs[z1_i].clone() + z2.coeffs[z2_i].clone());
+            result.exps.push(z1.exps[z1_i]);
+            z1_i += 1;
+            z2_i += 1
+        }
     }
+
+    result
 }
 
 // \section{Improving performance}
