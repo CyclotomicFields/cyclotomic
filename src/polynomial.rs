@@ -3,8 +3,9 @@ extern crate num;
 use num::pow::pow;
 use std::cmp::PartialOrd;
 use std::fmt::Display;
+use self::num::BigInt;
 
-type Z = i64;
+type Z = num::bigint::BigInt;
 type ZPlus = usize;
 
 pub struct Polynomial {
@@ -30,15 +31,15 @@ impl Polynomial {
     }
 
     pub fn substitute(&self, t: Z) -> Z {
-        let mut sum: Z = 0;
+        let mut sum: Z = BigInt::from(0);
         for j in 0..self.coefficients.len() {
-            sum += self.coefficients[j] * pow(t, self.degrees[j]);
+            sum += self.coefficients[j].clone() * num::pow(t.clone(), self.degrees[j]);
         }
         return sum;
     }
 
     pub fn is_monic(&self) -> bool {
-        return self.coefficients[self.coefficients.len() - 1] == 1;
+        return self.coefficients[self.coefficients.len() - 1] == BigInt::from(1);
     }
 
     pub fn is_irreducible_over_z() -> Option<bool> {
@@ -57,59 +58,59 @@ impl Polynomial {
         // At this point we give up and say "I don't know".
         return None;
     }
-
-    fn divisors(i: Z) -> Vec<Z> {
-        return vec![];
-    }
 }
 
 #[cfg(test)]
 mod polynomial_tests {
     use super::*;
 
+    fn vec_z(vec: Vec<i64>) -> Vec<Z> {
+        vec.iter().map(|&i| BigInt::from(i)).collect()
+    }
+
     #[test]
     fn test_monic_check() {
         // p = 1
-        assert!(Polynomial::new(vec![1], vec![0]).is_monic());
+        assert!(Polynomial::new(vec_z(vec![1]), vec![0]).is_monic());
         // p = 2t + 1
-        assert!(!Polynomial::new(vec![1, 2], vec![0, 1]).is_monic());
+        assert!(!Polynomial::new(vec_z(vec![1, 2]), vec![0, 1]).is_monic());
         // p = t^5 - t^3 - 2t^2 - 1
-        assert!(Polynomial::new(vec![-1, 0, -2, -1, 0, 1], vec![0, 1, 2, 3, 4, 5]).is_monic());
+        assert!(Polynomial::new(vec_z(vec![-1, 0, -2, -1, 0, 1]), vec![0, 1, 2, 3, 4, 5]).is_monic());
     }
 
     #[test]
     fn test_polynomial_substitution() {
         // p = 1
-        let mut p: Polynomial = Polynomial::new(vec![1], vec![0]);
+        let mut p: Polynomial = Polynomial::new(vec_z(vec![1]), vec![0]);
 
-        assert_eq!(p.substitute(5), 1);
-        assert_eq!(p.substitute(0), 1);
-        assert_eq!(p.substitute(-1), 1);
-        assert_eq!(p.substitute(-14), 1);
-        assert_eq!(p.substitute(1), 1);
-        assert_eq!(p.substitute(2), 1);
-        assert_eq!(p.substitute(125716), 1);
+        assert_eq!(p.substitute(BigInt::from(5)), BigInt::from(1));
+        assert_eq!(p.substitute(BigInt::from(0)), BigInt::from(1));
+        assert_eq!(p.substitute(BigInt::from(-1)), BigInt::from(1));
+        assert_eq!(p.substitute(BigInt::from(-14)), BigInt::from(1));
+        assert_eq!(p.substitute(BigInt::from(1)), BigInt::from(1));
+        assert_eq!(p.substitute(BigInt::from(2)), BigInt::from(1));
+        assert_eq!(p.substitute(BigInt::from(125716)), BigInt::from(1));
 
         // p = 2t + 1
-        p = Polynomial::new(vec![1, 2], vec![0, 1]);
+        p = Polynomial::new(vec_z(vec![1, 2]), vec![0, 1]);
 
-        assert_eq!(p.substitute(5), 11);
-        assert_eq!(p.substitute(0), 1);
-        assert_eq!(p.substitute(-1), -1);
-        assert_eq!(p.substitute(-14), -27);
-        assert_eq!(p.substitute(1), 3);
-        assert_eq!(p.substitute(2), 5);
-        assert_eq!(p.substitute(125716), 251433);
+        assert_eq!(p.substitute(BigInt::from(5)), BigInt::from(11));
+        assert_eq!(p.substitute(BigInt::from(0)), BigInt::from(1));
+        assert_eq!(p.substitute(BigInt::from(-1)), BigInt::from(-1));
+        assert_eq!(p.substitute(BigInt::from(-14)), BigInt::from(-27));
+        assert_eq!(p.substitute(BigInt::from(1)), BigInt::from(3));
+        assert_eq!(p.substitute(BigInt::from(2)), BigInt::from(5));
+        assert_eq!(p.substitute(BigInt::from(125716)), BigInt::from(251433));
 
         // p = t^5 - t^3 - 2t^2 - 1
-        p = Polynomial::new(vec![-1, 0, -2, -1, 0, 1], vec![0, 1, 2, 3, 4, 5]);
+        p = Polynomial::new(vec_z(vec![-1, 0, -2, -1, 0, 1]), vec![0, 1, 2, 3, 4, 5]);
 
-        assert_eq!(p.substitute(5), 2949);
-        assert_eq!(p.substitute(0), -1);
-        assert_eq!(p.substitute(-1), -3);
-        assert_eq!(p.substitute(-14), -535473);
-        assert_eq!(p.substitute(1), -3);
-        assert_eq!(p.substitute(2), 15);
-        assert_eq!(p.substitute(123), 28151165717);
+        assert_eq!(p.substitute(BigInt::from(5)), BigInt::from(2949));
+        assert_eq!(p.substitute(BigInt::from(0)), BigInt::from(-1));
+        assert_eq!(p.substitute(BigInt::from(-1)), BigInt::from(-3));
+        assert_eq!(p.substitute(BigInt::from(-14)), BigInt::from(-535473));
+        assert_eq!(p.substitute(BigInt::from(1)), BigInt::from(-3));
+        assert_eq!(p.substitute(BigInt::from(2)), BigInt::from(15));
+        assert_eq!(p.substitute(BigInt::from(123)), BigInt::from(28151165717_i64));
     }
 }
