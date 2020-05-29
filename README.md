@@ -9,13 +9,19 @@ embedded in the comments which you can read
 
 ## Getting Started
 
-1. Install rust using the instructions [here](https://www.rust-lang.org/tools/install)
-2. Check that cargo is on your PATH by running `cargo --version` in the terminal
-3. Clone this repository using `git clone https://github.com/CyclotomicFields/cyclotomic.git`
-4. Download the prime tables by running the bash script `./download_prime_tables.sh`
+1. Install Rust using the instructions on their
+[website](https://www.rust-lang.org/tools/install)
+2. Check that Cargo is on your PATH by running `cargo --version` in the
+terminal
+3. Clone this repository using
+`git clone https://github.com/CyclotomicFields/cyclotomic.git`
+4. Download the prime tables by running the bash script
+`./download_prime_tables.sh`
 5. Check that all the tests pass using `cargo test`
 6. Add your name to the contributors list in this README and push, to confirm
-   that you have push permissions
+that you have push permissions
+7. Check that your push has triggered a pipeline build on
+[Travis](https://travis-ci.com/github/CyclotomicFields/cyclotomic/builds)
 
 ## Building the paper
 
