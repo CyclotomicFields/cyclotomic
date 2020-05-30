@@ -46,7 +46,9 @@ impl<'a> PrimeTableReader<'a> {
     }
 }
 
+// Disabled by default since it needs primes1.txt to be downloaded.
 #[cfg(test)]
+#[ignore]
 mod prime_table_tests {
     use super::*;
 
