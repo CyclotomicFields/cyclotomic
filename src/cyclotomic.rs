@@ -128,7 +128,7 @@ impl One for Cyclotomic {
 impl Cyclotomic {
     // TODO: right now we INCREASE the orders to get compatibility... we should
     //       try to DECREASE order first!
-    fn increase_order(&self, new_order: u64) -> Cyclotomic {
+    fn increase_order_to(&self, new_order: u64) -> Cyclotomic {
         Cyclotomic {
             order: new_order,
             coeffs: self.coeffs.clone(),
@@ -142,7 +142,7 @@ impl Cyclotomic {
     // TODO: Use Rob's code to actually do some reductions here?
     pub fn match_orders(z1: &Cyclotomic, z2: &Cyclotomic) -> (Cyclotomic, Cyclotomic) {
         let new_order = num::integer::lcm(z1.order, z2.order);
-        return (z1.increase_order(new_order), z2.increase_order(new_order));
+        return (z1.increase_order_to(new_order), z2.increase_order_to(new_order));
     }
 }
 
