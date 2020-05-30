@@ -29,8 +29,8 @@ impl<'a> Legendre<'a> {
     /*
     Legendre's method in a sentence:
 
-    The number of primes below x equals the total number of numbers below x minus the number of
-    composites below x.
+    The number of primes below x equals the total number of numbers below x
+    minus the number of composites below x.
 
     The formula looks like this:
 
@@ -44,18 +44,17 @@ impl<'a> Legendre<'a> {
     fn pi_prime(&self, x: R, relevant_primes: &Primes) -> ZPlus {
         return if x < 2.0 {
             0
-        } else if x == 2.0 {
+        } else if x < 3.0 {
             1
-        } else if x == 3.0 {
+        } else if x.floor() == 3.0 {
             2
         } else {
             if let Some(primes) = relevant_primes.range(0, x.sqrt().floor() as ZPlus) {
                 let primes_vec = primes.to_vec();
-                println!("Finding pi({}) using primes: {:?}", x, primes_vec);
                 /*
-                Legendre's method is based on the fact that the number of all integers below x
-                (= -1 + x) equals the number of primes (= pi(x), the result) plus the number of
-                composite numbers.
+                Legendre's method is based on the fact that the number of all
+                integers below x (= -1 + x) equals the number of primes
+                (= pi(x), the result) plus the number of composite numbers.
                 */
                 return (self.legendre_sum(x, primes_vec) + self.pi_prime(x.sqrt().floor(), &primes) as Z - 1) as ZPlus;
             } else {
@@ -65,22 +64,31 @@ impl<'a> Legendre<'a> {
     }
 
     /*
-    This sum is used for the Legendre, Meissel and Lehmer methods for calculating pi(x). It counts
-    the positive integers less than or equal to x, not divisible by any one of the primes in the
-    relevant_primes vector reference.
+    This sum is used for the Legendre, Meissel and Lehmer methods for
+    calculating pi(x). It counts the positive integers less than or equal to x,
+    not divisible by any one of the primes in the relevant_primes vector
+    reference.
 
     For input x and a set of primes P, the legendre sum is equal to:
 
     floor(x) - sum[over P](x / p_i) + sum[over P](x / p_i*p_j) - sum[over P](x / p_i*p_j*p_k) ...
 
-    It is denoted with a capital Phi as a function Phi(x, n), which yields the legendre sum of x
-    using the first n primes.
+    It is denoted with a capital Phi as a function Phi(x, n), which yields the
+    legendre sum of x using the first n primes.
     */
     pub fn legendre_sum(&self, x: R, relevant_primes: &Vec<ZPlus>) -> Z {
         /*
-        This inline function will divide x by the product of the given prime numbers, to
-        find a term for the number of composite numbers that correspond to this group of
-        primes. The reasoning for this is given just above the loop that sums up these terms.
+        If there are no relevant primes, then the result will be equal to floor(x)
+        */
+        if relevant_primes.is_empty() {
+            return x.floor() as Z;
+        }
+
+        /*
+        This inline function will divide x by the product of the given prime
+        numbers, to find a term for the number of composite numbers that
+        correspond to this group of primes. The reasoning for this is given
+        just above the loop that sums up these terms.
         */
         #[inline]
         fn composite_numbers_term(x: Z, prime_product_group: &Vec<ZPlus>) -> Z {
@@ -92,10 +100,11 @@ impl<'a> Legendre<'a> {
         }
 
         /*
-        The terms for the composite number component have different signs. This is because of
-        the way the formula accounts for overcompensation in earlier terms in its expansion.
-        More details are in the comment above the loop that adds up these terms. That comment
-        goes into more detail on the composite number count terms.
+        The terms for the composite number component have different signs. This
+        is because of the way the formula accounts for overcompensation in
+        earlier terms in its expansion. More details are in the comment above
+        the loop that adds up these terms. That comment goes into more detail
+        on the composite number count terms.
         */
         #[inline]
         fn composite_term_sign(number_of_primes_in_term_denominator: usize) -> Z {
@@ -103,20 +112,22 @@ impl<'a> Legendre<'a> {
         }
 
         /*
-        All composite numbers in the interval [1, x] have at least one prime factor less than
-        or equal to sqrt(x), so if we take the sum of all values of x/p for these primes that
-        should give it to us. In doing this, we don't want to consider the terms 1*p for
-        prime p as composites. This is why we subtract the term pi(sqrt(x)).
+        All composite numbers in the interval [1, x] have at least one prime
+        factor less than or equal to sqrt(x), so if we take the sum of all
+        values of x/p for these primes that should give it to us. In doing
+        this, we don't want to consider the terms 1*p for prime p as composites.
+        This is why we subtract the term pi(sqrt(x)).
 
         Of course, some of the composites in [1, x] are divisible by two primes!
-        These composites will correspondingly have been accounted for twice, in the
-        previous calculation. We will need to add another corrective factor in the other
-        direction for these composite numbers. Of course this correction then causes an
-        inaccuracy regarding those composites with three prime factors, and so on.
+        These composites will correspondingly have been accounted for twice, in
+        the previous calculation. We will need to add another corrective factor
+        in the other direction for these composite numbers. Of course this
+        correction then causes an inaccuracy regarding those composites with
+        three prime factors, and so on.
 
-        This is why we have all these corrective terms. It is also why the terms based on
-        even-numbered groups of primes have one sign, and odd-numbered groups of primes have the
-        other.
+        This is why we have all these corrective terms. It is also why the terms
+        based on even-numbered groups of primes have one sign, and odd-numbered
+        groups of primes have the other.
         */
         let x_z = x as Z;
         let mut legendre_sum = x_z;
@@ -164,5 +175,16 @@ mod legendre_tests {
         let primes = Primes::new(vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101]);
         let strategy: Legendre = Legendre::new(&primes);
         assert_eq!(strategy.pi(5000.0_f64), 669);
+    }
+
+    #[test]
+    fn test_legendre_sum_no_primes() {
+        let primes = Primes::new(vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101]);
+        let strategy: Legendre = Legendre::new(&primes);
+        let no_primes = vec![];
+        assert_eq!(strategy.legendre_sum(4.0, &no_primes), 4);
+        assert_eq!(strategy.legendre_sum(7.0, &no_primes), 7);
+        assert_eq!(strategy.legendre_sum(15.6, &no_primes), 15);
+        assert_eq!(strategy.legendre_sum(351.12452, &no_primes), 351);
     }
 }

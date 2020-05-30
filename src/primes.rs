@@ -46,9 +46,11 @@ impl Primes {
     */
     pub fn first_n(&self, n: ZPlus) -> Option<Primes> {
         if n > self.primes.len() as ZPlus {
+            eprintln!("Don't have {} primes", n);
             return None;
         }
         if n == 0 {
+            eprintln!("Unexpectedly asked for 0 primes");
             return None;
         }
         let mut primes_clone = self.primes.clone();
@@ -61,6 +63,7 @@ impl Primes {
     */
     pub fn pi(&self, x: ZPlus) -> Option<ZPlus> {
         if x > self.primes[self.primes.len() - 1] {
+            eprintln!("Not enough primes to evaluate pi({})", x);
             return None;
         } else if x == self.primes[self.primes.len() - 1] {
             return Some(self.primes.len() as ZPlus);
@@ -73,6 +76,7 @@ impl Primes {
                 return Some(i as ZPlus);
             }
             if i == self.primes.len() - 1 {
+                eprintln!("Ran out of primes while evaluating pi({})", x);
                 return None;
             }
             i += 1;
@@ -84,8 +88,11 @@ impl Primes {
     Returns all the primes greater than the lower bound, and not greater than the upper bound.
     */
     pub fn range(&self, lower_bound: ZPlus, upper_bound: ZPlus) -> Option<Primes> {
-        if upper_bound > self.primes[self.primes.len() - 1] || upper_bound <= lower_bound {
+        if upper_bound > self.primes[self.primes.len() - 1] || upper_bound < lower_bound {
+            eprintln!("Can't get primes in the range {} to {} using the given {} primes", lower_bound, upper_bound, self.primes.len());
             return None;
+        } else if upper_bound == lower_bound {
+            return Some(Primes::new_subset(vec![]));
         }
         let mut primes_clone = self.primes.clone();
         primes_clone.retain(|&p| lower_bound < p && p <= upper_bound);
@@ -97,17 +104,24 @@ impl Primes {
     */
     pub fn pi_range(&self, lower_bound: ZPlus, upper_bound: ZPlus) -> Option<ZPlus> {
         if upper_bound < lower_bound {
+            eprintln!("Upper bound {} is less than lower bound {}", upper_bound, lower_bound);
             return None;
         }
         let lower_pi: Option<u64> = self.pi(lower_bound);
         if lower_pi.is_none() {
+            eprintln!("Couldn't get pi({})", lower_bound);
             return None;
         }
         let upper_pi: Option<u64> = self.pi(upper_bound);
         if upper_pi.is_none() {
+            eprintln!("Couldn't get pi({})", upper_bound);
             return None;
         }
         return Some(upper_pi.unwrap() - lower_pi.unwrap());
+    }
+
+    pub fn len(&self) -> usize {
+        return self.primes.len();
     }
 }
 
@@ -157,10 +171,10 @@ pub mod primes_test {
         assert_eq!(*primes.range(0, 5).unwrap().to_vec(), vec![2, 3, 5]);
         assert_eq!(*primes.range(3, 5).unwrap().to_vec(), vec![5]);
         assert_eq!(*primes.range(7, 13).unwrap().to_vec(), vec![11, 13]);
+        assert_eq!(*primes.range(2, 2).unwrap().to_vec(), vec![]);
         assert_eq!(primes.range(0, 15), None);
         assert_eq!(primes.range(15, 20), None);
         assert_eq!(primes.range(10, 20), None);
-        assert_eq!(primes.range(2, 2), None);
         assert_eq!(primes.range(13, 2), None);
     }
 
