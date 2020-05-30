@@ -48,11 +48,11 @@ impl<'a> PrimeTableReader<'a> {
 
 // Disabled by default since it needs primes1.txt to be downloaded.
 #[cfg(test)]
-#[ignore]
 mod prime_table_tests {
     use super::*;
 
     #[test]
+    #[ignore]
     fn test_read_primes_to_one_million() {
         let reader: PrimeTableReader = PrimeTableReader::new(Path::new("prime_tables"));
         let primes: Vec<u64> = reader.first_million_primes();
