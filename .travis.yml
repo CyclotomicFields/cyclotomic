@@ -1,16 +1,31 @@
-language: minimal
+language: rust
 
-before_install:
-  - sudo apt-get install texlive-latex-base texlive-latex-recommended python3
+rust:
+  - stable
+  - beta
+  - nightly
 
+# nightly failures don't cause overall failure
+jobs:
+  allow_failures:
+    - rust: nightly
+  fast_finish: true
+
+# cache dependencies for faster build
+cache: cargo
+
+# need to specify script for documentation build
 script:
-  - cd paper && make
+  - cargo build --verbose
+  - cargo test --verbose
+  - cargo doc --no-deps --document-private-items
 
+# deploy documentation to github pages
 deploy:
   provider: pages
   skip_cleanup: true
   github_token: $GITHUB_TOKEN
   keep_history: true
-  local_dir: paper
+  local_dir: target/doc
   on:
     branch: master
