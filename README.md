@@ -3,9 +3,10 @@
 #### The Dream
 
 This is a library for exact arithmetic in cyclotomic fields that is
-well-tested, well-documented, and possibly fast. There's also a paper
-embedded in the comments which you can read
-[here](https://cyclotomicfields.github.io/cyclotomic/paper.pdf).
+well-tested, well-documented, and possibly fast.
+
+Have a look at the documentation
+[here](https://cyclotomicfields.github.io/cyclotomic/cyclotomic/).
 
 ## Getting Started
 
@@ -23,15 +24,12 @@ that you have push permissions
 7. Check that your push has triggered a pipeline build on
 [Travis](https://travis-ci.com/github/CyclotomicFields/cyclotomic/builds)
 
-## Building the paper
+## Building the documentation
 
-* Install `texlive` or some other distribution of LaTeX that comes
-  with a decent amount of stuff. For example,
-  `texlive-latex-recommended` is a good package to install on Debian.
-* Change to the `paper/` directory
-* Run `make`
+Just run `cargo doc --no-deps` and have a look at
+`target/doc/cyclotomic` with a web browser.
 
-The built paper will be in `paper.pdf`.
+Coming soon: MathJax rendered LaTeX math in the documentation.
 
 ## Motivation
 
