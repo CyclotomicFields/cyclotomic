@@ -18,7 +18,7 @@ cache: cargo
 script:
   - cargo build --verbose
   - cargo test --verbose
-  - cargo doc --no-deps --document-private-items
+  - cargo doc --verbose --no-deps --document-private-items
 
 # deploy documentation to github pages
 deploy:
@@ -26,6 +26,8 @@ deploy:
   skip_cleanup: true
   github_token: $GITHUB_TOKEN
   keep_history: true
+  allow_empty_commit: true
+  verbose: true
   local_dir: target/doc
   on:
     branch: master
