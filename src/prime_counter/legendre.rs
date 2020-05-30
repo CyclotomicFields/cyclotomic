@@ -11,18 +11,18 @@ type R = f64;
 type ZPlus = u64;
 type Z = i64;
 
-pub struct Legendre {
-    primes: Primes
+pub struct Legendre<'a> {
+    primes: &'a Primes
 }
 
-impl PrimeCounter for Legendre {
+impl<'a> PrimeCounter for Legendre<'a> {
     fn pi(&self, x: R) -> ZPlus {
         self.pi_prime(x, &self.primes)
     }
 }
 
-impl Legendre {
-    pub fn new(primes: Primes) -> Legendre {
+impl<'a> Legendre<'a> {
+    pub fn new(primes: &Primes) -> Legendre {
         Legendre { primes }
     }
 
@@ -143,7 +143,7 @@ mod legendre_tests {
     #[test]
     fn test_legendre_fast() {
         let primes = Primes::new(vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67]);
-        let strategy: Legendre = Legendre::new(primes);
+        let strategy: Legendre = Legendre::new(&primes);
         assert_eq!(strategy.pi(1.0_f64), 0);
         assert_eq!(strategy.pi(2.0_f64), 1);
         assert_eq!(strategy.pi(3.0_f64), 2);
@@ -162,7 +162,7 @@ mod legendre_tests {
     #[test]
     fn test_legendre_slow() {
         let primes = Primes::new(vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101]);
-        let strategy: Legendre = Legendre::new(primes);
+        let strategy: Legendre = Legendre::new(&primes);
         assert_eq!(strategy.pi(5000.0_f64), 669);
     }
 }
