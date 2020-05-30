@@ -63,17 +63,17 @@ type Q = num::rational::BigRational;
 
 #[derive(Debug, Clone)]
 pub struct Cyclotomic {
-    order: u64     /*   n   */,
-    coeffs: Vec<Q> /*   c   */,
-    exps: Vec<u64> /*   e   */,
+    order: u64          /*   n   */,
+    coeffs: Box<Vec<Q>> /*   c   */,
+    exps: Box<Vec<u64>> /*   e   */,
 }
 
 impl Cyclotomic {
-    pub fn new(order: u64, coeffs: Vec<Q>, exps: Vec<u64>) -> Cyclotomic {
+    pub fn new(order: u64, coeffs: Box<Vec<Q>>, exps: Box<Vec<u64>>) -> Cyclotomic {
         Cyclotomic {
             order,
-            coeffs,
-            exps,
+            coeffs: coeffs,
+            exps: exps,
         }
     }
 }
@@ -101,58 +101,60 @@ impl Cyclotomic {
 
 impl Zero for Cyclotomic {
     fn zero() -> Self {
-        Cyclotomic::new(1, vec![Q::new(Z::from(0), Z::from(1))], vec![0])
+        Cyclotomic::new(
+            1,
+            Box::new(vec![Q::new(Z::from(0), Z::from(1))]),
+            Box::new(vec![0]))
     }
 
     fn set_zero(&mut self) {
         self.order = 1;
-        self.coeffs = vec![Q::new(Z::from(0), Z::from(1))];
-        self.exps = vec![]
+        self.coeffs = Box::new(vec![Q::new(Z::from(0), Z::from(1))]);
+        self.exps = Box::new(vec![0])
     }
 
     fn is_zero(&self) -> bool {
         return self.order == 1
-            && self.coeffs == vec![Q::new(Z::from(0), Z::from(1))]
-            && self.exps == vec![];
+            && *self.coeffs == vec![Q::new(Z::from(0), Z::from(1))]
+            && *self.exps == vec![];
     }
 }
 
 impl One for Cyclotomic {
     fn one() -> Self {
-        Cyclotomic::new(1, vec![Q::new(Z::from(1), Z::from(1))], vec![0])
+        Cyclotomic::new(
+            1,
+            Box::new(vec![Q::new(Z::from(1), Z::from(1))]),
+            Box::new(vec![0]))
     }
 }
 
 impl Cyclotomic {
-    // TODO: right now we INCREASE the orders to get compatibility... we should try to
-    // DECREASE order first!
-    pub fn increase_order_to(z: &mut Cyclotomic, new_order: u64) -> () {
-        z.exps = z
-            .exps
-            .clone()
-            .into_iter()
-            .map(|k| new_order * k / z.order)
-            .collect();
-
-        z.order = new_order
+    // TODO: right now we INCREASE the orders to get compatibility... we should
+    //       try to DECREASE order first!
+    fn increase_order(&self, new_order: u64) -> Cyclotomic {
+        Cyclotomic {
+            order: new_order,
+            coeffs: self.coeffs.clone(),
+            exps: Box::new(self.exps.clone()
+                .into_iter()
+                .map(|k| new_order * k / self.order)
+                .collect()),
+        }
     }
 
     // TODO: Use Rob's code to actually do some reductions here?
-    pub fn match_orders(z1: &mut Cyclotomic, z2: &mut Cyclotomic) -> () {
+    pub fn match_orders(z1: &Cyclotomic, z2: &Cyclotomic) -> (Cyclotomic, Cyclotomic) {
         let new_order = num::integer::lcm(z1.order, z2.order);
-        Cyclotomic::increase_order_to(z1, new_order);
-        Cyclotomic::increase_order_to(z2, new_order);
+        return (z1.increase_order(new_order), z2.increase_order(new_order));
     }
 }
 
 impl PartialEq for Cyclotomic {
     // Note: checking equality mutates the encoding of $z_1$ and $z_2$, but does not
-    // change the values represented. Since we mutate, we cannot use the Rust traits
-    // \tt{Eq} and \tt{PartialEq}. The same is true for all arithmetic operations.
+    // change the values represented.
     fn eq(&self, other: &Self) -> bool {
-        let mut z1 = self.clone();
-        let mut z2 = other.clone();
-        Cyclotomic::match_orders(&mut z1, &mut z2);
+        let (z1, z2) = Cyclotomic::match_orders(&self, &other);
         // Since we assume the exponent list is sorted, we can just do a
         // comparison of the coeff and exp vectors, the number is in
         // canonical form.
@@ -168,10 +170,7 @@ impl Add for Cyclotomic {
     type Output = Cyclotomic;
 
     fn add(self, rhs: Self) -> Self::Output {
-        let mut z1 = self.clone();
-        let mut z2 = rhs.clone();
-        Cyclotomic::match_orders(&mut z1, &mut z2);
-
+        let (z1, z2) = Cyclotomic::match_orders(&self, &rhs);
         let mut z1_i = 0;
         let mut z2_i = 0;
         let mut result = Cyclotomic::zero();
@@ -221,3 +220,11 @@ impl Mul for Cyclotomic {
 // Insert our incredible mathematical, algorithmic genius here.
 
 // \end{document}
+
+#[cfg(test)]
+mod cyclotomic_tests {
+    use super::*;
+
+    #[test]
+    fn test_compilation() {}
+}
