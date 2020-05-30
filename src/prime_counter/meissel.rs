@@ -97,8 +97,12 @@ mod meissel_tests {
 
     #[test]
     fn test_meissel_slow() {
-        let primes = Primes::new(PrimeTableReader::new(Path::new("prime_tables")).first_million_primes());
-        let strategy: Meissel = Meissel::new(&primes);
-        assert_eq!(strategy.pi(100000.0_f64), 9592);
+        let prime_tables_path = Path::new("prime_tables");
+        let first_million_primes_file_path = prime_tables_path.join("primes1.txt");
+        if prime_tables_path.is_dir() && first_million_primes_file_path.is_file() {
+            let primes = Primes::new(PrimeTableReader::new(prime_tables_path).first_million_primes());
+            let strategy: Meissel = Meissel::new(&primes);
+            assert_eq!(strategy.pi(100000.0_f64), 9592);
+        }
     }
 }
