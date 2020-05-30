@@ -46,16 +46,19 @@ impl<'a> PrimeTableReader<'a> {
     }
 }
 
-// Disabled by default since it needs primes1.txt to be downloaded.
+// Runs only if primes1.txt has been downloaded.
 #[cfg(test)]
 mod prime_table_tests {
     use super::*;
 
     #[test]
-    #[ignore]
     fn test_read_primes_to_one_million() {
-        let reader: PrimeTableReader = PrimeTableReader::new(Path::new("prime_tables"));
-        let primes: Vec<u64> = reader.first_million_primes();
-        assert_eq!(1000000, primes.len())
+        let prime_tables_path = Path::new("prime_tables");
+        let first_million_primes_file_path = prime_tables_path.join("primes1.txt");
+        if prime_tables_path.is_dir() && first_million_primes_file_path.is_file() {
+            let reader: PrimeTableReader = PrimeTableReader::new(prime_tables_path);
+            let primes: Vec<u64> = reader.first_million_primes();
+            assert_eq!(1000000, primes.len())
+        }
     }
 }

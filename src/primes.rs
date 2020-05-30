@@ -1,5 +1,6 @@
 use std::cmp::PartialOrd;
 use std::fmt::Display;
+use crate::prime_counter::prime_counter::PrimeCounter;
 
 type R = f64;
 type ZPlus = u64;
@@ -107,6 +108,16 @@ impl Primes {
             return None;
         }
         return Some(upper_pi.unwrap() - lower_pi.unwrap());
+    }
+}
+
+impl PrimeCounter for Primes {
+    fn pi(&self, x: f64) -> u64 {
+        if let Some(pi) = self.pi(x as ZPlus) {
+            return pi;
+        } else {
+            panic!("Didn't have enough primes to evaluate pi({})", x);
+        }
     }
 }
 
