@@ -14,6 +14,16 @@ impl<'a> PrimeTableReader<'a> {
         return PrimeTableReader { directory_path };
     }
 
+    pub fn first_million_from_file() -> Option<PrimeTableReader<'a>> {
+        let prime_tables_path = Path::new("prime_tables");
+        let first_million_primes_file_path = prime_tables_path.join("primes1.txt");
+        return if prime_tables_path.is_dir() && first_million_primes_file_path.is_file() {
+            Some(PrimeTableReader::new(prime_tables_path))
+        } else {
+            None
+        };
+    }
+
     pub fn first_million_primes(&self) -> Vec<ZPlus> {
         let primes_text_file_path: PathBuf = self.directory_path.join("primes1.txt");
         assert!(primes_text_file_path.is_file());
@@ -53,12 +63,8 @@ mod prime_table_tests {
 
     #[test]
     fn test_read_primes_to_one_million() {
-        let prime_tables_path = Path::new("prime_tables");
-        let first_million_primes_file_path = prime_tables_path.join("primes1.txt");
-        if prime_tables_path.is_dir() && first_million_primes_file_path.is_file() {
-            let reader: PrimeTableReader = PrimeTableReader::new(prime_tables_path);
-            let primes: Vec<u64> = reader.first_million_primes();
-            assert_eq!(1000000, primes.len())
+        if let Some(prime_table_reader) = PrimeTableReader::first_million_from_file() {
+            assert_eq!(1000000, prime_table_reader.first_million_primes().len())
         }
     }
 }

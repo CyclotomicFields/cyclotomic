@@ -61,7 +61,7 @@ impl Primes {
     /*
     Returns the number of primes not greater than x.
     */
-    pub fn pi(&self, x: ZPlus) -> Option<ZPlus> {
+    fn pi_prime(&self, x: ZPlus) -> Option<ZPlus> {
         if x > self.primes[self.primes.len() - 1] {
             eprintln!("Not enough primes to evaluate pi({})", x);
             return None;
@@ -107,12 +107,12 @@ impl Primes {
             eprintln!("Upper bound {} is less than lower bound {}", upper_bound, lower_bound);
             return None;
         }
-        let lower_pi: Option<u64> = self.pi(lower_bound);
+        let lower_pi: Option<u64> = self.pi_prime(lower_bound);
         if lower_pi.is_none() {
             eprintln!("Couldn't get pi({})", lower_bound);
             return None;
         }
-        let upper_pi: Option<u64> = self.pi(upper_bound);
+        let upper_pi: Option<u64> = self.pi_prime(upper_bound);
         if upper_pi.is_none() {
             eprintln!("Couldn't get pi({})", upper_bound);
             return None;
@@ -127,7 +127,7 @@ impl Primes {
 
 impl PrimeCounter for Primes {
     fn pi(&self, x: f64) -> u64 {
-        if let Some(pi) = self.pi(x as ZPlus) {
+        if let Some(pi) = self.pi_prime(x as ZPlus) {
             return pi;
         } else {
             panic!("Didn't have enough primes to evaluate pi({})", x);
@@ -138,6 +138,9 @@ impl PrimeCounter for Primes {
 #[cfg(test)]
 pub mod primes_test {
     use crate::primes::{Primes, ZPlus};
+    use std::path::Path;
+    use crate::prime_table::PrimeTableReader;
+    use crate::prime_counter::prime_counter::PrimeCounter;
 
     #[test]
     fn test_first_n() {
@@ -156,12 +159,12 @@ pub mod primes_test {
     fn test_pi() {
         let primes_vec = vec![2, 3, 5, 7, 11, 13];
         let primes = Primes::new(primes_vec);
-        assert_eq!(primes.pi(1), Some(0));
-        assert_eq!(primes.pi(2), Some(1));
-        assert_eq!(primes.pi(3), Some(2));
-        assert_eq!(primes.pi(10), Some(4));
-        assert_eq!(primes.pi(13), Some(6));
-        assert_eq!(primes.pi(15), None);
+        assert_eq!(primes.pi_prime(1), Some(0));
+        assert_eq!(primes.pi_prime(2), Some(1));
+        assert_eq!(primes.pi_prime(3), Some(2));
+        assert_eq!(primes.pi_prime(10), Some(4));
+        assert_eq!(primes.pi_prime(13), Some(6));
+        assert_eq!(primes.pi_prime(15), None);
     }
 
     #[test]
@@ -189,5 +192,13 @@ pub mod primes_test {
         assert_eq!(primes.pi_range(15, 20), None);
         assert_eq!(primes.pi_range(10, 20), None);
         assert_eq!(primes.pi_range(13, 2), None);
+    }
+
+    #[test]
+    fn test_primes_pi_slow() {
+        if let Some(prime_table_reader) = PrimeTableReader::first_million_from_file() {
+            let strategy = Primes::new(prime_table_reader.first_million_primes());
+            assert_eq!(strategy.pi(1000000.0_f64), 78498);
+        }
     }
 }
