@@ -70,11 +70,7 @@ pub struct Cyclotomic {
 
 impl Cyclotomic {
     pub fn new(order: u64, coeffs: Box<Vec<Q>>, exps: Box<Vec<u64>>) -> Cyclotomic {
-        Cyclotomic {
-            order,
-            coeffs: coeffs,
-            exps: exps,
-        }
+        Cyclotomic { order, coeffs, exps }
     }
 }
 
@@ -224,7 +220,39 @@ impl Mul for Cyclotomic {
 #[cfg(test)]
 mod cyclotomic_tests {
     use super::*;
+    use super::num::BigRational;
 
     #[test]
-    fn test_compilation() {}
+    #[ignore]
+    fn test_addition() {
+        let a = Cyclotomic::new(
+            5,
+            Box::new(vec![Q::new(Z::from(15), Z::from(4))]),
+            Box::new(vec![3]));
+
+        let b = Cyclotomic::new(
+            3,
+            Box::new(vec![Q::new(Z::from(3), Z::from(2))]),
+            Box::new(vec![2]));
+
+        let c = a + b;
+        println!("Result is {:?}", c)
+    }
+
+    #[test]
+    #[ignore]
+    fn test_multiplication() {
+        let a = Cyclotomic::new(
+            5,
+            Box::new(vec![Q::new(Z::from(15), Z::from(4))]),
+            Box::new(vec![3]));
+
+        let b = Cyclotomic::new(
+            3,
+            Box::new(vec![Q::new(Z::from(3), Z::from(2))]),
+            Box::new(vec![2]));
+
+        let c = a * b;
+        println!("Result is {:?}", c)
+    }
 }
