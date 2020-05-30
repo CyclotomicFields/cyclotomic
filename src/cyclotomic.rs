@@ -140,7 +140,7 @@ impl Cyclotomic {
     }
 
     // TODO: Use Rob's code to actually do some reductions here?
-    pub fn match_orders(z1: &Cyclotomic, z2: &Cyclotomic) -> (Cyclotomic, Cyclotomic) {
+    fn match_orders(z1: &Cyclotomic, z2: &Cyclotomic) -> (Cyclotomic, Cyclotomic) {
         let new_order = num::integer::lcm(z1.order, z2.order);
         return (z1.increase_order_to(new_order), z2.increase_order_to(new_order));
     }
