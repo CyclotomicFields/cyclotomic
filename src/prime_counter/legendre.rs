@@ -65,8 +65,8 @@ impl<'a> Legendre<'a> {
 
     /*
     This sum is used for the Legendre, Meissel and Lehmer methods for
-    calculating pi(x). It counts the positive integers less than or equal to x,
-    not divisible by any one of the primes in the relevant_primes vector
+    calculating pi(x). The sum counts the positive integers less than or equal
+    to x, not divisible by any one of the primes in the relevant_primes vector
     reference.
 
     For input x and a set of primes P, the legendre sum is equal to:
@@ -141,6 +141,20 @@ impl<'a> Legendre<'a> {
         legendre_sum -= sign * composite_numbers_term(x_z, &relevant_primes);
         return legendre_sum;
     }
+
+    /*
+    This method is for convenience, to match the mathematical notation.
+
+    The result is the number of positive integers less than or equal
+    to x, not divisible by any of the first a primes.
+    */
+    pub fn legendre_sum_phi(&self, x: R, a: ZPlus) -> Z {
+        if let Some(primes) = self.primes.first_n(a) {
+            return self.legendre_sum(x, primes.to_vec());
+        } else {
+            panic!("Couldn't evaluate phi({}, {}) using {} primes", x, a, self.primes.len())
+        }
+    }
 }
 
 #[cfg(test)]
@@ -178,13 +192,22 @@ mod legendre_tests {
     }
 
     #[test]
-    fn test_legendre_sum_no_primes() {
+    fn test_legendre_sum() {
         let primes = Primes::new(vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101]);
         let strategy: Legendre = Legendre::new(&primes);
         let no_primes = vec![];
+        let seven_primes = vec![2, 3, 5, 7, 11, 13, 17];
         assert_eq!(strategy.legendre_sum(4.0, &no_primes), 4);
         assert_eq!(strategy.legendre_sum(7.0, &no_primes), 7);
         assert_eq!(strategy.legendre_sum(15.6, &no_primes), 15);
         assert_eq!(strategy.legendre_sum(351.12452, &no_primes), 351);
+        assert_eq!(strategy.legendre_sum(100000.0, &seven_primes), 18053);
+    }
+
+    #[test]
+    fn test_legendre_sum_phi() {
+        let primes = Primes::new(vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101]);
+        let strategy: Legendre = Legendre::new(&primes);
+        assert_eq!(strategy.legendre_sum_phi(100000.0, 7), 18053);
     }
 }

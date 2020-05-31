@@ -100,7 +100,7 @@ mod meissel_tests {
         if let Some(prime_table_reader) = PrimeTableReader::first_million_from_file() {
             let primes = Primes::new(prime_table_reader.first_million_primes());
             let strategy: Meissel = Meissel::new(&primes);
-            assert_eq!(strategy.pi(100000.0_f64), 9592);
+            assert_eq!(strategy.pi(350000.0_f64), 29977);
         }
     }
 }

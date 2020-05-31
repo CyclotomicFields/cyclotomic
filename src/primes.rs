@@ -63,7 +63,7 @@ impl Primes {
     */
     fn pi_prime(&self, x: ZPlus) -> Option<ZPlus> {
         if x > self.primes[self.primes.len() - 1] {
-            eprintln!("Not enough primes to evaluate pi({})", x);
+            eprintln!("Can't evaluate pi({}) with primes in the interval ({}, {})", x, self.primes[0], self.primes[self.primes.len() - 1]);
             return None;
         } else if x == self.primes[self.primes.len() - 1] {
             return Some(self.primes.len() as ZPlus);
@@ -122,6 +122,13 @@ impl Primes {
 
     pub fn len(&self) -> usize {
         return self.primes.len();
+    }
+
+    pub fn nth(&self, x: usize) -> Option<ZPlus> {
+        if x == 0 {
+            return None;
+        }
+        return Some(self.primes[x - 1]);
     }
 }
 
