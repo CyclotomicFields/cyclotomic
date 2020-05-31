@@ -1,11 +1,11 @@
 extern crate combinations;
 
+use self::combinations::Combinations;
+
 use std::ops::Div;
 
+use crate::primes::primes::Primes;
 use crate::prime_counter::prime_counter::PrimeCounter;
-
-use self::combinations::Combinations;
-use crate::primes::Primes;
 
 type R = f64;
 type ZPlus = u64;
@@ -160,8 +160,6 @@ impl<'a> Legendre<'a> {
 #[cfg(test)]
 mod legendre_tests {
     use std::path::Path;
-
-    use crate::prime_table::PrimeTableReader;
 
     use super::*;
 

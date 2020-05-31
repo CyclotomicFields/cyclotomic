@@ -1,5 +1,6 @@
 use std::cmp::PartialOrd;
 use std::fmt::Display;
+
 use crate::prime_counter::prime_counter::PrimeCounter;
 
 type R = f64;
@@ -144,10 +145,11 @@ impl PrimeCounter for Primes {
 
 #[cfg(test)]
 pub mod primes_test {
-    use crate::primes::{Primes, ZPlus};
     use std::path::Path;
-    use crate::prime_table::PrimeTableReader;
-    use crate::prime_counter::prime_counter::PrimeCounter;
+
+    use super::*;
+
+    use crate::primes::prime_table::PrimeTableReader;
 
     #[test]
     fn test_first_n() {

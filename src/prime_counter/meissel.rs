@@ -1,11 +1,5 @@
-extern crate combinations;
-
-use std::ops::Div;
-
+use crate::primes::primes::Primes;
 use crate::prime_counter::prime_counter::PrimeCounter;
-
-use self::combinations::Combinations;
-use crate::primes::Primes;
 use crate::prime_counter::legendre::Legendre;
 
 type R = f64;
@@ -72,9 +66,9 @@ impl<'a> Meissel<'a> {
 mod meissel_tests {
     use std::path::Path;
 
-    use crate::prime_table::PrimeTableReader;
-
     use super::*;
+
+    use crate::primes::prime_table::PrimeTableReader;
 
     #[test]
     fn test_meissel_fast() {
