@@ -1,3 +1,8 @@
+// Needs to be at the root to load macros.
+#[cfg(test)]
+#[macro_use]
+extern crate quickcheck;
+
 mod primes;
 mod prime_table;
 mod prime_counter;
