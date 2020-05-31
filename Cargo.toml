@@ -9,6 +9,7 @@ edition = "2018"
 [dependencies]
 num = "0.2.1"
 combinations = "0.1.0"
+divisors = "0.2.1"
 
 [package.metadata.docs.rs]
 rustdoc-args = [ "--html-in-header", "docs/katex-header.html" ]

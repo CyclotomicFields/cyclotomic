@@ -17,6 +17,16 @@ name = "cyclotomic"
 version = "0.1.0"
 dependencies = [
  "combinations",
+ "divisors",
+ "num",
+]
+
+[[package]]
+name = "divisors"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbb1463b94567b1d22f0e07d13a70dcc25f39f88ad8cc197ecb978efddb9136e"
+dependencies = [
  "num",
 ]
 
