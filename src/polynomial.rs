@@ -46,12 +46,16 @@ impl Polynomial {
     }
 
     pub fn is_irreducible_over_z(&self) -> Option<bool> {
-        // First check: Rational Roots Theorem
-        // All rational roots of p will have a numerator that divides the constant term, and a
-        // denominator that divides the leading term coefficient. If we take all the combinations of
-        // the divisors of the leading and constant term coefficients and combine them into a
-        // fraction, then pass them through the polynomial, then if any value is zero, then clearly
-        // the polynomial is reducible over the rationals.
+        /*
+        First check: Rational Roots Theorem
+
+        All rational roots of p will have a numerator that divides the constant
+        term, and a denominator that divides the leading term coefficient. If
+        we take all the combinations of the divisors of the leading and constant
+        term coefficients and combine them into a fraction, then pass them
+        through the polynomial, then if any value is zero, then clearly the
+        polynomial is reducible over the rationals.
+        */
         let numerators = Polynomial::divisors(self.coefficients[0].clone());
         let denominators = Polynomial::divisors(self.coefficients[self.coefficients.len() - 1].clone());
         if numerators.iter().any(|n| denominators.iter().any(|d| {
@@ -60,12 +64,17 @@ impl Polynomial {
             return Some(false);
         }
 
-        // Second check: Eisenstein's Criterion
-        // If there exists a prime, q, which is a factor of every non-leading term, not a factor of
-        // the leading term, and also where q squared is not a factor of the constant term, then
-        // the polynomial is irreducible.
+        /*
+        Second check: Eisenstein's Criterion
 
-        // At this point we give up and say "I don't know".
+        The polynomial is irreducible if there exists a prime, q, such that:
+          - q is a factor of every non-leading term
+          - q is not a factor of the leading term
+          - q squared is not a factor of the constant term
+
+        */
+
+        /* Give up and return no answer */
         return None;
     }
 
