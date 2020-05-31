@@ -1,5 +1,6 @@
 use std::cmp::PartialOrd;
 use std::fmt::Display;
+
 use crate::prime_counter::prime_counter::PrimeCounter;
 
 type R = f64;
@@ -63,7 +64,7 @@ impl Primes {
     */
     fn pi_prime(&self, x: ZPlus) -> Option<ZPlus> {
         if x > self.primes[self.primes.len() - 1] {
-            eprintln!("Not enough primes to evaluate pi({})", x);
+            eprintln!("Can't evaluate pi({}) with primes in the interval ({}, {})", x, self.primes[0], self.primes[self.primes.len() - 1]);
             return None;
         } else if x == self.primes[self.primes.len() - 1] {
             return Some(self.primes.len() as ZPlus);
@@ -123,6 +124,13 @@ impl Primes {
     pub fn len(&self) -> usize {
         return self.primes.len();
     }
+
+    pub fn nth(&self, x: usize) -> Option<ZPlus> {
+        if x == 0 {
+            return None;
+        }
+        return Some(self.primes[x - 1]);
+    }
 }
 
 impl PrimeCounter for Primes {
@@ -137,10 +145,11 @@ impl PrimeCounter for Primes {
 
 #[cfg(test)]
 pub mod primes_test {
-    use crate::primes::{Primes, ZPlus};
     use std::path::Path;
-    use crate::prime_table::PrimeTableReader;
-    use crate::prime_counter::prime_counter::PrimeCounter;
+
+    use super::*;
+
+    use crate::primes::prime_table::PrimeTableReader;
 
     #[test]
     fn test_first_n() {
