@@ -116,7 +116,7 @@ mod lehmer_tests {
         if let Some(prime_table_reader) = PrimeTableReader::first_million_from_file() {
             let primes = Primes::new(prime_table_reader.first_million_primes());
             let strategy: Lehmer = Lehmer::new(&primes);
-            assert_eq!(strategy.pi(10000000.0_f64), 664579);
+            assert_eq!(strategy.pi(20000000.0_f64), 1270607);
         }
     }
 }
