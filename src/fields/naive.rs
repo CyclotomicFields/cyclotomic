@@ -43,6 +43,22 @@ impl Number {
     pub fn new(order: Exponent, coeffs: HashMap<Exponent, Q>) -> Number {
         Number { order, coeffs }
     }
+    pub fn increase_order_to(z: &mut Self, new_order: u64) -> () {
+        let mut new_coeffs = HashMap::new();
+        for (exp, coeff) in z.coeffs.clone() {
+            new_coeffs.insert(new_order * exp / z.order, coeff);
+        }
+        z.order = new_order;
+        z.coeffs = new_coeffs;
+    }
+
+    /// TODO: Use Rob's code to actually do some reductions here?
+    pub fn match_orders(z1: &mut Number, z2: &mut Number) -> () {
+        let new_order = num::integer::lcm(z1.order, z2.order);
+        Number::increase_order_to(z1, new_order);
+        Number::increase_order_to(z2, new_order);
+        assert_eq!(z1.order, z2.order);
+    }
 }
 
 /// Represents zero iff all coeffs are zero. Note that the encoding of
@@ -74,25 +90,6 @@ impl One for Number {
     }
 }
 
-impl Number {
-    pub fn increase_order_to(z: &mut Self, new_order: u64) -> () {
-        let mut new_coeffs = HashMap::new();
-        for (exp, coeff) in z.coeffs.clone() {
-            new_coeffs.insert(new_order * exp / z.order, coeff);
-        }
-        z.order = new_order;
-        z.coeffs = new_coeffs;
-    }
-
-    /// TODO: Use Rob's code to actually do some reductions here?
-    pub fn match_orders(z1: &mut Number, z2: &mut Number) -> () {
-        let new_order = num::integer::lcm(z1.order, z2.order);
-        Number::increase_order_to(z1, new_order);
-        Number::increase_order_to(z2, new_order);
-        assert_eq!(z1.order, z2.order);
-    }
-}
-
 impl PartialEq for Number {
     fn eq(&self, other: &Self) -> bool {
         let mut z1 = self.clone();
@@ -100,9 +97,19 @@ impl PartialEq for Number {
         Number::match_orders(&mut z1, &mut z2);
 
         // Now that we've matched the orders, z1 and z2 are expressed as
-        // elements in the same field, so are the same iff each term is the
-        // same.
-        z1.coeffs == z2.coeffs
+        // elements in the same field so are the same iff each nonzero term is
+        // the same.
+        fn has_diff(left: &Number, right: &Number) -> bool {
+            for (exp_left, coeff_left) in left.coeffs.clone() {
+                match right.coeffs.get(&exp_left) {
+                    None => if coeff_left != Q::zero() { return true }
+                    Some(coeff_right) => if coeff_left != *coeff_right { return true }
+                }
+            }
+            false
+        }
+
+        !has_diff(&z1, &z2) && !has_diff(&z2, &z1)
     }
 
     fn ne(&self, other: &Self) -> bool {
@@ -126,7 +133,6 @@ impl Add for Number {
 
         // We will never need to reduce here, you can't add low powers of
         // $\zeta_n$ and get higher powers. Higher powers do not exist.
-
         let mut coeffs: HashMap<u64, Q> = HashMap::new();
         for (exp, coeff) in z1.coeffs.into_iter().chain(z2.coeffs) {
             match coeffs.get(&exp) {
@@ -160,7 +166,11 @@ impl Mul for Number {
                 // implementation, I think.
                 let new_exp = (exp1 + exp2) % z1.order;
                 let new_coeff = coeff1.clone() * coeff2.clone();
-                result.coeffs.insert(new_exp, new_coeff);
+
+                match result.coeffs.get(&new_exp) {
+                    Some(existing_coeff) => result.coeffs.insert(new_exp, new_coeff + existing_coeff),
+                    None => result.coeffs.insert(new_exp, new_coeff)
+                };
             }
         }
         result
@@ -226,7 +236,7 @@ impl Arbitrary for Number {
     where
         G: Gen,
     {
-        let order: u64 = g.gen_range(1, 1000);
+        let order: u64 = g.gen_range(1, 100);
         let num_terms: u64 = g.gen_range(1, 10);
         let mut result = Self::zero();
         result.order = order;
@@ -261,12 +271,6 @@ mod tests {
     }
 
     quickcheck! {
-    fn one_is_mul_identity(z: Number) -> bool {
-        z.clone() * Number::one() == z.clone()
-    }
-    }
-
-    quickcheck! {
     fn add_is_associative(x: Number, y: Number, z: Number) -> bool {
         (x.clone() + y.clone()) + z.clone() == x.clone() + (y.clone() + z.clone())
     }
@@ -275,6 +279,50 @@ mod tests {
     quickcheck! {
     fn add_is_commutative(x: Number, y: Number) -> bool {
         x.clone() + y.clone() == y.clone() + x.clone()
+    }
+    }
+
+    quickcheck! {
+    fn one_is_mul_identity(z: Number) -> bool {
+        z.clone() * Number::one() == z.clone()
+    }
+    }
+
+    quickcheck! {
+    fn add_has_inverses(z: Number) -> bool {
+        let minus_one = Q::new(Z::from(-1), Z::from(1));
+        z.clone() + z.clone().scalar_mul(minus_one) == Number::zero()
+    }
+    }
+
+    quickcheck! {
+    fn zero_kills_all(z: Number) -> bool {
+        Number::zero() * z == Number::zero()
+    }
+    }
+
+    quickcheck! {
+    fn mul_is_commutative(x: Number, y: Number) -> bool {
+        x.clone() * y.clone() == y.clone() * x.clone()
+    }
+    }
+
+    quickcheck! {
+    fn mul_is_associative(x: Number, y: Number, z: Number) -> bool {
+        (x.clone() * y.clone()) * z.clone() == x.clone() * (y.clone() * z.clone())
+    }
+    }
+
+    quickcheck! {
+    fn mul_has_inverses(z: Number) -> bool {
+        // TODO: actually implement Number::inv !!!!
+        true
+    }
+    }
+
+    quickcheck! {
+    fn mul_distributes_over_add(x: Number, y: Number, z: Number) -> bool {
+        x.clone() * (y.clone() + z.clone()) == x.clone() * y.clone() + x.clone() * z.clone()
     }
     }
 }
