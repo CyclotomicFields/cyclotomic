@@ -56,7 +56,8 @@ impl Polynomial {
         through the polynomial, then if any value is zero, then clearly the
         polynomial is reducible over the rationals.
         */
-        let numerators = Polynomial::divisors(self.coefficients[0].clone());
+        let mut numerators = Polynomial::divisors(self.coefficients[0].clone());
+        numerators.push(Z::from(-1));
         let denominators = Polynomial::divisors(self.coefficients[self.coefficients.len() - 1].clone());
         if numerators.iter().any(|n| denominators.iter().any(|d| {
             return self.substitute(Q::new(n.clone(), d.clone())).is_zero();
@@ -82,10 +83,17 @@ impl Polynomial {
     Returns a vector containing all the divisors of z, including 1 and itself.
     */
     fn divisors(z: Z) -> Vec<Z> {
-        let z_u128 = z.to_u128().unwrap();
-        let mut divisors = get_divisors(z_u128);
-        divisors.push(1);
-        if z_u128 != 1 {
+        if z.is_zero() {
+            panic!("Can't get the divisors of 0")
+        }
+        let mut z_i128 = z.to_i128().unwrap();
+        if z_i128 < 1 {
+            z_i128 = -1 * z_i128
+        }
+        let z_u128 = z_i128 as u128;
+        let mut divisors = vec![1];
+        divisors.extend(get_divisors(z_u128));
+        if (z_u128 != 1) && (z_u128 != 2) {
             divisors.push(z_u128);
         }
         return divisors.iter().map(|&u| Z::from(u)).collect();
@@ -153,7 +161,19 @@ mod polynomial_tests {
 
     #[test]
     fn test_irreducibility_check_rational_roots_theorem() {
-        let p = Polynomial::new(vec_z(vec![6, -5, 1]), vec![0, 1, 2]);
-        assert_eq!(p.is_irreducible_over_z(), Some(false))
+        // (t - 3)(t - 2)
+        assert_eq!(Polynomial::new(vec_z(vec![6, -5, 1]), vec![0, 1, 2]).is_irreducible_over_z(), Some(false));
+
+        // (t + 1/2)(t^2 - 5)
+        assert_eq!(Polynomial::new(vec_z(vec![-5, -10, 1, 2]), vec![0, 1, 2, 3]).is_irreducible_over_z(), Some(false));
+    }
+
+    #[test]
+    fn test_divisors() {
+        assert_eq!(Polynomial::divisors(Z::from(2)), vec_z(vec![1, 2]));
+        assert_eq!(Polynomial::divisors(Z::from(6)), vec_z(vec![1, 2, 3, 6]));
+        assert_eq!(Polynomial::divisors(Z::from(1)), vec_z(vec![1]));
+        assert_eq!(Polynomial::divisors(Z::from(12)), vec_z(vec![1, 2, 3, 4, 6, 12]));
+        assert_eq!(Polynomial::divisors(Z::from(-10)), vec_z(vec![1, 2, 5, 10]));
     }
 }
