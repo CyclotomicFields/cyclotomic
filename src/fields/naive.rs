@@ -7,6 +7,7 @@ use quickcheck::{Arbitrary, Gen};
 use rand::Rng;
 use std::cmp::Eq;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fmt;
 use std::iter::Product;
 use std::ops::{Add, Mul};
@@ -54,7 +55,6 @@ impl Number {
         z.coeffs = new_coeffs;
     }
 
-    /// TODO: Use Rob's code to actually do some reductions here?
     pub fn match_orders(z1: &mut Number, z2: &mut Number) -> () {
         let new_order = num::integer::lcm(z1.order, z2.order);
         Number::increase_order_to(z1, new_order);
@@ -68,14 +68,14 @@ impl Number {
 impl Zero for Number {
     fn zero() -> Self {
         Number::new(
-            1,
-            [(0, Q::from_integer(Z::zero()))].iter().cloned().collect(),
+            3, // 3 because it's the smallest nontrivial root of unity to add
+            HashMap::new(),
         )
     }
 
     fn set_zero(&mut self) {
-        self.order = 1;
-        self.coeffs = [(0, Q::from_integer(Z::zero()))].iter().cloned().collect();
+        self.order = 3;
+        self.coeffs = HashMap::new();
     }
 
     fn is_zero(&self) -> bool {
@@ -86,8 +86,9 @@ impl Zero for Number {
 impl One for Number {
     fn one() -> Self {
         Number::new(
-            1,
-            [(0, Q::from_integer(Z::one()))].iter().cloned().collect(),
+            3,
+            // since 1 + \zeta_3 + \zeta_3^2 = 0
+            [(1, -Q::one()), (2, -Q::one())].iter().cloned().collect(),
         )
     }
 }
@@ -145,7 +146,7 @@ impl Add for Number {
         // $\zeta_n$ and get higher powers. Higher powers do not exist.
         let mut coeffs: HashMap<u64, Q> = HashMap::new();
         for (exp, coeff) in z1.coeffs.into_iter().chain(z2.coeffs) {
-            match coeffs.get(&exp) {
+            match coeffs.clone().get(&exp) {
                 Some(existing_coeff) => coeffs.insert(exp, coeff + existing_coeff),
                 None => coeffs.insert(exp, coeff),
             };
@@ -177,7 +178,7 @@ impl Mul for Number {
                 let new_exp = (exp1 + exp2) % z1.order;
                 let new_coeff = coeff1.clone() * coeff2.clone();
 
-                match result.coeffs.get(&new_exp) {
+                match result.coeffs.clone().get(&new_exp) {
                     Some(existing_coeff) => {
                         result.coeffs.insert(new_exp, new_coeff + existing_coeff)
                     }
@@ -204,6 +205,102 @@ impl Product<Number> for Number {
     }
 }
 
+fn are_coprime(x: u64, y: u64) -> bool {
+    let x_divs = divisors::get_divisors(x);
+    let y_divs = divisors::get_divisors(y);
+
+    for div in x_divs {
+        if y_divs.contains(&div) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+fn phi(n: u64) -> u64 {
+    let mut count = 0;
+    for k in 1..n {
+        if are_coprime(n, k) {
+            count += 1;
+        }
+    }
+    count
+}
+
+// TODO: smaller functions!!! more tests!!!
+fn try_rational(z: Number) -> Option<Q> {
+    let p = z.order.clone();
+
+    // if $z.order = p$ is prime, then there is only 1 nontrivial orbit, it's
+    // $\zeta_p^i$ for $1 \leq i \leq p-1$, it's of size $p-1$. For z to be
+    // rational, it must be $p + q(\sum_{i=1}^{p-1} \zeta_p^i)$ where $p, q$ are
+    // rational.
+
+    // The coefficients of the $\zeta_p^i$ with $i > 0$
+    let mut root_coeffs = z.coeffs.clone();
+    root_coeffs.remove(&0);
+
+    println!("root_coeffs = {:?}", root_coeffs);
+
+    // all nonzero powers must appear and must have the same coeff
+    let mut all_same_coeff = root_coeffs.get(&1).unwrap_or(&Q::zero()).clone();
+
+    println!("first coeff = {:?}", all_same_coeff.to_string());
+
+    for i in 2..p {
+        let coeff = root_coeffs.get(&i);
+        println!("coeff = {:?}", coeff);
+        match coeff {
+            // This root doesn't appear, and we saw another root with nonzero
+            // coefficient, bad! z can't be rational!
+            None => {
+                if !all_same_coeff.clone().is_zero() {
+                    return None;
+                }
+            }
+
+            // This root does appear (with possibly zero coeff), so we need it
+            // to match the other coeffs we've seen
+            Some(q) => {
+                if all_same_coeff != *q {
+                    return None;
+                }
+            }
+        }
+
+        // if we get to here, the coeff matched all others we've seen
+        all_same_coeff = coeff.unwrap_or(&Q::zero()).clone();
+    }
+
+    println!("all coeffs matched = {:?}", all_same_coeff);
+
+    // if we got here it means all the coeffs matched
+    // the -1 comes from the fact that adding all of the nontrivial roots
+    // gives -1
+    return Some(z.coeffs.get(&0).unwrap_or(&Q::zero()) + all_same_coeff * -Q::one());
+}
+
+// distribute the constant term into the basis
+// TODO: clean this up, way too many clones
+fn make_canonical(z: Number) -> Number {
+    //return z;
+    let c = z.clone();
+    let zero = Q::zero();
+    let constant = c.coeffs.get(&0).unwrap_or(&zero);
+
+    let mut result = z.clone();
+    result.coeffs.remove(&0);
+
+    for exp in 1..z.order.clone() {
+        let zero = Q::zero();
+        let existing_coeff = result.coeffs.get(&exp).unwrap_or(&zero);
+        result.coeffs.insert(exp, existing_coeff.clone() - constant);
+    }
+
+    result
+}
+
 impl FieldElement for Number {
     /// Intentionally bad, makes no effort to avoid copies.
     fn add_mut(&mut self, other: &mut Self) -> Self {
@@ -222,12 +319,13 @@ impl FieldElement for Number {
     /// to get the multiplicative inverse.
     fn inv(&self) -> Self {
         let z = self.clone();
+        println!("z = {:?}", z);
 
         // Let $L = \mathbb{Q}(\zeta_n), K = \mathbb{Q}$.
         // Then $L/K$ is a degree $\phi(n)$ extension.
 
         // I can't be bothered to implement $\phi$ so let's say the order is
-        // prime so $\phi(n) = n$ lmao
+        // prime so $\phi(n) = n-1$ lmao
         // TODO: don't be lazy!
 
         let n = z.order.clone();
@@ -247,10 +345,11 @@ impl FieldElement for Number {
         // $G$ is cyclic and generated by any non-trivial element, they all
         // have order $p-1$. I pick $g(\zeta_n) = \zeta_n^2$ as the generator.
         let g = |z: Number| {
-            // doubles all powers
+            // $g$ doubles all powers of $\zeta_n$.
             // Note that it's a field automorphism so permutes the roots,
             // we don't have to worry about collisions or anything like that.
             let mut result = Number::zero();
+            result.order = z.order;
 
             for (exp, coeff) in z.coeffs.clone() {
                 result.coeffs.insert((exp * 2) % n, coeff);
@@ -259,34 +358,42 @@ impl FieldElement for Number {
             result
         };
 
-        // $\prod_{x \in G} x(z)$ is rational, and we have $G$ cyclic, so:
-        // $\prod{i=0}^{p-1} g^i(z) = q \in K$.
+        // $\prod_{t \in G} t(z)$ is rational, and we have $G$ cyclic, of
+        // order $p-1$ so:
+        // $\prod{i=0}^{p-2} g^i(z) = q \in K$.
+
+        // Applied f times times to z
         fn apply_times(f: impl Fn(Number) -> Number, times: u64, z: Number) -> Number {
             let mut result = z;
-            for _ in 0..times {
+            for i in 0..times {
                 result = f(result);
             }
             result
         }
 
-        // This is the product except for z, call it x, we'll need it later
-        let x: Number = (1..n - 1)
-            .into_iter()
-            .map(|i| apply_times(g, i, z.clone()))
-            .product();
+        // This is the product except for the term for $t = \id_L$.
+        let mut x = Number::one();
+        for i in 1..n - 1 {
+            let term = apply_times(g, i, z.clone());
+            x = x * term;
+        }
 
         // The full product:
         let q_cyc: Number = z.clone() * x.clone();
         println!("q_cyc = {:?}", q_cyc);
 
-        // q_cyc is rational, so let's extract the rational bit (all of it):
-        let zero: u64 = 0;
-        let q: Q = q_cyc.coeffs.get(&zero).unwrap().to_owned();
+        // q_cyc is rational, so let's extract the rational bit (all of it).
+        // We need to do some tricks to make it rational (it might be in a
+        // bit of a weird form).
+        let q: Q = try_rational(q_cyc).unwrap();
+        println!("q = {:?}", q);
 
         // Now the fun part:
-        // $\prod{i=0}^{p-1} g^i(z) = q$ so $z (q^{-1} \prod{i=1}^{p-1} g^i(z)) = 1$.
+        // $\prod{i=0}^{p-2} g^i(z) = q$ so $z (q^{-1} \prod{i=1}^{p-2} g^i(z)) = 1$.
         // So $z^{-1} = q^{-1} \prod{i=1}^{p-1} g^i(z) = x/q$.
         let z_inv = x.scalar_mul(q.inv());
+
+        println!("z_inv = {:?}", z_inv);
 
         z_inv
     }
@@ -323,7 +430,6 @@ impl Arbitrary for QArb {
     where
         G: Gen,
     {
-        // TODO: change these
         let p: i64 = g.gen_range(1, 2);
         let q: i64 = g.gen_range(1, 2);
         QArb(Q::new(Z::from(p), Z::from(q)))
@@ -336,13 +442,15 @@ impl Arbitrary for Number {
         G: Gen,
     {
         // TODO: make this work for order non prime
-        let order: u64 = 13;
-        let num_terms: u64 = g.gen_range(1, 2);
+        // TODO: make this work for order bigger than 3
+        let orders = vec![3, 5, 7, 11, 13, 17];
+        let order = 3; //orders[g.gen_range(0, orders.len())];
+        let num_terms: u64 = g.gen_range(1, 5);
         let mut result = Self::zero();
         result.order = order;
 
         for _ in 1..=num_terms {
-            let exp: u64 = g.gen_range(0, order);
+            let exp: u64 = g.gen_range(1, order);
             let QArb(coeff) = QArb::arbitrary(g);
             result.coeffs.insert(exp, coeff);
         }
@@ -384,7 +492,9 @@ mod tests {
 
     quickcheck! {
     fn one_is_mul_identity(z: Number) -> bool {
-        z.clone() * Number::one() == z.clone()
+        let same = make_canonical(z.clone() * Number::one());
+        println!("same = {:?}", same);
+        same == z.clone()
     }
     }
 
@@ -415,9 +525,9 @@ mod tests {
 
     quickcheck! {
     fn mul_has_inverses(z: Number) -> bool {
-        // TODO: GET THIS WORKING
-        // z.inv() * z.clone() == Number::one()
-        true
+        let prod = z.inv() * z.clone();
+        println!("prod = {:?}", prod);
+        try_rational(prod).unwrap() == Q::one()
     }
     }
 
