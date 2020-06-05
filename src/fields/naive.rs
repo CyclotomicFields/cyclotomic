@@ -63,18 +63,17 @@ impl Number {
     }
 }
 
-/// Represents zero iff all coeffs are zero. Note that the encoding of
-/// zero is far from unique.
+/// Represents zero iff all coeffs are zero.
 impl Zero for Number {
     fn zero() -> Self {
         Number::new(
-            3, // 3 because it's the smallest nontrivial root of unity to add
+            5,
             HashMap::new(),
         )
     }
 
     fn set_zero(&mut self) {
-        self.order = 3;
+        self.order = 5;
         self.coeffs = HashMap::new();
     }
 
@@ -85,11 +84,11 @@ impl Zero for Number {
 
 impl One for Number {
     fn one() -> Self {
-        Number::new(
-            3,
-            // since 1 + \zeta_3 + \zeta_3^2 = 0
-            [(1, -Q::one()), (2, -Q::one())].iter().cloned().collect(),
-        )
+        let mut coeffs = HashMap::new();
+        for i in 1..5 {
+            coeffs.insert(i, -Q::one());
+        }
+        Number::new(5, coeffs)
     }
 }
 
@@ -172,18 +171,30 @@ impl Mul for Number {
         result.order = z1.order;
         for (exp1, coeff1) in z1.coeffs.clone() {
             for (exp2, coeff2) in z2.coeffs.clone() {
-                // The mod order part is the only reduction we do.
-                // $\zeta_n^n = 1$ is still trivial enough to include in a naive
-                // implementation, I think.
-                let new_exp = (exp1 + exp2) % z1.order;
+                let new_exp = (exp1 + exp2) % z1.order.clone();
                 let new_coeff = coeff1.clone() * coeff2.clone();
 
-                match result.coeffs.clone().get(&new_exp) {
-                    Some(existing_coeff) => {
-                        result.coeffs.insert(new_exp, new_coeff + existing_coeff)
+                // Special case: if the new exponent would be 0, since 1 is not
+                // a basis element, we have to use the fact that:
+                // $1 = -\sum_{i=1}^{p-1} \zeta_n^i$ to rewrite the new constant
+                // term in our basis.
+                if new_exp != 0 {
+                    match result.coeffs.clone().get(&new_exp) {
+                        Some(existing_coeff) => {
+                            result.coeffs.insert(new_exp, new_coeff + existing_coeff)
+                        }
+                        None => result.coeffs.insert(new_exp, new_coeff),
+                    };
+                } else {
+                    for i in 1..result.order.clone() {
+                        match result.coeffs.clone().get(&i) {
+                            Some(existing_coeff) => {
+                                result.coeffs.insert(i, existing_coeff - new_coeff.clone())
+                            }
+                            None => result.coeffs.insert(i, -new_coeff.clone()),
+                        };
                     }
-                    None => result.coeffs.insert(new_exp, new_coeff),
-                };
+                }
             }
         }
         result
@@ -278,27 +289,7 @@ fn try_rational(z: Number) -> Option<Q> {
     // if we got here it means all the coeffs matched
     // the -1 comes from the fact that adding all of the nontrivial roots
     // gives -1
-    return Some(z.coeffs.get(&0).unwrap_or(&Q::zero()) + all_same_coeff * -Q::one());
-}
-
-// distribute the constant term into the basis
-// TODO: clean this up, way too many clones
-fn make_canonical(z: Number) -> Number {
-    //return z;
-    let c = z.clone();
-    let zero = Q::zero();
-    let constant = c.coeffs.get(&0).unwrap_or(&zero);
-
-    let mut result = z.clone();
-    result.coeffs.remove(&0);
-
-    for exp in 1..z.order.clone() {
-        let zero = Q::zero();
-        let existing_coeff = result.coeffs.get(&exp).unwrap_or(&zero);
-        result.coeffs.insert(exp, existing_coeff.clone() - constant);
-    }
-
-    result
+    return Some(all_same_coeff * -Q::one());
 }
 
 impl FieldElement for Number {
@@ -443,9 +434,9 @@ impl Arbitrary for Number {
     {
         // TODO: make this work for order non prime
         // TODO: make this work for order bigger than 3
-        let orders = vec![3, 5, 7, 11, 13, 17];
-        let order = 3; //orders[g.gen_range(0, orders.len())];
-        let num_terms: u64 = g.gen_range(1, 5);
+        //let orders = vec![3, 5, 7, 11, 13, 17];
+        let order = 5; //orders[g.gen_range(0, orders.len())];
+        let num_terms: u64 = g.gen_range(1, 2);
         let mut result = Self::zero();
         result.order = order;
 
@@ -492,7 +483,7 @@ mod tests {
 
     quickcheck! {
     fn one_is_mul_identity(z: Number) -> bool {
-        let same = make_canonical(z.clone() * Number::one());
+        let same = z.clone() * Number::one();
         println!("same = {:?}", same);
         same == z.clone()
     }
