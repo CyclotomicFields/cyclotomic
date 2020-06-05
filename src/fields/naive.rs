@@ -428,9 +428,8 @@ impl Arbitrary for Number {
         // TODO: make this work for order bigger than 3
         //let orders = vec![3, 5, 7, 11, 13, 17];
         let order = 5; //orders[g.gen_range(0, orders.len())];
-        let num_terms: u64 = g.gen_range(1, 2);
-        let mut result = Self::zero();
-        result.order = order;
+        let num_terms: u64 = g.gen_range(1, 5);
+        let mut result = zero_order(order.clone());
 
         for _ in 1..=num_terms {
             let exp: u64 = g.gen_range(1, order);
