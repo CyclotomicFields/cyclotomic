@@ -403,43 +403,6 @@ impl CyclotomicFieldElement for Number {
     }
 }
 
-// Just a hack to get arbitrary coefficients
-#[derive(Clone)]
-struct QArb(Q);
-
-impl Arbitrary for QArb {
-    fn arbitrary<G>(g: &mut G) -> Self
-    where
-        G: Gen,
-    {
-        let p: i64 = g.gen_range(1, 2);
-        let q: i64 = g.gen_range(1, 2);
-        QArb(Q::new(Z::from(p), Z::from(q)))
-    }
-}
-
-impl Arbitrary for Number {
-    fn arbitrary<G>(g: &mut G) -> Self
-    where
-        G: Gen,
-    {
-        // TODO: make this work for order non prime
-        // TODO: make this work for order bigger than 3
-        //let orders = vec![3, 5, 7, 11, 13, 17];
-        let order = 5; //orders[g.gen_range(0, orders.len())];
-        let num_terms: u64 = g.gen_range(1, 5);
-        let mut result = zero_order(&order);
-
-        for _ in 1..=num_terms {
-            let exp: u64 = g.gen_range(1, order);
-            let QArb(coeff) = QArb::arbitrary(g);
-            result.coeffs.insert(exp, coeff);
-        }
-
-        result
-    }
-}
-
 // These are precisely the field axioms.
 // TODO: add the other axioms
 // TODO: add multiplicative inverses to this
@@ -516,5 +479,42 @@ mod tests {
     fn mul_distributes_over_add(x: Number, y: Number, z: Number) -> bool {
         x.clone() * (y.clone() + z.clone()) == x.clone() * y.clone() + x.clone() * z.clone()
     }
+    }
+
+    // Just a hack to get arbitrary coefficients
+    #[derive(Clone)]
+    struct QArb(Q);
+
+    impl Arbitrary for QArb {
+        fn arbitrary<G>(g: &mut G) -> Self
+            where
+                G: Gen,
+        {
+            let p: i64 = g.gen_range(1, 2);
+            let q: i64 = g.gen_range(1, 2);
+            QArb(Q::new(Z::from(p), Z::from(q)))
+        }
+    }
+
+    impl Arbitrary for Number {
+        fn arbitrary<G>(g: &mut G) -> Self
+            where
+                G: Gen,
+        {
+            // TODO: make this work for order non prime
+            // TODO: make this work for order bigger than 3
+            //let orders = vec![3, 5, 7, 11, 13, 17];
+            let order = 5; //orders[g.gen_range(0, orders.len())];
+            let num_terms: u64 = g.gen_range(1, 5);
+            let mut result = zero_order(&order);
+
+            for _ in 1..=num_terms {
+                let exp: u64 = g.gen_range(1, order);
+                let QArb(coeff) = QArb::arbitrary(g);
+                result.coeffs.insert(exp, coeff);
+            }
+
+            result
+        }
     }
 }
