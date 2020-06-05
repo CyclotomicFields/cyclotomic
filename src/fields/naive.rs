@@ -43,22 +43,22 @@ impl fmt::Debug for Number {
 }
 
 impl Number {
-    pub fn new(order: Exponent, coeffs: HashMap<Exponent, Q>) -> Number {
-        Number { order, coeffs }
+    pub fn new(order: &Exponent, coeffs: &HashMap<Exponent, Q>) -> Number {
+        Number { order: order.clone(), coeffs: coeffs.clone() }
     }
-    pub fn increase_order_to(z: &mut Self, new_order: u64) -> () {
+    pub fn increase_order_to(z: &mut Self, new_order: &u64) -> () {
         let mut new_coeffs = HashMap::new();
         for (exp, coeff) in z.coeffs.clone() {
             new_coeffs.insert(new_order * exp / z.order, coeff);
         }
-        z.order = new_order;
+        z.order = new_order.clone();
         z.coeffs = new_coeffs;
     }
 
     pub fn match_orders(z1: &mut Number, z2: &mut Number) -> () {
         let new_order = num::integer::lcm(z1.order, z2.order);
-        Number::increase_order_to(z1, new_order);
-        Number::increase_order_to(z2, new_order);
+        Number::increase_order_to(z1, &new_order);
+        Number::increase_order_to(z2, &new_order);
         assert_eq!(z1.order, z2.order);
     }
 }
@@ -66,7 +66,7 @@ impl Number {
 /// Represents zero iff all coeffs are zero.
 impl Zero for Number {
     fn zero() -> Self {
-        Number::new(3, HashMap::new())
+        Number::new(&3, &HashMap::new())
     }
 
     fn set_zero(&mut self) {
@@ -79,24 +79,24 @@ impl Zero for Number {
 }
 
 // Creates a zero already written as an element of $\mathbb{Q}(\zeta_n)$.
-fn zero_order(n: u64) -> Number {
-    Number::new(n, HashMap::new())
+fn zero_order(n: &u64) -> Number {
+    Number::new(n, &HashMap::new())
 }
 
 impl One for Number {
     fn one() -> Self {
         // seems like a good default - the smallest nontrivial cyclotomic field
-        one_order(3)
+        one_order(&3)
     }
 }
 
 // Creates a one already written as an element of $\mathbb{Q}(\zeta_n)$.
-fn one_order(n: u64) -> Number {
+fn one_order(n: &u64) -> Number {
     let mut coeffs = HashMap::new();
     for i in 1..n.clone() {
         coeffs.insert(i, -Q::one());
     }
-    Number::new(n, coeffs)
+    Number::new(n, &coeffs)
 }
 
 impl PartialEq for Number {
@@ -144,8 +144,8 @@ impl Add for Number {
     /// Purposely written so it is obviously symmetric in the parameters, thus
     /// commutative by inspection. Of course, there are tests for that.
     fn add(self, rhs: Self) -> Self::Output {
-        let mut z1 = self.clone();
-        let mut z2 = rhs.clone();
+        let mut z1 = self;
+        let mut z2 = rhs;
         Self::match_orders(&mut z1, &mut z2);
 
         // We will never need to reduce here, you can't add low powers of
@@ -158,7 +158,7 @@ impl Add for Number {
             };
         }
 
-        let result = Number::new(z1.order, coeffs);
+        let result = Number::new(&z1.order, &coeffs);
         result
     }
 }
@@ -168,11 +168,11 @@ impl Mul for Number {
 
     /// Multiplies term by term, not bothering to do anything interesting.
     fn mul(self, rhs: Self) -> Self::Output {
-        let mut z1 = self.clone();
-        let mut z2 = rhs.clone();
+        let mut z1 = self;
+        let mut z2 = rhs;
         Self::match_orders(&mut z1, &mut z2);
 
-        let mut result = zero_order(z1.order.clone());
+        let mut result = zero_order(&z1.order);
 
         // This order is almost certainly not optimal. But you know, whatever.
         result.order = z1.order;
@@ -208,9 +208,9 @@ impl Mul for Number {
     }
 }
 
-fn are_coprime(x: u64, y: u64) -> bool {
-    let x_divs = divisors::get_divisors(x);
-    let y_divs = divisors::get_divisors(y);
+fn are_coprime(x: &u64, y: &u64) -> bool {
+    let x_divs = divisors::get_divisors(*x);
+    let y_divs = divisors::get_divisors(*y);
 
     for div in x_divs {
         if y_divs.contains(&div) {
@@ -221,10 +221,10 @@ fn are_coprime(x: u64, y: u64) -> bool {
     return true;
 }
 
-fn phi(n: u64) -> u64 {
+fn phi(n: &u64) -> u64 {
     let mut count = 0;
-    for k in 1..n {
-        if are_coprime(n, k) {
+    for k in 1..*n {
+        if are_coprime(n, &k) {
             count += 1;
         }
     }
@@ -232,8 +232,8 @@ fn phi(n: u64) -> u64 {
 }
 
 // TODO: smaller functions!!! more tests!!!
-fn try_rational(z: Number) -> Option<Q> {
-    let p = z.order.clone();
+fn try_rational(z: &Number) -> Option<Q> {
+    let p = &z.order;
 
     // if $z.order = p$ is prime, then there is only 1 nontrivial orbit, it's
     // $\zeta_p^i$ for $1 \leq i \leq p-1$, it's of size $p-1$. For z to be
@@ -251,7 +251,7 @@ fn try_rational(z: Number) -> Option<Q> {
 
     println!("first coeff = {:?}", all_same_coeff.to_string());
 
-    for i in 2..p {
+    for i in 2..*p {
         let coeff = root_coeffs.get(&i);
         println!("coeff = {:?}", coeff);
         match coeff {
@@ -301,7 +301,7 @@ impl FieldElement for Number {
     /// The product of the Galois conjugates is rational, we can normalise
     /// to get the multiplicative inverse.
     fn inv(&self) -> Self {
-        let z = self.clone();
+        let z = self;
         println!("z = {:?}", z);
 
         // Let $L = \mathbb{Q}(\zeta_n), K = \mathbb{Q}$.
@@ -311,7 +311,7 @@ impl FieldElement for Number {
         // prime so $\phi(n) = n-1$ lmao
         // TODO: don't be lazy!
 
-        let n = z.order.clone();
+        let n = &z.order;
 
         // The Galois group $G = \text{Aut}(L/K)$ has order $\phi(n)$. The
         // elements are the automorphisms $\zeta_n \mapsto \zeta_n^i$ for all
@@ -327,15 +327,14 @@ impl FieldElement for Number {
 
         // $G$ is cyclic and generated by any non-trivial element, they all
         // have order $p-1$. I pick $g(\zeta_n) = \zeta_n^2$ as the generator.
-        let g = |z: Number| {
+        let g = |z: &Number| {
             // $g$ doubles all powers of $\zeta_n$.
             // Note that it's a field automorphism so permutes the roots,
             // we don't have to worry about collisions or anything like that.
-            let mut result = Number::zero();
-            result.order = z.order;
+            let mut result = zero_order(&z.order);
 
-            for (exp, coeff) in z.coeffs.clone() {
-                result.coeffs.insert((exp * 2) % n, coeff);
+            for (exp, coeff) in &z.coeffs {
+                result.coeffs.insert((exp * 2) % n, coeff.clone());
             }
 
             result
@@ -346,35 +345,35 @@ impl FieldElement for Number {
         // $\prod{i=0}^{p-2} g^i(z) = q \in K$.
 
         // Applied f times times to z
-        fn apply_times(f: impl Fn(Number) -> Number, times: u64, z: Number) -> Number {
-            let mut result = z;
-            for i in 0..times {
-                result = f(result);
+        fn apply_times(f: impl Fn(&Number) -> Number, times: &u64, z: &Number) -> Number {
+            let mut result = z.clone();
+            for i in 0..*times {
+                result = f(&result);
             }
             result
         }
 
         // This is the product except for the term for $t = \id_L$.
-        let mut x = one_order(z.order.clone());
+        let mut x = one_order(&z.order);
         for i in 1..n - 1 {
-            let term = apply_times(g, i, z.clone());
+            let term = apply_times(g, &i, &z);
             x = x * term;
         }
 
         // The full product:
-        let q_cyc: Number = z.clone() * x.clone();
+        let q_cyc = z.clone() * x.clone();
         println!("q_cyc = {:?}", q_cyc);
 
         // q_cyc is rational, so let's extract the rational bit (all of it).
         // We need to do some tricks to make it rational (it might be in a
         // bit of a weird form).
-        let q: Q = try_rational(q_cyc).unwrap();
+        let q: Q = try_rational(&q_cyc).unwrap();
         println!("q = {:?}", q);
 
         // Now the fun part:
         // $\prod{i=0}^{p-2} g^i(z) = q$ so $z (q^{-1} \prod{i=1}^{p-2} g^i(z)) = 1$.
         // So $z^{-1} = q^{-1} \prod{i=1}^{p-1} g^i(z) = x/q$.
-        let z_inv = x.scalar_mul(q.inv());
+        let z_inv = x.scalar_mul(&q.inv());
 
         println!("z_inv = {:?}", z_inv);
 
@@ -388,14 +387,14 @@ impl FieldElement for Number {
 }
 
 impl CyclotomicFieldElement for Number {
-    fn e(n: u64, k: u64) -> Self {
+    fn e(n: &u64, k: &u64) -> Self {
         Number::new(
             n,
-            [(k, Q::from_integer(Z::one()))].iter().cloned().collect(),
+            &[(k.clone(), Q::from_integer(Z::one()))].iter().cloned().collect(),
         )
     }
 
-    fn scalar_mul(&self, scalar: Q) -> Self {
+    fn scalar_mul(&self, scalar: &Q) -> Self {
         let mut result = self.clone();
         for (_, coeff) in result.coeffs.iter_mut() {
             *coeff *= scalar.clone();
@@ -429,7 +428,7 @@ impl Arbitrary for Number {
         //let orders = vec![3, 5, 7, 11, 13, 17];
         let order = 5; //orders[g.gen_range(0, orders.len())];
         let num_terms: u64 = g.gen_range(1, 5);
-        let mut result = zero_order(order.clone());
+        let mut result = zero_order(&order);
 
         for _ in 1..=num_terms {
             let exp: u64 = g.gen_range(1, order);
@@ -456,7 +455,7 @@ mod tests {
 
     quickcheck! {
     fn zero_is_add_identity(z: Number) -> bool {
-        z.clone() + zero_order(z.order.clone()) == z.clone()
+        z.clone() + zero_order(&z.order) == z.clone()
     }
     }
 
@@ -474,7 +473,7 @@ mod tests {
 
     quickcheck! {
     fn one_is_mul_identity(z: Number) -> bool {
-        let same = z.clone() * one_order(z.order.clone());
+        let same = z.clone() * one_order(&z.order);
         println!("same = {:?}", same);
         same == z.clone()
     }
@@ -483,13 +482,13 @@ mod tests {
     quickcheck! {
     fn add_has_inverses(z: Number) -> bool {
         let minus_one = Q::new(Z::from(-1), Z::from(1));
-        z.clone() + z.clone().scalar_mul(minus_one) == zero_order(z.order.clone())
+        z.clone() + z.clone().scalar_mul(&minus_one) == zero_order(&z.order)
     }
     }
 
     quickcheck! {
     fn zero_kills_all(z: Number) -> bool {
-        zero_order(z.order.clone()) * z.clone() == zero_order(z.order.clone())
+        zero_order(&z.order) * z.clone() == zero_order(&z.order)
     }
     }
 
@@ -509,7 +508,7 @@ mod tests {
     fn mul_has_inverses(z: Number) -> bool {
         let prod = z.inv() * z.clone();
         println!("prod = {:?}", prod);
-        prod == one_order(z.order.clone())
+        prod == one_order(&z.order)
     }
     }
 

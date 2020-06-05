@@ -25,11 +25,11 @@ pub trait FieldElement: Eq + PartialEq + Add + Zero + Mul + One {
 /// Provides convenience functions specific to cyclotomic fields.
 pub trait CyclotomicFieldElement: FieldElement {
     /// Returns $\zeta_n$^k.
-    fn e(n: u64, k: u64) -> Self;
+    fn e(n: &u64, k: &u64) -> Self;
 
     /// Multiplies by this scalar. Recall that $\mathbb{Q}(\zeta_n)$ is a
     /// $\mathbb{Q}$-vector space.
-    fn scalar_mul(&self, scalar: Q) -> Self;
+    fn scalar_mul(&self, scalar: &Q) -> Self;
 }
 
 // TODO: work out a way to write tests for a trait then instantiate them instead of
