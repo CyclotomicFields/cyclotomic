@@ -66,14 +66,10 @@ impl Number {
 /// Represents zero iff all coeffs are zero.
 impl Zero for Number {
     fn zero() -> Self {
-        Number::new(
-            5,
-            HashMap::new(),
-        )
+        Number::new(3, HashMap::new())
     }
 
     fn set_zero(&mut self) {
-        self.order = 5;
         self.coeffs = HashMap::new();
     }
 
@@ -82,14 +78,25 @@ impl Zero for Number {
     }
 }
 
+// Creates a zero already written as an element of $\mathbb{Q}(\zeta_n)$.
+fn zero_order(n: u64) -> Number {
+    Number::new(n, HashMap::new())
+}
+
 impl One for Number {
     fn one() -> Self {
-        let mut coeffs = HashMap::new();
-        for i in 1..5 {
-            coeffs.insert(i, -Q::one());
-        }
-        Number::new(5, coeffs)
+        // seems like a good default - the smallest nontrivial cyclotomic field
+        one_order(3)
     }
+}
+
+// Creates a one already written as an element of $\mathbb{Q}(\zeta_n)$.
+fn one_order(n: u64) -> Number {
+    let mut coeffs = HashMap::new();
+    for i in 1..n.clone() {
+        coeffs.insert(i, -Q::one());
+    }
+    Number::new(n, coeffs)
 }
 
 impl PartialEq for Number {
@@ -165,7 +172,7 @@ impl Mul for Number {
         let mut z2 = rhs.clone();
         Self::match_orders(&mut z1, &mut z2);
 
-        let mut result = Self::zero();
+        let mut result = zero_order(z1.order.clone());
 
         // This order is almost certainly not optimal. But you know, whatever.
         result.order = z1.order;
@@ -197,21 +204,6 @@ impl Mul for Number {
                 }
             }
         }
-        result
-    }
-}
-
-impl Product<Number> for Number {
-    fn product<I>(iter: I) -> Self
-    where
-        I: Iterator<Item = Number>,
-    {
-        let mut result = Number::one();
-
-        for z in iter.into_iter() {
-            result = result * z;
-        }
-
         result
     }
 }
@@ -363,7 +355,7 @@ impl FieldElement for Number {
         }
 
         // This is the product except for the term for $t = \id_L$.
-        let mut x = Number::one();
+        let mut x = one_order(z.order.clone());
         for i in 1..n - 1 {
             let term = apply_times(g, i, z.clone());
             x = x * term;
@@ -465,7 +457,7 @@ mod tests {
 
     quickcheck! {
     fn zero_is_add_identity(z: Number) -> bool {
-        z.clone() + Number::zero() == z.clone()
+        z.clone() + zero_order(z.order.clone()) == z.clone()
     }
     }
 
@@ -483,7 +475,7 @@ mod tests {
 
     quickcheck! {
     fn one_is_mul_identity(z: Number) -> bool {
-        let same = z.clone() * Number::one();
+        let same = z.clone() * one_order(z.order.clone());
         println!("same = {:?}", same);
         same == z.clone()
     }
@@ -492,13 +484,13 @@ mod tests {
     quickcheck! {
     fn add_has_inverses(z: Number) -> bool {
         let minus_one = Q::new(Z::from(-1), Z::from(1));
-        z.clone() + z.clone().scalar_mul(minus_one) == Number::zero()
+        z.clone() + z.clone().scalar_mul(minus_one) == zero_order(z.order.clone())
     }
     }
 
     quickcheck! {
     fn zero_kills_all(z: Number) -> bool {
-        Number::zero() * z == Number::zero()
+        zero_order(z.order.clone()) * z.clone() == zero_order(z.order.clone())
     }
     }
 
@@ -518,7 +510,7 @@ mod tests {
     fn mul_has_inverses(z: Number) -> bool {
         let prod = z.inv() * z.clone();
         println!("prod = {:?}", prod);
-        try_rational(prod).unwrap() == Q::one()
+        prod == one_order(z.order.clone())
     }
     }
 
