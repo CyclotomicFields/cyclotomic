@@ -54,5 +54,7 @@ mod tests {
         assert_eq!(factorizer.prime_factors(4), vec![2, 2]);
         assert_eq!(factorizer.prime_factors(12), vec![2, 2, 3]);
         assert_eq!(factorizer.prime_factors(130), vec![2, 5, 13]);
+        assert_eq!(factorizer.prime_factors(1300), vec![2, 2, 5, 5, 13]);
+        assert_eq!(factorizer.prime_factors(67), vec![67]);
     }
 }
