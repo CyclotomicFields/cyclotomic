@@ -99,9 +99,9 @@ impl Polynomial {
 
         /*
         All factorisations of degree 2 or degree 3 polynomials must result in a
-        degree 1 factor, also known as a root. Therefore if there are no roots,
-        and the polynomial has degree less than or equal to 3, then it is
-        irreducible.
+        degree 1 factor, also known as a root. Therefore if a polynomial of
+        degree 2 or degree 3 has no roots, then there are no factorisations,
+        which means that it is an irreducible polynomial.
         */
         if self.degree() <= 3 {
             return Some(true);
