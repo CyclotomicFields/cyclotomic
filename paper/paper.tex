@@ -1,0 +1,70 @@
+\documentclass{article}
+\usepackage[margin=1.2in]{geometry}
+\usepackage{parskip}
+
+\title{Adaptive Algorithms for Arithmetic in Cyclotomic Fields}
+\author{Kaashif Hymabaccus, Robert Moore}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+\subsection{Background}
+
+\subsection{Overview of existing methods and implementations}
+
+\section{Sparse Representations}
+
+\subsection{Vectors}
+
+Put GAP's implementation here.
+
+\subsection{Hash maps}
+
+This is probably my ``naive'' implementation.
+
+\section{Dense Representation}
+
+Probably just the array representations. Maybe some discussion of cool
+assembly hacks for multiplying numbers in a single instruction. Or
+maybe some cyclic array or list (maybe not linked list for cache
+reasons...) thing where certain multiplications can become cheap.
+
+\section{Performance-enhancing heuristics}
+
+\subsection{Chunky and equal-spaced representations}
+
+This is Daniel Roche's thing, we need to implement and cite that.
+
+\subsection{Optimisations for ``simple'' elements}
+
+Work this out as we go.
+
+\subsection{Choosing reduction parameters}
+
+When should we reduce the order of an element? By how much? Should we
+try to reduce to square-free order fields and then stop? All the way?
+
+Some experiments are very necessary here.
+
+\section{Parallelisation}
+
+Just do some benchmarks? Some graphs of the speedup? Which algorithms
+are most cache-friendly and least susceptible to false sharing?
+
+\section{Benchmarks}
+
+Ours is the best by far!
+
+\section{Conclusions and Future Work}
+
+Do it in a GPU lmao. Do machine learning to pick good parameters?
+Maybe that's not a buzzword in this case.
+
+Maybe apply it to some research problem and demonstrate that whichever
+method turns out to be the best is very good. Blow GAP out of the
+water.
+
+\end{document}
