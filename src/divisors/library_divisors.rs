@@ -7,6 +7,7 @@ use crate::divisors::divisors::Divisors;
 
 type Z = num::bigint::BigInt;
 
+// Very lazy but it'll do the job for now!
 pub struct LibraryDivisors {}
 
 impl LibraryDivisors {

@@ -4,21 +4,27 @@ use self::num::{BigInt, BigRational, Zero, ToPrimitive};
 
 use crate::prime_factors::prime_factorize::PrimeFactorize;
 use crate::divisors::divisors::Divisors;
+use crate::divisors::library_divisors::LibraryDivisors;
 
 type Z = num::bigint::BigInt;
 
-// Very lazy but it'll do the job for now!
-struct LibraryPrimeFactorize<D: Divisors> {
+pub struct RecursivePrimeFactorize<D: Divisors> {
     divisors_strategy: D
 }
 
-impl<D: Divisors> LibraryPrimeFactorize<D> {
-    pub fn new(divisors_strategy: D) -> LibraryPrimeFactorize<D> {
-        LibraryPrimeFactorize { divisors_strategy }
+impl<D: Divisors> RecursivePrimeFactorize<D> {
+    pub fn new(divisors_strategy: D) -> RecursivePrimeFactorize<D> {
+        RecursivePrimeFactorize { divisors_strategy }
     }
 }
 
-impl<D: Divisors> PrimeFactorize for LibraryPrimeFactorize<D> {
+impl RecursivePrimeFactorize<LibraryDivisors> {
+    pub fn default() -> RecursivePrimeFactorize<LibraryDivisors> {
+        RecursivePrimeFactorize::new(LibraryDivisors::new())
+    }
+}
+
+impl<D: Divisors> PrimeFactorize for RecursivePrimeFactorize<D> {
     fn prime_factors(&self, n: u64) -> Vec<u64> {
         let divisors = self.divisors_strategy.divisors_without_one(Z::from(n));
         return if divisors.len() == 1 {
@@ -44,11 +50,10 @@ impl<D: Divisors> PrimeFactorize for LibraryPrimeFactorize<D> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::divisors::library_divisors::LibraryDivisors;
 
     #[test]
     fn test_prime_factorize() {
-        let factorizer = LibraryPrimeFactorize::new(LibraryDivisors::new());
+        let factorizer = RecursivePrimeFactorize::default();
         assert_eq!(factorizer.prime_factors(2), vec![2]);
         assert_eq!(factorizer.prime_factors(3), vec![3]);
         assert_eq!(factorizer.prime_factors(4), vec![2, 2]);

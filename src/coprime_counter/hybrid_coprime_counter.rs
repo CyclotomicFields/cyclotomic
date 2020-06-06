@@ -1,16 +1,28 @@
 use crate::coprime_counter::coprime_counter::CoprimeCounter;
+use crate::prime_factors::prime_factorize::PrimeFactorize;
+use crate::divisors::library_divisors::LibraryDivisors;
+use crate::prime_factors::recursive_prime_factorize::RecursivePrimeFactorize;
 
 type ZPlus = u64;
+type R = f64;
 
-struct HybridCoprimeCounter {}
+struct HybridCoprimeCounter<PF: PrimeFactorize> {
+    prime_factorizer: PF
+}
 
-impl HybridCoprimeCounter {
-    fn new() -> HybridCoprimeCounter {
-        HybridCoprimeCounter {}
+impl<PF: PrimeFactorize> HybridCoprimeCounter<PF> {
+    pub fn new(prime_factorizer: PF) -> HybridCoprimeCounter<PF> {
+        HybridCoprimeCounter { prime_factorizer }
     }
 }
 
-impl CoprimeCounter for HybridCoprimeCounter {
+impl HybridCoprimeCounter<RecursivePrimeFactorize<LibraryDivisors>> {
+    pub fn default() -> HybridCoprimeCounter<RecursivePrimeFactorize<LibraryDivisors>> {
+        HybridCoprimeCounter::new(RecursivePrimeFactorize::new(LibraryDivisors::new()))
+    }
+}
+
+impl<PF: PrimeFactorize> CoprimeCounter for HybridCoprimeCounter<PF> {
     /*
     The base case of the implementation: Euler's product formula
 
@@ -37,15 +49,25 @@ impl CoprimeCounter for HybridCoprimeCounter {
 
     */
     fn phi(&self, n: ZPlus) -> ZPlus {
-        if n % 2 == 0 {
+        return if n == 0 {
+            panic!("Can't evaluate phi(0)")
+        } else if n == 1 {
+            1
+        } else if n % 2 == 0 {
             let n_over_two = (n / 2);
-            return if n_over_two % 2 == 0 {
+            if n_over_two % 2 == 0 {
                 2 * self.phi(n_over_two)
             } else {
                 self.phi(n_over_two)
-            };
-        }
-        1
+            }
+        } else {
+            let mut prime_factors = self.prime_factorizer.prime_factors(n);
+            prime_factors.dedup();
+            (n as R * prime_factors
+                .iter()
+                .map(|&p| 1.0 - (p as R).recip())
+                .product::<R>()) as ZPlus
+        };
     }
 }
 
@@ -54,10 +76,24 @@ mod phi_tests {
     use super::*;
 
     #[test]
-    fn test_phi() {
-        let euler_product = HybridCoprimeCounter::new();
+    fn test_phi_small() {
+        let euler_product = HybridCoprimeCounter::default();
         assert_eq!(euler_product.phi(1), 1);
         assert_eq!(euler_product.phi(2), 1);
         assert_eq!(euler_product.phi(8), 4);
+        assert_eq!(euler_product.phi(3), 2);
+        assert_eq!(euler_product.phi(9), 6);
+        assert_eq!(euler_product.phi(100), 40);
+        assert_eq!(euler_product.phi(370416), 123456);
+    }
+
+    #[test]
+    fn test_phi_medium() {
+        let euler_product = HybridCoprimeCounter::default();
+        // It's not actually accurate for numbers much bigger than this.
+        assert_eq!(euler_product.phi(123456789101112), 41135376570624);
+        assert_eq!(euler_product.phi(1234567891011121), 1126818037342720);
+        assert_eq!(euler_product.phi(12345678910111212), 4055421449693376);
+        assert_eq!(euler_product.phi(12345678910111), 12345678910110);
     }
 }
