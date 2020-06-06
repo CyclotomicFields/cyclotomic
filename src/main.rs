@@ -5,6 +5,8 @@ extern crate quickcheck;
 
 mod primes;
 mod prime_counter;
+mod divisors;
+mod prime_factors;
 mod coprime_counter;
 mod polynomial;
 

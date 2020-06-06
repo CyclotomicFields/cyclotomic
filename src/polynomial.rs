@@ -1,11 +1,12 @@
 extern crate num;
-extern crate divisors;
 
 use num::pow::pow;
 use std::cmp::PartialOrd;
 use std::fmt::Display;
 use self::num::{BigInt, BigRational, Zero, ToPrimitive};
-use self::divisors::get_divisors;
+use crate::divisors::divisors;
+use crate::divisors::library_divisors::LibraryDivisors;
+use crate::divisors::divisors::Divisors;
 
 type Z = num::bigint::BigInt;
 type Q = num::rational::BigRational;
@@ -68,9 +69,10 @@ impl Polynomial {
         through the polynomial, then if any value is zero, then clearly the
         polynomial is reducible over the rationals.
         */
-        let mut numerators = Polynomial::divisors(self.coefficients[0].clone());
+        let divisors_strategy = LibraryDivisors::new();
+        let mut numerators = divisors_strategy.divisors(self.coefficients[0].clone());
         numerators.push(Z::from(-1));
-        let denominators = Polynomial::divisors(self.coefficients[self.coefficients.len() - 1].clone());
+        let denominators = divisors_strategy.divisors(self.coefficients[self.coefficients.len() - 1].clone());
         if numerators.iter().any(|n| denominators.iter().any(|d| {
             return self.substitute(Q::new(n.clone(), d.clone())).is_zero();
         })) {
@@ -98,32 +100,11 @@ impl Polynomial {
         /* Give up and return no answer */
         return None;
     }
-
-    /*
-    Returns a vector containing all the divisors of z, including 1 and itself.
-    */
-    fn divisors(z: Z) -> Vec<Z> {
-        if z.is_zero() {
-            panic!("Can't get the divisors of 0")
-        }
-        let mut z_i128 = z.to_i128().unwrap();
-        if z_i128 < 1 {
-            z_i128 = -1 * z_i128
-        }
-        let z_u128 = z_i128 as u128;
-        let mut divisors = vec![1];
-        divisors.extend(get_divisors(z_u128));
-        if (z_u128 != 1) && (z_u128 != 2) {
-            divisors.push(z_u128);
-        }
-        return divisors.iter().map(|&u| Z::from(u)).collect();
-    }
 }
 
 #[cfg(test)]
 mod polynomial_tests {
     use super::*;
-    use super::divisors::get_divisors;
 
     fn vec_z(vec: Vec<i64>) -> Vec<Z> {
         vec.iter().map(|&i| BigInt::from(i)).collect()
@@ -198,14 +179,5 @@ mod polynomial_tests {
 
         // t^4 + 5t^2 + 4
         assert_eq!(Polynomial::new(vec_z(vec![4, 0, 5, 0, 1]), vec![0, 1, 2, 3, 4]).is_irreducible_over_q(), None);
-    }
-
-    #[test]
-    fn test_divisors() {
-        assert_eq!(Polynomial::divisors(Z::from(2)), vec_z(vec![1, 2]));
-        assert_eq!(Polynomial::divisors(Z::from(6)), vec_z(vec![1, 2, 3, 6]));
-        assert_eq!(Polynomial::divisors(Z::from(1)), vec_z(vec![1]));
-        assert_eq!(Polynomial::divisors(Z::from(12)), vec_z(vec![1, 2, 3, 4, 6, 12]));
-        assert_eq!(Polynomial::divisors(Z::from(-10)), vec_z(vec![1, 2, 5, 10]));
     }
 }

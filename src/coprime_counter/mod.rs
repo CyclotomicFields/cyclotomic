@@ -1,2 +1,2 @@
 pub mod coprime_counter;
-pub mod euler_product;
+pub mod hybrid_coprime_counter;
