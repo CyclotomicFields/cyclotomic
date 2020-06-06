@@ -18,7 +18,7 @@ impl<PF: PrimeFactorize> HybridCoprimeCounter<PF> {
 
 impl HybridCoprimeCounter<RecursivePrimeFactorize<LibraryDivisors>> {
     pub fn default() -> HybridCoprimeCounter<RecursivePrimeFactorize<LibraryDivisors>> {
-        HybridCoprimeCounter::new(RecursivePrimeFactorize::new(LibraryDivisors::new()))
+        HybridCoprimeCounter::new(RecursivePrimeFactorize::default())
     }
 }
 
