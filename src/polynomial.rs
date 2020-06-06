@@ -3,7 +3,7 @@ extern crate num;
 use num::pow::pow;
 use std::cmp::PartialOrd;
 use std::fmt::Display;
-use self::num::{BigInt, BigRational, Zero, ToPrimitive};
+use self::num::{BigInt, BigRational, Zero, ToPrimitive, Integer};
 use crate::divisors::divisors;
 use crate::divisors::library_divisors::LibraryDivisors;
 use crate::divisors::divisors::Divisors;
@@ -57,8 +57,25 @@ impl Polynomial {
         If the degree is one, then it is irreducible, because it cannot factor
         into polynomials of lower degree.
         */
-        if self.degree() == 1 {
+        if self.degree() <= 1 {
             return Some(true);
+        }
+
+        /*
+        If it only has one term, and that term has degree >= 2, then it's
+        reducible, because 0 will be a root.
+        */
+
+        if self.degrees.len() == 1 && self.degree() >= 2 {
+            return Some(false);
+        }
+
+        /*
+        If the constant term is 0, then it's reducible, because 0 will be a
+        root.
+        */
+        if self.coefficients[0].is_zero() {
+            return Some(false);
         }
 
         /*
@@ -105,7 +122,20 @@ impl Polynomial {
         let mut non_leading_non_zero_coefficients = self.coefficients.clone();
         non_leading_non_zero_coefficients.remove(self.coefficients.len() - 1);
         non_leading_non_zero_coefficients.retain(|f| !f.is_zero());
-        println!("non_leading_non_zero_coefficients {:?}", non_leading_non_zero_coefficients);
+        let prime_factorizer = RecursivePrimeFactorize::default();
+        let mut common_prime_factors = prime_factorizer.prime_factors(&non_leading_non_zero_coefficients[0]);
+        for c in non_leading_non_zero_coefficients {
+            let prime_factors = prime_factorizer.prime_factors(&c);
+            common_prime_factors.retain(|p| prime_factors.contains(p))
+        }
+        if !common_prime_factors.is_empty() {
+            for q in common_prime_factors {
+                if !(self.coefficients[self.coefficients.len() - 1].clone() % q.clone()).is_zero()
+                    && !(self.coefficients[0].clone() % (q.clone() * q.clone())).is_zero() {
+                    return Some(true);
+                }
+            }
+        }
 
         /*
         Reducing mod q
@@ -134,6 +164,55 @@ mod polynomial_tests {
 
     fn q_from_i64(n: i64) -> Q {
         return Q::from(Z::from(n));
+    }
+
+    #[test]
+    fn test_irreducibility_check_edge_cases() {
+        // t + 1
+        assert_eq!(Polynomial::new(vec_z(vec![1, 1]), vec![0, 1]).is_irreducible_over_q(), Some(true));
+
+        // t^5
+        assert_eq!(Polynomial::new(vec_z(vec![0, 0, 0, 0, 0, 1]), vec![0, 1, 2, 3, 4, 5]).is_irreducible_over_q(), Some(false));
+
+        // 10
+        assert_eq!(Polynomial::new(vec_z(vec![10]), vec![0]).is_irreducible_over_q(), Some(true));
+    }
+
+    #[test]
+    fn test_irreducibility_check_rational_roots_theorem() {
+        // (t - 3)(t - 2)
+        assert_eq!(Polynomial::new(vec_z(vec![6, -5, 1]), vec![0, 1, 2]).is_irreducible_over_q(), Some(false));
+
+        // (t + 1/2)(t^2 - 5)
+        assert_eq!(Polynomial::new(vec_z(vec![-5, -10, 1, 2]), vec![0, 1, 2, 3]).is_irreducible_over_q(), Some(false));
+
+        // 2t^2 + t + 1
+        assert_eq!(Polynomial::new(vec_z(vec![1, 1, 2]), vec![0, 1, 2]).is_irreducible_over_q(), Some(true));
+
+        // t^3 + 2t^2 - 4
+        assert_eq!(Polynomial::new(vec_z(vec![1, 1, 2]), vec![0, 1, 2]).is_irreducible_over_q(), Some(true));
+
+        // 4t^3 + t^2 - t + 3
+        assert_eq!(Polynomial::new(vec_z(vec![3, -1, 1, 4]), vec![0, 1, 2, 3]).is_irreducible_over_q(), Some(true));
+
+        // 3t^3 + 4t^2 - 6t + 18
+        assert_eq!(Polynomial::new(vec_z(vec![18, -6, 4, 3]), vec![0, 1, 2, 3]).is_irreducible_over_q(), Some(true));
+    }
+
+    #[test]
+    fn test_irreducibility_check_eisenstein_criterion() {
+        // x^4 -3x + 6
+        assert_eq!(Polynomial::new(vec_z(vec![6, -3, 0, 0, 1]), vec![0, 1, 2, 3, 4]).is_irreducible_over_q(), Some(true));
+    }
+
+    #[test]
+    #[ignore]
+    fn test_irreducibility_check_taking_mod_p() {}
+
+    #[test]
+    fn test_irreducibility_no_result() {
+        // t^4 + 5t^2 + 4
+        assert_eq!(Polynomial::new(vec_z(vec![4, 0, 5, 0, 1]), vec![0, 1, 2, 3, 4]).is_irreducible_over_q(), None);
     }
 
     #[test]
@@ -180,46 +259,5 @@ mod polynomial_tests {
         assert_eq!(p.substitute(q_from_i64(1)), q_from_i64(-3));
         assert_eq!(p.substitute(q_from_i64(2)), q_from_i64(15));
         assert_eq!(p.substitute(q_from_i64(123)), q_from_i64(28151165717_i64));
-    }
-
-    #[test]
-    fn test_irreducibility_check_rational_roots_theorem() {
-        // t + 1
-        assert_eq!(Polynomial::new(vec_z(vec![1, 1]), vec![0, 1]).is_irreducible_over_q(), Some(true));
-
-        // (t - 3)(t - 2)
-        assert_eq!(Polynomial::new(vec_z(vec![6, -5, 1]), vec![0, 1, 2]).is_irreducible_over_q(), Some(false));
-
-        // (t + 1/2)(t^2 - 5)
-        assert_eq!(Polynomial::new(vec_z(vec![-5, -10, 1, 2]), vec![0, 1, 2, 3]).is_irreducible_over_q(), Some(false));
-
-        // 2t^2 + t + 1
-        assert_eq!(Polynomial::new(vec_z(vec![1, 1, 2]), vec![0, 1, 2]).is_irreducible_over_q(), Some(true));
-
-        // t^3 + 2t^2 - 4
-        assert_eq!(Polynomial::new(vec_z(vec![1, 1, 2]), vec![0, 1, 2]).is_irreducible_over_q(), Some(true));
-
-        // 4t^3 + t^2 - t + 3
-        assert_eq!(Polynomial::new(vec_z(vec![3, -1, 1, 4]), vec![0, 1, 2, 3]).is_irreducible_over_q(), Some(true));
-
-        // 3t^3 + 4t^2 - 6t + 18
-        assert_eq!(Polynomial::new(vec_z(vec![18, -6, 4, 3]), vec![0, 1, 2, 3]).is_irreducible_over_q(), Some(true));
-    }
-
-    #[test]
-    #[ignore]
-    fn test_irreducibility_check_eisenstein_criterion() {
-        // x^4 -3x + 6
-        assert_eq!(Polynomial::new(vec_z(vec![6, -3, 0, 0, 1]), vec![0, 1, 2, 3, 4]).is_irreducible_over_q(), Some(true));
-    }
-
-    #[test]
-    #[ignore]
-    fn test_irreducibility_check_taking_mod_p() {}
-
-    #[test]
-    fn test_irreducibility_no_result() {
-        // t^4 + 5t^2 + 4
-        assert_eq!(Polynomial::new(vec_z(vec![4, 0, 5, 0, 1]), vec![0, 1, 2, 3, 4]).is_irreducible_over_q(), None);
     }
 }
