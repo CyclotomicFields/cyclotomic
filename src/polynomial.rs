@@ -101,7 +101,7 @@ impl Polynomial {
         All factorisations of degree 2 or degree 3 polynomials must result in a
         degree 1 factor, also known as a root. Therefore if a polynomial of
         degree 2 or degree 3 has no roots, then there are no factorisations,
-        which means that it is an irreducible polynomial.
+        which means that it is an irreducible polynomial.π
         */
         if self.degree() <= 3 {
             return Some(true);
@@ -144,9 +144,9 @@ impl Polynomial {
         if the polynomial is irreducible over Z mod q, then it is also
         irreducible over Q.
 
-        Try the first 5 primes (5 chosen completely arbitrarily) and perform
-        the rational roots test + Eisenstein's criterion for each of the
-        resulting polynomials mode q.
+        Try the first 5 appropriate primes (5 chosen completely arbitrarily)
+        and perform the rational roots test + Eisenstein's criterion for each
+        of the resulting polynomials mod q.
         */
 
         /* Give up and return no answer */
