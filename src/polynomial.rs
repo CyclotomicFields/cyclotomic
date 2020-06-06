@@ -7,6 +7,8 @@ use self::num::{BigInt, BigRational, Zero, ToPrimitive};
 use crate::divisors::divisors;
 use crate::divisors::library_divisors::LibraryDivisors;
 use crate::divisors::divisors::Divisors;
+use crate::prime_factors::recursive_prime_factorize::RecursivePrimeFactorize;
+use crate::prime_factors::prime_factorize::PrimeFactorize;
 
 type Z = num::bigint::BigInt;
 type Q = num::rational::BigRational;
@@ -82,7 +84,8 @@ impl Polynomial {
         /*
         All factorisations of degree 2 or degree 3 polynomials must result in a
         degree 1 factor, also known as a root. Therefore if there are no roots,
-        and the polynomial has degree less than 4, then it is irreducible.
+        and the polynomial has degree less than or equal to 3, then it is
+        irreducible.
         */
         if self.degree() <= 3 {
             return Some(true);
@@ -95,6 +98,25 @@ impl Polynomial {
           - q is a factor of every non-leading term
           - q is not a factor of the leading term
           - q squared is not a factor of the constant term
+
+        Find the common prime factors of all the non-leading coefficients, and
+        check all of them against the criterion.
+        */
+        let mut non_leading_non_zero_coefficients = self.coefficients.clone();
+        non_leading_non_zero_coefficients.remove(self.coefficients.len() - 1);
+        non_leading_non_zero_coefficients.retain(|f| !f.is_zero());
+        println!("non_leading_non_zero_coefficients {:?}", non_leading_non_zero_coefficients);
+
+        /*
+        Reducing mod q
+
+        If q is a prime that is not a factor of the leading coefficient, then
+        if the polynomial is irreducible over Z mod q, then it is also
+        irreducible over Q.
+
+        Try the first 5 primes (5 chosen completely arbitrarily) and perform
+        the rational roots test + Eisenstein's criterion for each of the
+        resulting polynomials mode q.
         */
 
         /* Give up and return no answer */
@@ -177,6 +199,26 @@ mod polynomial_tests {
         // t^3 + 2t^2 - 4
         assert_eq!(Polynomial::new(vec_z(vec![1, 1, 2]), vec![0, 1, 2]).is_irreducible_over_q(), Some(true));
 
+        // 4t^3 + t^2 - t + 3
+        assert_eq!(Polynomial::new(vec_z(vec![3, -1, 1, 4]), vec![0, 1, 2, 3]).is_irreducible_over_q(), Some(true));
+
+        // 3t^3 + 4t^2 - 6t + 18
+        assert_eq!(Polynomial::new(vec_z(vec![18, -6, 4, 3]), vec![0, 1, 2, 3]).is_irreducible_over_q(), Some(true));
+    }
+
+    #[test]
+    #[ignore]
+    fn test_irreducibility_check_eisenstein_criterion() {
+        // x^4 -3x + 6
+        assert_eq!(Polynomial::new(vec_z(vec![6, -3, 0, 0, 1]), vec![0, 1, 2, 3, 4]).is_irreducible_over_q(), Some(true));
+    }
+
+    #[test]
+    #[ignore]
+    fn test_irreducibility_check_taking_mod_p() {}
+
+    #[test]
+    fn test_irreducibility_no_result() {
         // t^4 + 5t^2 + 4
         assert_eq!(Polynomial::new(vec_z(vec![4, 0, 5, 0, 1]), vec![0, 1, 2, 3, 4]).is_irreducible_over_q(), None);
     }

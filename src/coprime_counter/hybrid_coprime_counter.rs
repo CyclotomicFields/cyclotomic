@@ -2,9 +2,12 @@ use crate::coprime_counter::coprime_counter::CoprimeCounter;
 use crate::prime_factors::prime_factorize::PrimeFactorize;
 use crate::divisors::library_divisors::LibraryDivisors;
 use crate::prime_factors::recursive_prime_factorize::RecursivePrimeFactorize;
+use num::ToPrimitive;
 
 type ZPlus = u64;
 type R = f64;
+type Q = num::rational::BigRational;
+type Z = num::bigint::BigInt;
 
 struct HybridCoprimeCounter<PF: PrimeFactorize> {
     prime_factorizer: PF
@@ -61,11 +64,11 @@ impl<PF: PrimeFactorize> CoprimeCounter for HybridCoprimeCounter<PF> {
                 self.phi(n_over_two)
             }
         } else {
-            let mut prime_factors = self.prime_factorizer.prime_factors(n);
+            let mut prime_factors = self.prime_factorizer.prime_factors(Z::from(n));
             prime_factors.dedup();
             (n as R * prime_factors
                 .iter()
-                .map(|&p| 1.0 - (p as R).recip())
+                .map(|p| 1.0 - (p.to_f64().unwrap()).recip())
                 .product::<R>()) as ZPlus
         };
     }
