@@ -65,7 +65,6 @@ impl Polynomial {
         If it only has one term, and that term has degree >= 2, then it's
         reducible, because 0 will be a root.
         */
-
         if self.degrees.len() == 1 && self.degree() >= 2 {
             return Some(false);
         }
