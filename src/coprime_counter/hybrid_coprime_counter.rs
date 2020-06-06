@@ -64,7 +64,7 @@ impl<PF: PrimeFactorize> CoprimeCounter for HybridCoprimeCounter<PF> {
                 self.phi(&n_over_two)
             }
         } else {
-            let mut prime_factors = self.prime_factorizer.prime_factors(n.clone());
+            let mut prime_factors = self.prime_factorizer.prime_factors(&n);
             prime_factors.dedup();
             Z::from((n.to_f64().unwrap() * prime_factors
                 .iter()

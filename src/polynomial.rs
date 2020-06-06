@@ -72,9 +72,9 @@ impl Polynomial {
         polynomial is reducible over the rationals.
         */
         let divisors_strategy = LibraryDivisors::new();
-        let mut numerators = divisors_strategy.divisors(self.coefficients[0].clone());
+        let mut numerators = divisors_strategy.divisors(&self.coefficients[0]);
         numerators.push(Z::from(-1));
-        let denominators = divisors_strategy.divisors(self.coefficients[self.coefficients.len() - 1].clone());
+        let denominators = divisors_strategy.divisors(&self.coefficients[self.coefficients.len() - 1]);
         if numerators.iter().any(|n| denominators.iter().any(|d| {
             return self.substitute(Q::new(n.clone(), d.clone())).is_zero();
         })) {

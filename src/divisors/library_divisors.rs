@@ -17,7 +17,7 @@ impl LibraryDivisors {
 }
 
 impl Divisors for LibraryDivisors {
-    fn divisors(&self, z: Z) -> Vec<Z> {
+    fn divisors(&self, z: &Z) -> Vec<Z> {
         if z.is_zero() {
             panic!("Can't get the divisors of 0")
         }
@@ -34,7 +34,7 @@ impl Divisors for LibraryDivisors {
         return divisors.iter().map(|&u| Z::from(u)).collect();
     }
 
-    fn divisors_without_one(&self, z: Z) -> Vec<Z> {
+    fn divisors_without_one(&self, z: &Z) -> Vec<Z> {
         if z.is_zero() {
             panic!("Can't get the divisors of 0")
         }
@@ -59,22 +59,22 @@ mod tests {
     #[test]
     fn test_divisors() {
         let strategy = LibraryDivisors::new();
-        assert_eq!(strategy.divisors(Z::from(2)), vec_z(vec![1, 2]));
-        assert_eq!(strategy.divisors(Z::from(6)), vec_z(vec![1, 2, 3, 6]));
-        assert_eq!(strategy.divisors(Z::from(1)), vec_z(vec![1]));
-        assert_eq!(strategy.divisors(Z::from(12)), vec_z(vec![1, 2, 3, 4, 6, 12]));
-        assert_eq!(strategy.divisors(Z::from(-10)), vec_z(vec![1, 2, 5, 10]));
+        assert_eq!(strategy.divisors(&Z::from(2)), vec_z(vec![1, 2]));
+        assert_eq!(strategy.divisors(&Z::from(6)), vec_z(vec![1, 2, 3, 6]));
+        assert_eq!(strategy.divisors(&Z::from(1)), vec_z(vec![1]));
+        assert_eq!(strategy.divisors(&Z::from(12)), vec_z(vec![1, 2, 3, 4, 6, 12]));
+        assert_eq!(strategy.divisors(&Z::from(-10)), vec_z(vec![1, 2, 5, 10]));
     }
 
     #[test]
     fn test_divisors_without_one() {
         let strategy = LibraryDivisors::new();
-        assert_eq!(strategy.divisors_without_one(Z::from(2)), vec_z(vec![2]));
-        assert_eq!(strategy.divisors_without_one(Z::from(4)), vec_z(vec![2, 4]));
-        assert_eq!(strategy.divisors_without_one(Z::from(6)), vec_z(vec![2, 3, 6]));
-        assert_eq!(strategy.divisors_without_one(Z::from(1)), vec_z(vec![]));
-        assert_eq!(strategy.divisors_without_one(Z::from(12)), vec_z(vec![2, 3, 4, 6, 12]));
-        assert_eq!(strategy.divisors_without_one(Z::from(-10)), vec_z(vec![2, 5, 10]));
+        assert_eq!(strategy.divisors_without_one(&Z::from(2)), vec_z(vec![2]));
+        assert_eq!(strategy.divisors_without_one(&Z::from(4)), vec_z(vec![2, 4]));
+        assert_eq!(strategy.divisors_without_one(&Z::from(6)), vec_z(vec![2, 3, 6]));
+        assert_eq!(strategy.divisors_without_one(&Z::from(1)), vec_z(vec![]));
+        assert_eq!(strategy.divisors_without_one(&Z::from(12)), vec_z(vec![2, 3, 4, 6, 12]));
+        assert_eq!(strategy.divisors_without_one(&Z::from(-10)), vec_z(vec![2, 5, 10]));
     }
 
     fn vec_z(vec: Vec<i64>) -> Vec<Z> {

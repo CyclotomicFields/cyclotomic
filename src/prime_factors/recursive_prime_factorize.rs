@@ -1,11 +1,12 @@
 extern crate num;
 
-use self::num::{BigInt, BigRational, Zero, ToPrimitive};
+use std::ops::Div;
 
-use crate::prime_factors::prime_factorize::PrimeFactorize;
 use crate::divisors::divisors::Divisors;
 use crate::divisors::library_divisors::LibraryDivisors;
-use std::ops::Div;
+use crate::prime_factors::prime_factorize::PrimeFactorize;
+
+use self::num::{BigInt, BigRational, ToPrimitive, Zero};
 
 type Z = num::bigint::BigInt;
 
@@ -26,14 +27,14 @@ impl RecursivePrimeFactorize<LibraryDivisors> {
 }
 
 impl<D: Divisors> PrimeFactorize for RecursivePrimeFactorize<D> {
-    fn prime_factors(&self, n: Z) -> Vec<Z> {
-        let divisors = self.divisors_strategy.divisors_without_one(n.clone());
+    fn prime_factors(&self, n: &Z) -> Vec<Z> {
+        let divisors = self.divisors_strategy.divisors_without_one(n);
         let d = divisors[0].clone();
-        let mut result = vec![d];
+        let mut result = vec![d.clone()];
         return if divisors.len() == 1 {
             result
         } else {
-            result.extend(self.prime_factors(n.div(result[0].clone())));
+            result.extend(self.prime_factors(&n.div(&d)));
             result
         };
     }
@@ -46,13 +47,13 @@ mod recursive_prime_factorize_tests {
     #[test]
     fn test_prime_factorize() {
         let factorizer = RecursivePrimeFactorize::default();
-        assert_eq!(factorizer.prime_factors(Z::from(2)), vec_z(vec![2]));
-        assert_eq!(factorizer.prime_factors(Z::from(3)), vec_z(vec![3]));
-        assert_eq!(factorizer.prime_factors(Z::from(4)), vec_z(vec![2, 2]));
-        assert_eq!(factorizer.prime_factors(Z::from(12)), vec_z(vec![2, 2, 3]));
-        assert_eq!(factorizer.prime_factors(Z::from(130)), vec_z(vec![2, 5, 13]));
-        assert_eq!(factorizer.prime_factors(Z::from(1300)), vec_z(vec![2, 2, 5, 5, 13]));
-        assert_eq!(factorizer.prime_factors(Z::from(67)), vec_z(vec![67]));
+        assert_eq!(factorizer.prime_factors(&Z::from(2)), vec_z(vec![2]));
+        assert_eq!(factorizer.prime_factors(&Z::from(3)), vec_z(vec![3]));
+        assert_eq!(factorizer.prime_factors(&Z::from(4)), vec_z(vec![2, 2]));
+        assert_eq!(factorizer.prime_factors(&Z::from(12)), vec_z(vec![2, 2, 3]));
+        assert_eq!(factorizer.prime_factors(&Z::from(130)), vec_z(vec![2, 5, 13]));
+        assert_eq!(factorizer.prime_factors(&Z::from(1300)), vec_z(vec![2, 2, 5, 5, 13]));
+        assert_eq!(factorizer.prime_factors(&Z::from(67)), vec_z(vec![67]));
     }
 
     fn vec_z(vec: Vec<i64>) -> Vec<Z> {
