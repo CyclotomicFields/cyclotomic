@@ -116,7 +116,8 @@ impl Polynomial {
           - q squared is not a factor of the constant term
 
         Find the common prime factors of all the non-leading coefficients, and
-        check all of them against the criterion.
+        check all of them against the second and third points of the criterion,
+        as listed above.
         */
         let mut non_leading_non_zero_coefficients = self.coefficients.clone();
         non_leading_non_zero_coefficients.remove(self.coefficients.len() - 1);
