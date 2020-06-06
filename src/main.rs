@@ -5,6 +5,7 @@ extern crate quickcheck;
 
 mod primes;
 mod prime_counter;
+mod coprime_counter;
 mod polynomial;
 
 /// Implementations of field operations in cyclotomic fields.
