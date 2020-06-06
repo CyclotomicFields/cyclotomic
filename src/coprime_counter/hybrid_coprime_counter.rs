@@ -2,9 +2,9 @@ use crate::coprime_counter::coprime_counter::CoprimeCounter;
 use crate::prime_factors::prime_factorize::PrimeFactorize;
 use crate::divisors::library_divisors::LibraryDivisors;
 use crate::prime_factors::recursive_prime_factorize::RecursivePrimeFactorize;
-use num::ToPrimitive;
+use num::{ToPrimitive, Zero, One, Integer};
+use std::ops::Div;
 
-type ZPlus = u64;
 type R = f64;
 type Q = num::rational::BigRational;
 type Z = num::bigint::BigInt;
@@ -51,25 +51,25 @@ impl<PF: PrimeFactorize> CoprimeCounter for HybridCoprimeCounter<PF> {
     integer.
 
     */
-    fn phi(&self, n: ZPlus) -> ZPlus {
-        return if n == 0 {
+    fn phi(&self, n: &Z) -> Z {
+        return if n.is_zero() {
             panic!("Can't evaluate phi(0)")
-        } else if n == 1 {
-            1
-        } else if n % 2 == 0 {
-            let n_over_two = (n / 2);
-            if n_over_two % 2 == 0 {
-                2 * self.phi(n_over_two)
+        } else if n.is_one() {
+            Z::one()
+        } else if n.is_even() {
+            let n_over_two = (n.div(&Z::from(2)));
+            if n_over_two.is_even() {
+                2 * self.phi(&n_over_two)
             } else {
-                self.phi(n_over_two)
+                self.phi(&n_over_two)
             }
         } else {
-            let mut prime_factors = self.prime_factorizer.prime_factors(Z::from(n));
+            let mut prime_factors = self.prime_factorizer.prime_factors(n.clone());
             prime_factors.dedup();
-            (n as R * prime_factors
+            Z::from((n.to_f64().unwrap() * prime_factors
                 .iter()
                 .map(|p| 1.0 - (p.to_f64().unwrap()).recip())
-                .product::<R>()) as ZPlus
+                .product::<R>()) as i64)
         };
     }
 }
@@ -81,22 +81,22 @@ mod phi_tests {
     #[test]
     fn test_phi_small() {
         let euler_product = HybridCoprimeCounter::default();
-        assert_eq!(euler_product.phi(1), 1);
-        assert_eq!(euler_product.phi(2), 1);
-        assert_eq!(euler_product.phi(8), 4);
-        assert_eq!(euler_product.phi(3), 2);
-        assert_eq!(euler_product.phi(9), 6);
-        assert_eq!(euler_product.phi(100), 40);
-        assert_eq!(euler_product.phi(370416), 123456);
+        assert_eq!(euler_product.phi(&Z::from(1)), Z::from(1));
+        assert_eq!(euler_product.phi(&Z::from(2)), Z::from(1));
+        assert_eq!(euler_product.phi(&Z::from(8)), Z::from(4));
+        assert_eq!(euler_product.phi(&Z::from(3)), Z::from(2));
+        assert_eq!(euler_product.phi(&Z::from(9)), Z::from(6));
+        assert_eq!(euler_product.phi(&Z::from(100)), Z::from(40));
+        assert_eq!(euler_product.phi(&Z::from(370416)), Z::from(123456));
     }
 
     #[test]
     fn test_phi_medium() {
         let euler_product = HybridCoprimeCounter::default();
         // It's not actually accurate for numbers much bigger than this.
-        assert_eq!(euler_product.phi(123456789101112), 41135376570624);
-        assert_eq!(euler_product.phi(1234567891011121), 1126818037342720);
-        assert_eq!(euler_product.phi(12345678910111212), 4055421449693376);
-        assert_eq!(euler_product.phi(12345678910111), 12345678910110);
+        assert_eq!(euler_product.phi(&Z::from(123456789101112_i64)), Z::from(41135376570624_i64));
+        assert_eq!(euler_product.phi(&Z::from(1234567891011121_i64)), Z::from(1126818037342720_i64));
+        assert_eq!(euler_product.phi(&Z::from(12345678910111212_i64)), Z::from(4055421449693376_i64));
+        assert_eq!(euler_product.phi(&Z::from(12345678910111_i64)), Z::from(12345678910110_i64));
     }
 }
