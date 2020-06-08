@@ -404,8 +404,6 @@ impl CyclotomicFieldElement for Number {
 }
 
 // These are precisely the field axioms.
-// TODO: add the other axioms
-// TODO: add multiplicative inverses to this
 // TODO: write these tests for the trait, then instantiate somehow? can rust do that?
 #[cfg(test)]
 mod tests {
