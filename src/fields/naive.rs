@@ -44,7 +44,10 @@ impl fmt::Debug for Number {
 
 impl Number {
     pub fn new(order: &Exponent, coeffs: &HashMap<Exponent, Q>) -> Number {
-        Number { order: order.clone(), coeffs: coeffs.clone() }
+        Number {
+            order: order.clone(),
+            coeffs: coeffs.clone(),
+        }
     }
     pub fn increase_order_to(z: &mut Self, new_order: &u64) -> () {
         let mut new_coeffs = HashMap::new();
@@ -284,6 +287,63 @@ fn try_rational(z: &Number) -> Option<Q> {
     return Some(all_same_coeff * -Q::one());
 }
 
+fn counts(v: &Vec<u64>) -> HashMap<i64, u64> {
+    let mut v_counts: HashMap<i64, u64> = HashMap::new();
+
+    for elem in v {
+        let current_count = v_counts.get(&(*elem as i64)).unwrap_or(&0);
+        v_counts.insert(*elem as i64, current_count + 1);
+    }
+
+    v_counts
+}
+
+fn math_mod(x: &i64, n: &i64) -> i64 {
+    (x % n + n) % n
+}
+
+fn is_in_basis(i: &i64, n: &i64, n_div_powers: &HashMap<i64, u64>) -> bool {
+    for (p, power) in n_div_powers {
+        // the maximal power of p that divides n
+        let q: i64 = p ^ (&(*power as i64));
+
+        // i is in this set (mod q) iff it is not a basis element
+        let set: HashSet<i64> = if *p == 2 {
+            (q / 2..q - 1).map(|x| *n / q * x).collect()
+        } else {
+            (-(q / p - 1) / 2..(q / p - 1) / 2)
+                .map(|x| *n / q * x)
+                .collect()
+        };
+
+        if set.into_iter().any(|x| math_mod(&x, &q) == math_mod(i, &q)) {
+            return false;
+        }
+    }
+    true
+}
+
+// THIS IMPLEMENTATION OF THE BASIS STUFF IS PURE SHIT
+// TODO: improve it by reading gap's cyclotom.c?
+
+/// Returns a vector of the i such that the $\zeta_n^i$ form the GAP basis
+/// for $K$.
+fn gap_basis(n: &u64) -> Vec<u64> {
+    let n_divisors = divisors::get_divisors(*n);
+    let n_div_powers = counts(&n_divisors);
+
+    let mut basis_elems = vec![];
+
+    // TODO: get rid of nested loops and casts
+    for i in 0..=*n {
+        if is_in_basis(&(i as i64), &(*n as i64), &n_div_powers) {
+            basis_elems.push(i);
+        }
+    }
+
+    basis_elems
+}
+
 impl FieldElement for Number {
     /// Intentionally bad, makes no effort to avoid copies.
     fn add_mut(&mut self, other: &mut Self) -> Self {
@@ -390,7 +450,10 @@ impl CyclotomicFieldElement for Number {
     fn e(n: &u64, k: &u64) -> Self {
         Number::new(
             n,
-            &[(k.clone(), Q::from_integer(Z::one()))].iter().cloned().collect(),
+            &[(k.clone(), Q::from_integer(Z::one()))]
+                .iter()
+                .cloned()
+                .collect(),
         )
     }
 
@@ -479,14 +542,27 @@ mod tests {
     }
     }
 
+    // These are some non field axiom, implementation-specific tests
+    #[test]
+    fn test_gap_basis() {
+        // This is the example from GAP
+        let basis_45: HashSet<u64> = gap_basis(&45).into_iter().collect();
+        let expected: HashSet<u64> = vec![
+            1, 2, 3, 6, 7, 8, 11, 12, 16, 17, 19, 21, 24, 26, 28, 29, 33, 34, 37, 38, 39, 42, 43,
+            44,
+        ]
+        .into_iter()
+        .collect();
+    }
+
     // Just a hack to get arbitrary coefficients
     #[derive(Clone)]
     struct QArb(Q);
 
     impl Arbitrary for QArb {
         fn arbitrary<G>(g: &mut G) -> Self
-            where
-                G: Gen,
+        where
+            G: Gen,
         {
             let p: i64 = g.gen_range(1, 2);
             let q: i64 = g.gen_range(1, 2);
@@ -496,8 +572,8 @@ mod tests {
 
     impl Arbitrary for Number {
         fn arbitrary<G>(g: &mut G) -> Self
-            where
-                G: Gen,
+        where
+            G: Gen,
         {
             // TODO: make this work for order non prime
             let order = 5; //orders[g.gen_range(0, orders.len())];
