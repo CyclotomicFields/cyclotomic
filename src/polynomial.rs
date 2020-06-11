@@ -3,13 +3,14 @@ extern crate num;
 use num::pow::pow;
 use std::cmp::PartialOrd;
 use std::fmt::Display;
-use self::num::{BigInt, BigRational, Zero, ToPrimitive, Integer};
+use self::num::{BigInt, BigRational, Zero, ToPrimitive, Integer, One};
 use crate::divisors::divisors;
 use crate::divisors::library_divisors::LibraryDivisors;
 use crate::divisors::divisors::Divisors;
 use crate::prime_factors::recursive_prime_factorize::RecursivePrimeFactorize;
 use crate::prime_factors::prime_factorize::PrimeFactorize;
 use crate::primes::primes::Primes;
+use std::ops::Mul;
 
 type Z = num::bigint::BigInt;
 type Q = num::rational::BigRational;
@@ -18,7 +19,6 @@ type ZPlus = usize;
 pub struct Polynomial {
     coefficients: Vec<Z>,
     degrees: Vec<ZPlus>,
-    primes: Primes,
 }
 
 impl Polynomial {
@@ -28,10 +28,6 @@ impl Polynomial {
         return Polynomial {
             coefficients,
             degrees,
-            // Todo: Make the model coherent. Polynomial instances shouldn't
-            //       have their own instance of Primes, they should share a big
-            //       blob of central, read-only primes.
-            primes: Primes::new(vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29]),
         };
     }
 
@@ -48,17 +44,25 @@ impl Polynomial {
     pub fn substitute(&self, t: Q) -> Q {
         let mut sum: Q = Q::zero();
         for j in 0..self.coefficients.len() {
-            sum += Q::from(self.coefficients[j].clone()) * num::pow(t.clone(), self.degrees[j]);
+            sum += num::pow(t.clone(), self.degrees[j]).mul(&self.coefficients[j]);
         }
         return sum;
     }
 
     pub fn is_monic(&self) -> bool {
-        return self.coefficients[self.coefficients.len() - 1] == BigInt::from(1);
+        return self.leading_term_coefficient().is_one();
     }
 
     pub fn degree(&self) -> ZPlus {
         return self.degrees[self.degrees.len() - 1];
+    }
+
+    pub fn leading_term_coefficient(&self) -> &Z {
+        &self.coefficients[self.coefficients.len() - 1]
+    }
+
+    pub fn constant_term_coefficient(&self) -> &Z {
+        &self.coefficients[0]
     }
 
     pub fn is_irreducible_over_q(&self) -> Option<bool> {
@@ -82,7 +86,7 @@ impl Polynomial {
         If the constant term is 0, then it's reducible, because 0 will be a
         root.
         */
-        if self.coefficients[0].is_zero() {
+        if self.constant_term_coefficient().is_zero() {
             return Some(false);
         }
 
@@ -97,11 +101,9 @@ impl Polynomial {
         polynomial is reducible over the rationals.
         */
         let divisors_strategy = LibraryDivisors::new();
-        let constant_term = &self.coefficients[0].clone();
-        let leading_coefficient = &self.coefficients[self.coefficients.len() - 1].clone();
-        let mut numerators = divisors_strategy.divisors(constant_term);
+        let mut numerators = divisors_strategy.divisors(self.constant_term_coefficient());
         numerators.push(Z::from(-1));
-        let denominators = divisors_strategy.divisors(leading_coefficient);
+        let denominators = divisors_strategy.divisors(self.leading_term_coefficient());
         if numerators.iter().any(|n| denominators.iter().any(|d| {
             return self.substitute(Q::new(n.clone(), d.clone())).is_zero();
         })) {
@@ -148,17 +150,24 @@ impl Polynomial {
         reducible, because that isn't conclusive information.
         Todo: It may be computationally faster to use the rational roots theorem
               to fail fast for reducible polynomials.
+        Todo: Make the model coherent. Polynomial instances shouldn't
+              have their own instance of Primes, they should share a big
+              blob of central, read-only primes. Same for the other objects
+              created in this method.
         */
-        let leading_coefficient_prime_factors = prime_factorizer.prime_factors(leading_coefficient);
-        let mut primes_vec = self.primes.to_vec().clone();
+        let primes = Primes::new(vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29]);
+        let leading_coefficient_prime_factors = prime_factorizer.prime_factors(self.leading_term_coefficient());
+        let mut primes_vec = primes.to_vec().clone();
         primes_vec.retain(|&q| {
             let q_z_ref = &Z::from(q);
             !leading_coefficient_prime_factors.contains(q_z_ref)
-                && !(constant_term % q_z_ref).is_zero()
+                && !(self.constant_term_coefficient() % q_z_ref).is_zero()
         });
-        // Todo: Do something more coherent than arbitrarily taking the first
-        //       five matching primes out of an already arbitrarily chosen list
-        //       of primes.
+        /*
+        Todo: Do something more coherent than arbitrarily taking the first
+              five matching primes out of an already arbitrarily chosen list
+              of primes.
+        */
         primes_vec.truncate(5);
         for q in primes_vec {
             let mut coefficients_mod_q = self.coefficients.clone();
