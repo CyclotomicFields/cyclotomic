@@ -19,7 +19,7 @@ terminal
 4. Download the prime tables by running the bash script
 `./download_prime_tables.sh`. You may then optionally convert it to a CSV using
 the J script `./convert_prime_tables_to_csv.ijs`, which will enable the program
-to load the primes into memory faster.
+to load the primes into memory faster
 5. Check that all the tests pass using `cargo test`
 6. Add your name to the contributors list in this README and push, to confirm
 that you have push permissions
