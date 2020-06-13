@@ -10,6 +10,7 @@
 
 \newtheorem{prop}{Proposition}
 
+
 \begin{document}
 
 \maketitle
@@ -39,7 +40,8 @@ products and inverses in the field $\mathbb{Q}[x]/(\Phi_n(x))$, so
 we'd have to compute modulo the polynomial $\Phi_n(x)$.
 
 There is a choice of basis that's easier to work with. Define the
-basis $B_n$ to be the set of $\zeta_n^i$ such that:
+basis $B_n$ to be the set of $\zeta_n^i$ such that all of the
+following are true:
 
 \begin{itemize}
 \item For every odd prime divisor $p$ of $n$,
@@ -56,14 +58,18 @@ $B_n$ is a basis for $K_n$.
 \end{prop}
 
 \begin{proof}
-GAP doesn't give a proof, I think the only proof of this is in
-German actually. TODO: this probably should be an easy exercise for an
-undergraduate i.e. hard for me.
-
 The proof probably has two steps: show that there are $\varphi(n)$
 elements, then show that it generates $K_n$ by proving correct the
 algorithm to express any element as a linear combination of elements
 of $B_n$.
+
+There is also some kind of general proof in \cite{Breuer1997} and a
+lengthy and rigorous deduction of this. Our basis is a special case of
+the basis $\mathcal{B}_n$ defined there. Or maybe it's literally the
+same. Not sure, need to examine it closer.
+
+There is also apparently a paper due to Zumbroich about this, but it's
+in German so I can't read it.
 \end{proof}
 
 Give an example for some trivial $n$ and some nontrivial $n$. Prime
@@ -104,8 +110,8 @@ Maybe, maybe not.
 What actually is the complexity of reduction into a minimal cyclotomic
 field?
 
-Quote the algorithms from the paper by Johnson, it's a good reference
-for ``basic'' polynomial arithmetic.
+Quote the algorithms from the paper by Johnson \cite{Johnson1974},
+it's a good reference for ``basic'' polynomial arithmetic.
 
 Addition is probably linear in the number of terms (assuming no
 reductions required).
@@ -146,7 +152,8 @@ This is the real-world, ``street smart not book smart'' section.
 
 \subsection{Chunky and equal-spaced representations}
 
-This is Daniel Roche's thing, we need to implement and cite that.
+This is Daniel Roche's thing \cite{Roche2018}, we need to implement
+and cite that.
 
 \subsection{Optimisations for ``simple'' elements}
 
@@ -181,5 +188,11 @@ water.
 Other ideas: apply it to the semidefinite program with symmetries and
 some nice representations, groups etc from my Master's thesis so I can
 cite it.
+
+Also there are applications to representation theory? See the great
+paper by Hymabaccus et al \cite{Hymabaccus2020}.
+
+\bibliographystyle{unsrt}
+\bibliography{paper}
 
 \end{document}
