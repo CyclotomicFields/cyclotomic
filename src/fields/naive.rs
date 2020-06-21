@@ -297,11 +297,11 @@ fn math_mod(x: &i64, n: &i64) -> i64 {
     res
 }
 
-fn count_powers(n: &i64, n_divisors: &Vec<i64>) -> HashMap<i64, i64> {
-    let mut result = HashMap::new();
+fn count_powers(n: &i64, n_divisors: &Vec<i64>) -> Vec<(i64, i64)> {
+    let mut result = vec![];
+    let mut n_factored = n.clone();
 
     for divisor in n_divisors {
-        let mut n_factored = n.clone();
         let mut power: u64 = 0;
 
         while n_factored % divisor == 0 {
@@ -309,7 +309,9 @@ fn count_powers(n: &i64, n_divisors: &Vec<i64>) -> HashMap<i64, i64> {
             n_factored = n_factored / divisor;
         }
 
-        result.insert(divisor.clone(), power as i64);
+        if power != 0 {
+            result.push((divisor.clone(), power as i64));
+        }
     }
 
     result
@@ -339,77 +341,81 @@ fn convert_to_base(z: &Number) -> Number {
 
     let n = z.order.clone() as i64;
 
-    let mut result = zero_order(&(n as u64));
+    // currently z, will by the end still be equal to z but will be written in
+    // the Zumbroich basis
+    let mut result = z.clone();
 
     let n_divisors: Vec<i64> = divisors::get_divisors(n as u64)
         .into_iter()
         .map(|x| x as i64)
         .collect();
     let mut n_div_powers = count_powers(&n, &n_divisors);
+    println!("divisors = {:?}", n_divisors);
 
     // if it has no divisors smaller than itself, it's prime
     if n_div_powers.is_empty() {
-        n_div_powers.insert(n, 1);
+        n_div_powers.push((n, 1));
     }
 
     println!("n is {:?}", n);
     println!("n divisors: {:?}", n_div_powers);
 
     // TODO: rewrite this to be more functional and readable?
-    for i in 0..n.clone() {
-        println!("i = {:?}", i);
-        // TODO: this nested loop is an utter joke, get rid of it
-        for (p, power) in &n_div_powers {
-            // the maximal power of p that divides n
-            let q: i64 = p.pow(*power as u32);
-            println!("q = {:?}^{:?} = {:?}", p, power, q);
+    for (p, power) in &n_div_powers {
+        // the maximal power of p that divides n
+        let q: i64 = p.pow(*power as u32);
+        println!("q = {:?}^{:?} = {:?}", p, power, q);
 
-            // i is in this set (mod q) iff it is not a basis element
-            let set: HashSet<i64> = if *p == 2 {
-                (q / 2..q - 1 + 1).map(|x| n / q * x).collect()
-            } else {
-                (-(q / p - 1) / 2..(q / p - 1) / 2 + 1)
-                    .map(|x| n / q * x)
-                    .collect()
-            };
+        // i is in this set (mod q) iff it is not a basis element
+        let set: HashSet<i64> = if *p == 2 {
+            (q / 2..q - 1 + 1).map(|x| n / q * x).collect()
+        } else {
+            (-(q / p - 1) / 2..(q / p - 1) / 2 + 1)
+                .map(|x| n / q * x)
+                .collect()
+        };
 
-            println!("bad i are {:?}", set);
+        println!("bad i are {:?}", set);
 
-            let zero = Q::zero();
-            let c = z.coeffs.get(&(i as u64)).unwrap_or(&zero);
+        let zero = Q::zero();
 
-            // what we're about to add to result, the basis element(s) equal
-            // to c * e_n^i
-            let mut rhs = zero_order(&(n as u64));
-
-            // i is in the set, so it's unacceptable! but we only care if
-            // it actually appears i.e. has nonzero coefficient
-            if *c == zero {
+        for i in 0..n.clone() {
+            // if there isn't even a term for i, why consider it?
+            let c = result.coeffs.get(&(i as u64)).unwrap_or(&zero).clone();
+            if c == Q::zero() {
                 continue;
             }
 
+            let orig = Number::e(n as u64, i as u64).scalar_mul(&c);
+
+            println!("i = {:?}", i);
+
             if set
+                .clone()
                 .into_iter()
                 .any(|x| math_mod(&x, &q) == math_mod(&i, &q))
             {
                 println!("i = {:?} not ok, rewriting", i);
+
+                // delete from result, we'll add it back later rewritten in the
+                // basis
+                result.coeffs.remove(&(i as u64));
+
                 // use the relation to rewrite this root, these are the
                 // exponents on the right hand side
-                let exps: Vec<i64> = (1..*p).map(|k| k * n / p + i).collect();
+                let exps: Vec<i64> = (1..*p).map(|k| math_mod(&(k * n / p + i), &n)).collect();
 
+                let mut rhs = zero_order(&(n as u64));
                 for k in exps {
                     rhs.coeffs.insert(k as u64, -c.clone());
                 }
+                println!("rewriting {:?} = {:?}", orig, rhs);
+                result = result + rhs;
             } else {
-                println!("i = {:?} ok, adding", i);
-                // i is in the basis, so we can just copy it over to result,
-                // adding the coefficients
-                rhs.coeffs.insert(i as u64, c.clone());
+                // just because i is ok with regard to p, it might be bad
+                // with regard to a different, later prime. We leave it alone.
+                println!("i = {:?} ok w.r.t p = {:?}, leaving alone", i, p);
             }
-
-            println!("adding term(s) {:?}", rhs);
-
-            result = result + rhs;
         }
     }
 
@@ -528,13 +534,10 @@ impl FieldElement for Number {
 }
 
 impl CyclotomicFieldElement for Number {
-    fn e(n: &u64, k: &u64) -> Self {
+    fn e(n: u64, k: u64) -> Self {
         Number::new(
-            n,
-            &[(k.clone(), Q::from_integer(Z::one()))]
-                .iter()
-                .cloned()
-                .collect(),
+            &n,
+            &[(k, Q::from_integer(Z::one()))].iter().cloned().collect(),
         )
     }
 
@@ -623,6 +626,34 @@ mod tests {
     }
     }
 
+    #[test]
+    fn mul_distribute_specific() {
+        let e = Number::e;
+
+        let x = e(3, 1) + e(3, 2);
+        let y = e(4, 2);
+        let z = e(3, 1) + e(3, 2);
+
+        let lhs = x.clone() * (y.clone() + z.clone());
+        let rhs = x.clone() * y.clone() + x.clone() * z.clone();
+
+        let real_lhs = convert_to_base(&lhs);
+        let real_rhs = convert_to_base(&rhs);
+
+        println!("orig lhs = {:?}", lhs);
+        println!("basis lhs = {:?}", real_lhs);
+
+        println!("orig rhs = {:?}", rhs);
+        println!("basis rhs = {:?}", real_rhs);
+    }
+
+    #[test]
+    fn convert_to_base_specific() {
+        let e = Number::e;
+        let x = e(15, 3) + e(15, 5);
+        println!("E(15)^3 + E(15)^5 = {:?}", convert_to_base(&x));
+    }
+
     // Just a hack to get arbitrary coefficients
     #[derive(Clone)]
     struct QArb(Q);
@@ -632,8 +663,8 @@ mod tests {
         where
             G: Gen,
         {
-            let p: i64 = g.gen_range(1, 2);
-            let q: i64 = g.gen_range(1, 2);
+            let p: i64 = g.gen_range(1, 100);
+            let q: i64 = g.gen_range(1, 100);
             QArb(Q::new(Z::from(p), Z::from(q)))
         }
     }
@@ -643,7 +674,7 @@ mod tests {
         where
             G: Gen,
         {
-            let orders: Vec<u64> = (3..10).collect();
+            let orders: Vec<u64> = vec![3, 4, 5, 6, 7, 8, 9, 10];
             let order = orders[g.gen_range(0, orders.len())];
             let num_terms: u64 = g.gen_range(1, 5);
             let mut result = zero_order(&order);
