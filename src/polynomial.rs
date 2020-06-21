@@ -3,32 +3,27 @@ extern crate num;
 use num::pow::pow;
 use std::cmp::PartialOrd;
 use std::fmt::Display;
-use self::num::{BigInt, BigRational, Zero, ToPrimitive, Integer, One};
+use self::num::{BigInt, BigRational, Zero, ToPrimitive, Integer, One, zero, one};
 use crate::divisors::divisors;
 use crate::divisors::library_divisors::LibraryDivisors;
 use crate::divisors::divisors::Divisors;
 use crate::prime_factors::recursive_prime_factorize::RecursivePrimeFactorize;
 use crate::prime_factors::prime_factorize::PrimeFactorize;
 use crate::primes::primes::Primes;
-use std::ops::Mul;
+use std::ops::{Mul, Div};
 
 type Z = num::bigint::BigInt;
 type Q = num::rational::BigRational;
 type ZPlus = usize;
 
+#[derive(Debug)]
 pub struct Polynomial {
-    coefficients: Vec<Z>,
-    degrees: Vec<ZPlus>,
+    coefficients: Vec<Z>
 }
 
 impl Polynomial {
-    pub fn new(coefficients: Vec<Z>, degrees: Vec<ZPlus>) -> Polynomial {
-        assert_eq!(coefficients.len(), degrees.len());
-        Polynomial::assert_sorted_ascending(&degrees);
-        return Polynomial {
-            coefficients,
-            degrees,
-        };
+    pub fn new(coefficients: Vec<Z>) -> Polynomial {
+        Polynomial { coefficients }
     }
 
     fn assert_sorted_ascending<T: PartialOrd + Display>(vec: &Vec<T>) {
@@ -44,7 +39,7 @@ impl Polynomial {
     pub fn substitute(&self, t: Q) -> Q {
         let mut sum: Q = Q::zero();
         for j in 0..self.coefficients.len() {
-            sum += num::pow(t.clone(), self.degrees[j]).mul(&self.coefficients[j]);
+            sum += num::pow(t.clone(), j).mul(&self.coefficients[j]);
         }
         return sum;
     }
@@ -54,7 +49,7 @@ impl Polynomial {
     }
 
     pub fn degree(&self) -> ZPlus {
-        return self.degrees[self.degrees.len() - 1];
+        return self.coefficients.len() - 1;
     }
 
     pub fn leading_term_coefficient(&self) -> &Z {
@@ -82,7 +77,7 @@ impl Polynomial {
         If it only has one term, and that term has degree >= 2, then it's
         reducible, because 0 will be a root.
         */
-        if self.degrees.len() == 1 && self.degree() >= 2 {
+        if self.coefficients.len() == 1 && self.degree() >= 2 {
             return Some(false);
         }
 
@@ -204,6 +199,55 @@ impl Polynomial {
     }
 }
 
+impl Div for Polynomial {
+    type Output = (Polynomial, Polynomial);
+
+    fn div(self, _rhs: Self) -> Self::Output {
+        /*
+        Polynomial Long Division
+
+        We have a dividend and a divisor, which are both polynomials, where the
+        divisor has degree less than or equal to the dividend. These are both
+        non-constant polynomials, that is, they have a degree of at least 1.
+
+        We are seeking a quotient and a remainder for the division of these two
+        polynomials. These are both polynomials, where the quotient has degree
+        strictly less than the degree of the dividend, and the remainder has
+        degree strictly less than the divisor.
+
+        The algorithm involves iterating on the dividend. We shall call the
+        polynomial that develops through these iterations as the current
+        polynomial. In each iteration, we add terms to the polynomial that will
+        end up by the quotient. We shall refer to this in-progress polynomial
+        as the quotient accumulator.
+
+        For each iteration, perform the below steps.
+
+        First, divide the leading term of the current polynomial by the
+        leading term of the divisor. Initially, as mentioned earlier, the
+        current polynomial is the dividend. This result we'll' call the
+        current term. Append the current term to the quotient accumulator.
+
+        We now perform steps to iterate on the current polynomial. Multiply the
+        current term by the divisor, and the subtract that from the current
+        polynomial to get the next iteration. Below is some pseudocode to
+        hopefully make this clearer.
+
+        current polynomial -= current term * divisor
+
+        We continue iterating until the the degree of the remainder is strictly
+        less than the degree of the divisor.
+        */
+        unimplemented!()
+    }
+}
+
+impl PartialEq for Polynomial {
+    fn eq(&self, other: &Self) -> bool {
+        self.coefficients == other.coefficients
+    }
+}
+
 #[cfg(test)]
 mod polynomial_tests {
     use super::*;
@@ -223,70 +267,84 @@ mod polynomial_tests {
     }
 
     #[test]
+    #[ignore]
+    fn test_long_division() {
+        // t^2 - 3t - 10 / t + 2 == t - 5 remainder 0
+        assert_eq!(Polynomial::new(vec_z(vec![-10, -3, 1]))
+                       .div(Polynomial::new(vec_z(vec![2, 1]))),
+                   (Polynomial::new(vec_z(vec![-5, 1])), Polynomial::new(vec![Z::zero()])));
+
+        // t^2 + 2t - 7 / t - 2 == t + 4 remainder 1
+        assert_eq!(Polynomial::new(vec_z(vec![-7, 2, 1]))
+                       .div(Polynomial::new(vec_z(vec![-2, 1]))),
+                   (Polynomial::new(vec_z(vec![4, 1])), Polynomial::new(vec![Z::one()])));
+    }
+
+    #[test]
     fn test_irreducibility_check_edge_cases() {
         // t + 1
-        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![1, 1]), vec![0, 1])), Some(true));
+        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![1, 1]))), Some(true));
 
         // t^5
-        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![0, 0, 0, 0, 0, 1]), vec![0, 1, 2, 3, 4, 5])), Some(false));
+        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![0, 0, 0, 0, 0, 1]))), Some(false));
 
         // 10
-        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![10]), vec![0])), Some(true));
+        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![10]))), Some(true));
     }
 
     #[test]
     fn test_irreducibility_check_rational_roots_theorem() {
         // (t - 3)(t - 2)
-        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![6, -5, 1]), vec![0, 1, 2])), Some(false));
+        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![6, -5, 1]))), Some(false));
 
         // (t + 1/2)(t^2 - 5)
-        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![-5, -10, 1, 2]), vec![0, 1, 2, 3])), Some(false));
+        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![-5, -10, 1, 2]))), Some(false));
 
         // 2t^2 + t + 1
-        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![1, 1, 2]), vec![0, 1, 2])), Some(true));
+        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![1, 1, 2]))), Some(true));
 
         // t^3 + 2t^2 - 4
-        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![1, 1, 2]), vec![0, 1, 2])), Some(true));
+        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![1, 1, 2]))), Some(true));
 
         // 4t^3 + t^2 - t + 3
-        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![3, -1, 1, 4]), vec![0, 1, 2, 3])), Some(true));
+        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![3, -1, 1, 4]))), Some(true));
 
         // 3t^3 + 4t^2 - 6t + 18
-        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![18, -6, 4, 3]), vec![0, 1, 2, 3])), Some(true));
+        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![18, -6, 4, 3]))), Some(true));
     }
 
     #[test]
     fn test_irreducibility_check_eisenstein_criterion() {
         // t^4 - 3t + 6
-        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![6, -3, 0, 0, 1]), vec![0, 1, 2, 3, 4])), Some(true));
+        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![6, -3, 0, 0, 1]))), Some(true));
     }
 
     #[test]
     fn test_irreducibility_check_taking_mod_p() {
         // 2t^4 + 3t^2 + 3t + 18
-        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![18, 3, 3, 0, 2]), vec![0, 1, 2, 3, 4])), Some(true));
+        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![18, 3, 3, 0, 2]))), Some(true));
     }
 
     #[test]
     fn test_irreducibility_no_result() {
         // t^4 + 5t^2 + 4
-        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![4, 0, 5, 0, 1]), vec![0, 1, 2, 3, 4])), None);
+        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![4, 0, 5, 0, 1]))), None);
     }
 
     #[test]
     fn test_monic_check() {
         // p = 1
-        assert!(Polynomial::new(vec_z(vec![1]), vec![0]).is_monic());
+        assert!(Polynomial::new(vec_z(vec![1])).is_monic());
         // p = 2t + 1
-        assert!(!Polynomial::new(vec_z(vec![1, 2]), vec![0, 1]).is_monic());
+        assert!(!Polynomial::new(vec_z(vec![1, 2])).is_monic());
         // p = t^5 - t^3 - 2t^2 - 1
-        assert!(Polynomial::new(vec_z(vec![-1, 0, -2, -1, 0, 1]), vec![0, 1, 2, 3, 4, 5]).is_monic());
+        assert!(Polynomial::new(vec_z(vec![-1, 0, -2, -1, 0, 1])).is_monic());
     }
 
     #[test]
     fn test_polynomial_substitution() {
         // p = 1
-        let mut p: Polynomial = Polynomial::new(vec_z(vec![1]), vec![0]);
+        let mut p: Polynomial = Polynomial::new(vec_z(vec![1]));
 
         assert_eq!(p.substitute(q_from_i64(5)), q_from_i64(1));
         assert_eq!(p.substitute(q_from_i64(0)), q_from_i64(1));
@@ -297,7 +355,7 @@ mod polynomial_tests {
         assert_eq!(p.substitute(q_from_i64(125716)), q_from_i64(1));
 
         // p = 2t + 1
-        p = Polynomial::new(vec_z(vec![1, 2]), vec![0, 1]);
+        p = Polynomial::new(vec_z(vec![1, 2]));
 
         assert_eq!(p.substitute(q_from_i64(5)), q_from_i64(11));
         assert_eq!(p.substitute(q_from_i64(0)), q_from_i64(1));
@@ -308,7 +366,7 @@ mod polynomial_tests {
         assert_eq!(p.substitute(q_from_i64(125716)), q_from_i64(251433));
 
         // p = t^5 - t^3 - 2t^2 - 1
-        p = Polynomial::new(vec_z(vec![-1, 0, -2, -1, 0, 1]), vec![0, 1, 2, 3, 4, 5]);
+        p = Polynomial::new(vec_z(vec![-1, 0, -2, -1, 0, 1]));
 
         assert_eq!(p.substitute(q_from_i64(5)), q_from_i64(2949));
         assert_eq!(p.substitute(q_from_i64(0)), q_from_i64(-1));
