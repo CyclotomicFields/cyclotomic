@@ -119,16 +119,7 @@ impl Polynomial {
         }
 
         /*
-        Eisenstein's Criterion
-
-        The polynomial is irreducible if there exists a prime, q, such that:
-          - q is a factor of every non-leading term
-          - q is not a factor of the leading term
-          - q squared is not a factor of the constant term
-
-        Find the common prime factors of all the non-leading coefficients, and
-        check all of them against the second and third points of the criterion,
-        as listed above.
+        See if we can determine irreducibility using Eisenstein's criterion.
         */
         if self.is_irreducible_by_eisenstein_criterion(&self.coefficients, prime_factorizer) {
             return Some(true);
@@ -176,6 +167,18 @@ impl Polynomial {
     }
 
     fn is_irreducible_by_eisenstein_criterion(&self, coefficients: &Vec<Z>, prime_factorizer: &impl PrimeFactorize) -> bool {
+        /*
+        Eisenstein's Criterion
+
+        The polynomial is irreducible if there exists a prime, q, such that:
+          - q is a factor of every non-leading term
+          - q is not a factor of the leading term
+          - q squared is not a factor of the constant term
+
+        Find the common prime factors of all the non-leading coefficients, and
+        check all of them against the second and third points of the criterion,
+        as listed above.
+        */
         let constant_term = &coefficients[0].clone();
         let leading_coefficient = &coefficients[coefficients.len() - 1].clone();
         let mut non_leading_non_zero_coefficients = coefficients.clone();
