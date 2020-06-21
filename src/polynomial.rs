@@ -68,7 +68,8 @@ impl Polynomial {
     pub fn is_irreducible_over_q(&self,
                                  divisors_strategy: &impl Divisors,
                                  prime_factorizer: &impl PrimeFactorize,
-                                 primes: &Primes) -> Option<bool> {
+                                 primes: &Primes) -> Option<bool>
+    {
         /*
         If the degree is one, then it is irreducible, because it cannot factor
         into polynomials of lower degree.
