@@ -10,7 +10,7 @@ use crate::divisors::divisors::Divisors;
 use crate::prime_factors::recursive_prime_factorize::RecursivePrimeFactorize;
 use crate::prime_factors::prime_factorize::PrimeFactorize;
 use crate::primes::primes::Primes;
-use std::ops::{Mul, Div};
+use std::ops::{Mul, Div, Sub};
 
 type Z = num::bigint::BigInt;
 type Q = num::rational::BigRational;
@@ -202,10 +202,32 @@ impl Polynomial {
     }
 }
 
+impl Sub for Polynomial {
+    type Output = Polynomial;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        let mut new_coefficients = Vec::new();
+        for i in 0..self.coefficients.len() {
+            if rhs.coefficients.len() > i {
+                new_coefficients.push(&self.coefficients[i] - &rhs.coefficients[i]);
+            } else {
+                new_coefficients.push(self.coefficients[i].clone());
+            }
+        }
+        while new_coefficients.len() > 0 && new_coefficients[new_coefficients.len() - 1].is_zero() {
+            new_coefficients.truncate(new_coefficients.len() - 1);
+        }
+        if new_coefficients.is_empty() {
+            new_coefficients.push(Z::zero());
+        }
+        Polynomial::new(new_coefficients)
+    }
+}
+
 impl Div for Polynomial {
     type Output = (Polynomial, Polynomial);
 
-    fn div(self, _rhs: Self) -> Self::Output {
+    fn div(self, divisor: Self) -> Self::Output {
         /*
         Polynomial Long Division
 
@@ -241,6 +263,9 @@ impl Div for Polynomial {
         We continue iterating until the the degree of the remainder is strictly
         less than the degree of the divisor.
         */
+        assert!(self.degree() >= divisor.degree());
+        assert!(self.degree() >= 1);
+        assert!(divisor.degree() >= 1);
         unimplemented!()
     }
 }
@@ -281,6 +306,29 @@ mod polynomial_tests {
         assert_eq!(Polynomial::new(vec_z(vec![-7, 2, 1]))
                        .div(Polynomial::new(vec_z(vec![-2, 1]))),
                    (Polynomial::new(vec_z(vec![4, 1])), Polynomial::new(vec![Z::one()])));
+    }
+
+    #[test]
+    fn test_subtraction() {
+        // t^2 - 3t - 10 - (t + 2) == t^2 - 4t - 12
+        assert_eq!(Polynomial::new(vec_z(vec![-10, -3, 1]))
+                       .sub(Polynomial::new(vec_z(vec![2, 1]))),
+                   Polynomial::new(vec_z(vec![-12, -4, 1])));
+
+        // t^2 + 2t - 7 - (t - 2) == t^2 + t - 5
+        assert_eq!(Polynomial::new(vec_z(vec![-7, 2, 1]))
+                       .sub(Polynomial::new(vec_z(vec![-2, 1]))),
+                   Polynomial::new(vec_z(vec![-5, 1, 1])));
+
+        // t^2 + 2t - 7 (t^2 + 2t - 7) == 0
+        assert_eq!(Polynomial::new(vec_z(vec![-7, 2, 1]))
+                       .sub(Polynomial::new(vec_z(vec![-7, 2, 1]))),
+                   Polynomial::new(vec_z(vec![0])));
+
+        // -3t^3 + 2t - 7 - (2t^2 + 2t - 2) == -3t^3 - 2t^2 - 5
+        assert_eq!(Polynomial::new(vec_z(vec![-7, 2, 0, -3]))
+                       .sub(Polynomial::new(vec_z(vec![-2, 2, 2]))),
+                   Polynomial::new(vec_z(vec![-5, 0, -2, -3])));
     }
 
     #[test]
