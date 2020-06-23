@@ -284,9 +284,19 @@ fn try_reduce(z: &Number) -> Number {
     println!("gcd is {:?}", current_gcd.unwrap());
 
     let mut new_order = z.order.clone() / current_gcd.unwrap();
-    let mut new_coeffs = z.coeffs.clone().into_iter().map(|p| { (p.0 / current_gcd.unwrap(), p.1) }).collect();
+
+    let mut new_coeffs = HashMap::new();
+    for (exp, coeff) in &z.coeffs {
+        if coeff.is_zero() {
+            continue;
+        }
+        let new_exp = exp/current_gcd.unwrap();
+        println!("new_exp = {:?}, coeff = {:?}", new_exp, coeff.clone());
+        new_coeffs.insert(new_exp, coeff.clone());
+    }
     let res = Number::new(&new_order, &new_coeffs);
 
+    println!("new_coeffs = {:?}", new_coeffs);
     println!("reduced {:?} to {:?}", z, res);
     res
 }
@@ -295,6 +305,11 @@ fn try_rational(z: &Number) -> Option<Q> {
     println!("orig z = {:?}", z);
     let base_z = convert_to_base(&try_reduce(&convert_to_base(z)));
     println!("base_z = {:?}", base_z);
+
+    // if order is 2, that's already a rational!
+    if base_z.order == 2 {
+        return Some(base_z.coeffs.get(&0).unwrap_or(&Q::zero()).clone());
+    }
 
     let n = base_z.order as i64;
     let phi_n = phi(&(n as u64));
@@ -706,7 +721,7 @@ mod tests {
         where
             G: Gen,
         {
-            let orders: Vec<u64> = vec![3, 5, 6, 7, 10];
+            let orders: Vec<u64> = vec![3, 4, 5, 6, 7, 8, 9, 10];
             let order = orders[g.gen_range(0, orders.len())];
             let num_terms: u64 = g.gen_range(1, 5);
             let mut result = zero_order(&order);
