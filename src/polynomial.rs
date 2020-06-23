@@ -1,6 +1,7 @@
 extern crate num;
 
 use num::pow::pow;
+use num::integer::lcm;
 use std::cmp::PartialOrd;
 use std::fmt::Display;
 use self::num::{BigInt, BigRational, Zero, ToPrimitive, Integer, One, zero, one};
@@ -10,7 +11,7 @@ use crate::divisors::divisors::Divisors;
 use crate::prime_factors::recursive_prime_factorize::RecursivePrimeFactorize;
 use crate::prime_factors::prime_factorize::PrimeFactorize;
 use crate::primes::primes::Primes;
-use std::ops::{Mul, Div, Sub};
+use std::ops::{Mul, Div, Sub, MulAssign};
 
 type Z = num::bigint::BigInt;
 type Q = num::rational::BigRational;
@@ -24,16 +25,6 @@ pub struct Polynomial {
 impl Polynomial {
     pub fn new(coefficients: Vec<Z>) -> Polynomial {
         Polynomial { coefficients }
-    }
-
-    fn assert_sorted_ascending<T: PartialOrd + Display>(vec: &Vec<T>) {
-        let mut current_max: &T = &vec[0];
-        for j in 0..vec.len() {
-            assert!(vec[j] >= *current_max,
-                    "{} was not greater than or equal to a previous \
-                    element in the list of degrees, {}", vec[j], *current_max);
-            current_max = &vec[j];
-        }
     }
 
     pub fn substitute(&self, t: Q) -> Q {
@@ -202,6 +193,17 @@ impl Polynomial {
     }
 }
 
+impl From<Vec<Q>> for Polynomial {
+    fn from(coefficients: Vec<Q>) -> Self {
+        let mut accumulator = Z::one();
+        for c in &coefficients {
+            accumulator = lcm(accumulator, c.denom().clone());
+        }
+        let integer_coefficients = coefficients.iter().map(|c| c.mul(&accumulator).to_integer()).collect();
+        Polynomial { coefficients: integer_coefficients }
+    }
+}
+
 impl Sub for Polynomial {
     type Output = Polynomial;
 
@@ -288,6 +290,14 @@ mod polynomial_tests {
         return Q::from(Z::from(n));
     }
 
+    fn vec_q(numerators: Vec<i64>, denominators: Vec<i64>) -> Vec<Q> {
+        let mut qs = vec![];
+        for i in 0..numerators.len() {
+            qs.push(Q::new(Z::from(numerators[i]), Z::from(denominators[i])));
+        }
+        qs
+    }
+
     fn check_irreducibility(p: Polynomial) -> Option<bool> {
         p.is_irreducible_over_q(&LibraryDivisors::new(),
                                 &RecursivePrimeFactorize::default(),
@@ -306,6 +316,15 @@ mod polynomial_tests {
         assert_eq!(Polynomial::new(vec_z(vec![-7, 2, 1]))
                        .div(Polynomial::new(vec_z(vec![-2, 1]))),
                    (Polynomial::new(vec_z(vec![4, 1])), Polynomial::new(vec![Z::one()])));
+    }
+
+    #[test]
+    fn test_initialise_with_rational_coefficients() {
+        assert_eq!(Polynomial::from(vec_q(vec![-7, 2, 1], vec![3, 5, 1])),
+                   (Polynomial::new(vec_z(vec![-35, 6, 15]))));
+
+        assert_eq!(Polynomial::from(vec_q(vec![-7, 2, 1, 2, -4], vec![2, 5, 1, -9, 3])),
+                   (Polynomial::new(vec_z(vec![-315, 36, 90, -20, -120]))));
     }
 
     #[test]
