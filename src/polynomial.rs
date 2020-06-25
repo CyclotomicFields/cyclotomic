@@ -17,7 +17,7 @@ type Z = num::bigint::BigInt;
 type Q = num::rational::BigRational;
 type ZPlus = usize;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Polynomial {
     coefficients: Vec<Z>
 }
@@ -284,8 +284,7 @@ impl Div for Polynomial {
             let mut subtraction_coefficients = vec![Q::zero(); current_term_degree];
             subtraction_coefficients.extend(divisor.coefficients.iter().map(|c| Q::from(c.clone())));
             subtraction_coefficients.iter_mut().for_each(|c| c.mul_assign(current_term_coefficient.clone()));
-            let subtraction_polynomial = Polynomial::from(subtraction_coefficients);
-            current_polynomial = current_polynomial.sub(subtraction_polynomial.clone());
+            current_polynomial = current_polynomial.sub(Polynomial::from(subtraction_coefficients));
         }
 
         Polynomial::truncate_coefficients(&mut quotient_accumulator);
