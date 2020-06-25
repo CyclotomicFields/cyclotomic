@@ -17,7 +17,7 @@ type Z = num::bigint::BigInt;
 type Q = num::rational::BigRational;
 type ZPlus = usize;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Polynomial {
     coefficients: Vec<Z>
 }
@@ -191,6 +191,15 @@ impl Polynomial {
         }
         return false;
     }
+
+    fn truncate_coefficients<T : Zero>(coefficients: &mut Vec<T>) {
+        while coefficients.len() > 0 && coefficients[coefficients.len() - 1].is_zero() {
+            coefficients.truncate(coefficients.len() - 1);
+        }
+        if coefficients.is_empty() {
+            coefficients.push(T::zero());
+        }
+    }
 }
 
 impl From<Vec<Q>> for Polynomial {
@@ -216,12 +225,7 @@ impl Sub for Polynomial {
                 new_coefficients.push(self.coefficients[i].clone());
             }
         }
-        while new_coefficients.len() > 0 && new_coefficients[new_coefficients.len() - 1].is_zero() {
-            new_coefficients.truncate(new_coefficients.len() - 1);
-        }
-        if new_coefficients.is_empty() {
-            new_coefficients.push(Z::zero());
-        }
+        Polynomial::truncate_coefficients(&mut new_coefficients);
         Polynomial::new(new_coefficients)
     }
 }
@@ -268,7 +272,24 @@ impl Div for Polynomial {
         assert!(self.degree() >= divisor.degree());
         assert!(self.degree() >= 1);
         assert!(divisor.degree() >= 1);
-        unimplemented!()
+        let mut quotient_accumulator = vec![Q::zero(); self.degree()];
+        let mut current_polynomial = self;
+
+        while current_polynomial.degree() >= divisor.degree() {
+            let current_term_degree = current_polynomial.degree() - divisor.degree();
+            let current_term_coefficient = Q::new(
+                current_polynomial.leading_term_coefficient().clone(),
+                divisor.leading_term_coefficient().clone());
+            quotient_accumulator[current_term_degree] = current_term_coefficient.clone();
+            let mut subtraction_coefficients = vec![Q::zero(); current_term_degree];
+            subtraction_coefficients.extend(divisor.coefficients.iter().map(|c| Q::from(c.clone())));
+            subtraction_coefficients.iter_mut().for_each(|c| c.mul_assign(current_term_coefficient.clone()));
+            let subtraction_polynomial = Polynomial::from(subtraction_coefficients);
+            current_polynomial = current_polynomial.sub(subtraction_polynomial.clone());
+        }
+
+        Polynomial::truncate_coefficients(&mut quotient_accumulator);
+        (Polynomial::from(quotient_accumulator), current_polynomial)
     }
 }
 
@@ -305,7 +326,6 @@ mod polynomial_tests {
     }
 
     #[test]
-    #[ignore]
     fn test_long_division() {
         // t^2 - 3t - 10 / t + 2 == t - 5 remainder 0
         assert_eq!(Polynomial::new(vec_z(vec![-10, -3, 1]))
@@ -316,6 +336,11 @@ mod polynomial_tests {
         assert_eq!(Polynomial::new(vec_z(vec![-7, 2, 1]))
                        .div(Polynomial::new(vec_z(vec![-2, 1]))),
                    (Polynomial::new(vec_z(vec![4, 1])), Polynomial::new(vec![Z::one()])));
+
+        // 2t^3 - 7t^2 + 4 / t^2 - 1 == 2t - 7 remainder 2t - 3
+        assert_eq!(Polynomial::new(vec_z(vec![4, 0, -7, 2]))
+                       .div(Polynomial::new(vec_z(vec![-1, 0, 1]))),
+                   (Polynomial::new(vec_z(vec![-7, 2])), Polynomial::new(vec_z(vec![-3, 2]))));
     }
 
     #[test]
