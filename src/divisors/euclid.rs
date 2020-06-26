@@ -1,7 +1,8 @@
 extern crate num;
 
 use self::num::{BigInt, BigRational, Zero, ToPrimitive, One, Integer, Signed};
-use std::ops::{Div, Rem};
+use std::ops::{Div, Rem, Sub};
+use crate::polynomial::Polynomial;
 
 type Z = num::bigint::BigInt;
 
@@ -99,11 +100,39 @@ impl Euclid {
             Some(gcd_identity[2].mod_floor(n))
         }
     }
+
+    pub fn multiplicative_inverse_mod_polynomial(&self, p: Polynomial, m: Polynomial) -> Option<Polynomial> {
+        /*
+        As with finding the multiplicative inverse for integers mod n, we
+        take the GCD of the polynomial with the principal ideal polynomial of
+        the polynomial ring, and then find an associated value within the ring.
+
+        I've copied the implementation from above because I can't be bothered to
+        do the type-fu required to make it more generic.
+        */
+        None
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn vec_z(vec: Vec<i64>) -> Vec<Z> {
+        vec.iter().map(|&i| BigInt::from(i)).collect()
+    }
+
+    #[test]
+    #[ignore]
+    fn test_multiplicative_inverse_mod_polynomial() {
+        let euclid = Euclid::new();
+        // (t + 2)^-1 in the ring Z[t] / t^3 + 3t^2 + 3t + 1
+        assert_eq!(euclid.multiplicative_inverse_mod_polynomial(
+            Polynomial::new(vec_z(vec![2, 1])), Polynomial::new(vec_z(vec![1, 3, 3, 1]))),
+                   Some(Polynomial::new(vec_z(vec![1, 1, 1]))));
+
+
+    }
 
     #[test]
     fn test_extended_euclid_gcd() {

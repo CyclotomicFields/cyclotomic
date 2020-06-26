@@ -1,17 +1,20 @@
 extern crate num;
 
-use num::pow::pow;
-use num::integer::lcm;
 use std::cmp::PartialOrd;
 use std::fmt::Display;
-use self::num::{BigInt, BigRational, Zero, ToPrimitive, Integer, One, zero, one};
+use std::ops::{Div, Mul, MulAssign, Sub};
+
+use num::integer::lcm;
+use num::pow::pow;
+
 use crate::divisors::divisors;
-use crate::divisors::library_divisors::LibraryDivisors;
 use crate::divisors::divisors::Divisors;
-use crate::prime_factors::recursive_prime_factorize::RecursivePrimeFactorize;
+use crate::divisors::library_divisors::LibraryDivisors;
 use crate::prime_factors::prime_factorize::PrimeFactorize;
+use crate::prime_factors::recursive_prime_factorize::RecursivePrimeFactorize;
 use crate::primes::primes::Primes;
-use std::ops::{Mul, Div, Sub, MulAssign};
+
+use self::num::{BigInt, BigRational, Integer, One, one, ToPrimitive, Zero, zero};
 
 type Z = num::bigint::BigInt;
 type Q = num::rational::BigRational;
@@ -192,7 +195,7 @@ impl Polynomial {
         return false;
     }
 
-    fn truncate_coefficients<T : Zero>(coefficients: &mut Vec<T>) {
+    fn truncate_coefficients<T: Zero>(coefficients: &mut Vec<T>) {
         while coefficients.len() > 0 && coefficients[coefficients.len() - 1].is_zero() {
             coefficients.truncate(coefficients.len() - 1);
         }
@@ -298,6 +301,49 @@ impl PartialEq for Polynomial {
     }
 }
 
+impl Mul for Polynomial {
+    type Output = Polynomial;
+
+    // TODO: Figure out how to use a fast library for this.
+    fn mul(self, rhs: Self) -> Self::Output {
+        /*
+        Matrix product method
+
+        Represent the coefficients of the lhs polynomial as diagonal entries in
+        a not-necessarily-square matrix, and perform a matrix multiplication
+        with a column vector containing the coefficients of the rhs polynomial.
+        */
+
+        let lhs = self;
+        let product_degree = lhs.degree() + rhs.degree();
+        let mut left_matrix_rows: Vec<Vec<Z>> = vec![vec![Z::zero();rhs.degree() + 1];product_degree + 1];
+
+        // Populate left matrix, column by column
+        for column_number in 0..(rhs.degree() + 1) {
+            for row_number in 0..(product_degree + 1) {
+                if row_number >= column_number && row_number < lhs.degree() + column_number + 1 {
+                    left_matrix_rows[row_number][column_number] = lhs.coefficients[row_number - column_number].clone();
+                } else {
+                    left_matrix_rows[row_number][column_number] = Z::zero();
+                }
+            }
+        }
+
+        // Perform matrix multiplication
+        let mut product_coefficients: Vec<Z> = vec![Z::zero();product_degree + 1];
+        for row_number in 0..(product_degree + 1) {
+            let mut sum = Z::zero();
+            for column_number in 0..(rhs.degree() + 1) {
+                sum += &left_matrix_rows[row_number][column_number] * &rhs.coefficients[column_number]
+            }
+            product_coefficients[row_number] = sum;
+        }
+
+        Polynomial::new(product_coefficients)
+    }
+}
+
+// TODO: Use quickcheck instead
 #[cfg(test)]
 mod polynomial_tests {
     use super::*;
@@ -322,6 +368,34 @@ mod polynomial_tests {
         p.is_irreducible_over_q(&LibraryDivisors::new(),
                                 &RecursivePrimeFactorize::default(),
                                 &Primes::new(vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29]))
+    }
+
+    #[test]
+    fn test_multiplication() {
+        // t^2 + 2t - 7 * t - 2 == t^3 - 11t + 14
+        assert_eq!(Polynomial::new(vec_z(vec![-2, 1]))
+                       .mul(Polynomial::new(vec_z(vec![-7, 2, 1]))),
+                   Polynomial::new(vec_z(vec![14, -11, 0, 1])));
+
+        // t^2 - 3t - 10 * t + 2 == t^3 - t^2 - 16t - 20
+        assert_eq!(Polynomial::new(vec_z(vec![-10, -3, 1]))
+                       .mul(Polynomial::new(vec_z(vec![2, 1]))),
+                   Polynomial::new(vec_z(vec![-20, -16, -1, 1])));
+
+        // 2t^3 - 7t^2 + 4 * t^2 - 1 == 2t^5 - 7t^4 - 2t^3 + 11t^2 - 4
+        assert_eq!(Polynomial::new(vec_z(vec![4, 0, -7, 2]))
+                       .mul(Polynomial::new(vec_z(vec![-1, 0, 1]))),
+                   Polynomial::new(vec_z(vec![-4, 0, 11, -2, -7, 2])));
+
+        // t^2 + 2t - 7 * t^2 + 2t - 7 == t^4 + 4t^3 - 10t^2 - 28t + 49
+        assert_eq!(Polynomial::new(vec_z(vec![-7, 2, 1]))
+                       .mul(Polynomial::new(vec_z(vec![-7, 2, 1]))),
+                   Polynomial::new(vec_z(vec![49, -28, -10, 4, 1])));
+
+        // 2t^2 + 2t - 2 * -3t^3 + 2t - 7 == -6t^5 - 6t^4 +10t^3 - 10t^2 - 18t + 14
+        assert_eq!(Polynomial::new(vec_z(vec![-2, 2, 2]))
+                       .mul(Polynomial::new(vec_z(vec![-7, 2, 0, -3]))),
+                   Polynomial::new(vec_z(vec![14, -18, -10, 10, -6, -6])));
     }
 
     #[test]
@@ -363,7 +437,7 @@ mod polynomial_tests {
                        .sub(Polynomial::new(vec_z(vec![-2, 1]))),
                    Polynomial::new(vec_z(vec![-5, 1, 1])));
 
-        // t^2 + 2t - 7 (t^2 + 2t - 7) == 0
+        // t^2 + 2t - 7 - (t^2 + 2t - 7) == 0
         assert_eq!(Polynomial::new(vec_z(vec![-7, 2, 1]))
                        .sub(Polynomial::new(vec_z(vec![-7, 2, 1]))),
                    Polynomial::new(vec_z(vec![0])));
