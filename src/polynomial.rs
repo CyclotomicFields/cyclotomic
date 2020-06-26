@@ -1,8 +1,9 @@
 extern crate num;
 
 use std::cmp::PartialOrd;
-use std::fmt::Display;
-use std::ops::{Div, Mul, MulAssign, Sub, Add};
+use std::fmt::{Display, Formatter};
+use std::fmt;
+use std::ops::{Add, Div, Mul, MulAssign, Sub, Neg};
 
 use num::integer::lcm;
 use num::pow::pow;
@@ -14,13 +15,13 @@ use crate::prime_factors::prime_factorize::PrimeFactorize;
 use crate::prime_factors::recursive_prime_factorize::RecursivePrimeFactorize;
 use crate::primes::primes::Primes;
 
-use self::num::{BigInt, BigRational, Integer, One, one, ToPrimitive, Zero, zero};
+use self::num::{BigInt, BigRational, Integer, One, one, Signed, ToPrimitive, Zero, zero};
 
 type Z = num::bigint::BigInt;
 type Q = num::rational::BigRational;
 type ZPlus = usize;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Polynomial {
     coefficients: Vec<Z>
 }
@@ -203,6 +204,78 @@ impl Polynomial {
             coefficients.push(T::zero());
         }
     }
+
+    pub fn to_string(&self) -> String {
+        if self.is_zero() {
+            return format!("{}", 0);
+        } else if self.is_one() {
+            return format!("{}", 1);
+        }
+
+        #[inline]
+        fn format_coefficient(coefficient: Z, degree: usize, i: usize) -> String {
+            if i == 0 {
+                return if let Some(c) = coefficient.to_i64() {
+                    if coefficient.is_one() && degree > 0 {
+                        "".to_string()
+                    } else if coefficient.eq(&Z::one().neg()) && degree > 0 {
+                        "-".to_string()
+                    } else {
+                        format!("{}", c)
+                    }
+                } else {
+                    coefficient.to_string()
+                };
+            }
+            if coefficient.is_one() && degree > 0 {
+                "+ ".to_string()
+            } else if coefficient.eq(&Z::one().neg()) && degree > 0 {
+                "- ".to_string()
+            } else {
+                if let Some(c) = coefficient.to_i64() {
+                    if c < 0 {
+                        format!("- {}", c * -1)
+                    } else {
+                        format!("+ {}", c)
+                    }
+                } else {
+                    coefficient.to_string()
+                }
+            }
+        }
+
+        #[inline]
+        fn format_variable(degree: usize) -> String {
+            if degree == 0 {
+                "".to_string()
+            } else if degree == 1 {
+                "t".to_string()
+            } else {
+                format!("t^{}", degree)
+            }
+        }
+
+        let mut string_builder = "".to_string();
+        for i in 0..self.coefficients.len() {
+            let coefficient = self.coefficients[self.coefficients.len() - 1 - i].clone();
+            if !coefficient.is_zero() {
+                let degree = self.degree() - i;
+                string_builder.push_str(
+                    format!("{}{} ",
+                            format_coefficient(coefficient, degree, i),
+                            format_variable(degree))
+                        .as_str())
+            }
+        }
+        string_builder.truncate(string_builder.len() - 1);
+        string_builder
+    }
+}
+
+impl Display for Polynomial {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        return write!(f, "{}", self.to_string());
+    }
 }
 
 impl From<Vec<Q>> for Polynomial {
@@ -222,27 +295,35 @@ impl From<Vec<i64>> for Polynomial {
     }
 }
 
+impl Polynomial {
+    // TODO: Stop griefing
+    pub fn sub(&self, rhs: &Self) -> Polynomial {
+        self.clone().add(rhs.neg())
+    }
+
+    pub fn neg(&self) -> Polynomial {
+        Polynomial::new(self.coefficients.iter().map(|c| c.neg()).collect())
+    }
+}
+
 impl Sub for Polynomial {
     type Output = Polynomial;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        let mut new_coefficients = Vec::new();
-        for i in 0..self.coefficients.len() {
-            if rhs.coefficients.len() > i {
-                new_coefficients.push(&self.coefficients[i] - &rhs.coefficients[i]);
-            } else {
-                new_coefficients.push(self.coefficients[i].clone());
-            }
-        }
-        Polynomial::truncate_coefficients(&mut new_coefficients);
-        Polynomial::new(new_coefficients)
+        (&self).sub(&rhs)
     }
 }
 
-impl Div for Polynomial {
-    type Output = (Polynomial, Polynomial);
+impl Neg for Polynomial {
+    type Output = Polynomial;
 
-    fn div(self, divisor: Self) -> Self::Output {
+    fn neg(self) -> Self::Output {
+        (&self).neg()
+    }
+}
+
+impl Polynomial {
+    pub fn div(&self, divisor: &Self) -> (Polynomial, Polynomial) {
         /*
         Polynomial Long Division
 
@@ -279,10 +360,19 @@ impl Div for Polynomial {
         less than the degree of the divisor.
         */
         assert!(self.degree() >= divisor.degree());
+        assert!(!divisor.is_zero());
+        if divisor.is_one() {
+            return (self.clone(), Polynomial::zero());
+        } else if divisor.neg().is_one() {
+            return (self.neg(), Polynomial::zero());
+        } else if self.degree() == 0 && divisor.degree() == 0 {
+            let (div, rem) = self.leading_term_coefficient().div_rem(divisor.leading_term_coefficient());
+            return (Polynomial::new(vec![div]), Polynomial::new(vec![rem]));
+        }
         assert!(self.degree() >= 1);
         assert!(divisor.degree() >= 1);
         let mut quotient_accumulator = vec![Q::zero(); self.degree()];
-        let mut current_polynomial = self;
+        let mut current_polynomial = self.clone();
 
         while current_polynomial.degree() >= divisor.degree() {
             let current_term_degree = current_polynomial.degree() - divisor.degree();
@@ -293,11 +383,19 @@ impl Div for Polynomial {
             let mut subtraction_coefficients = vec![Q::zero(); current_term_degree];
             subtraction_coefficients.extend(divisor.coefficients.iter().map(|c| Q::from(c.clone())));
             subtraction_coefficients.iter_mut().for_each(|c| c.mul_assign(current_term_coefficient.clone()));
-            current_polynomial = current_polynomial.sub(Polynomial::from(subtraction_coefficients));
+            current_polynomial = current_polynomial - Polynomial::from(subtraction_coefficients);
         }
 
         Polynomial::truncate_coefficients(&mut quotient_accumulator);
         (Polynomial::from(quotient_accumulator), current_polynomial)
+    }
+}
+
+impl Div<&Self> for Polynomial {
+    type Output = (Polynomial, Polynomial);
+
+    fn div(self, divisor: &Self) -> Self::Output {
+        (&self).div(divisor)
     }
 }
 
@@ -307,11 +405,9 @@ impl PartialEq for Polynomial {
     }
 }
 
-impl Mul for Polynomial {
-    type Output = Polynomial;
-
+impl Polynomial {
     // TODO: Figure out how to use a fast library for this.
-    fn mul(self, rhs: Self) -> Self::Output {
+    pub fn mul(&self, rhs: &Self) -> Polynomial {
         /*
         Matrix product method
 
@@ -345,7 +441,24 @@ impl Mul for Polynomial {
             product_coefficients[row_number] = sum;
         }
 
+        Polynomial::truncate_coefficients(&mut product_coefficients);
         Polynomial::new(product_coefficients)
+    }
+}
+
+impl Mul for Polynomial {
+    type Output = Polynomial;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        (&self).mul(&rhs)
+    }
+}
+
+impl Mul<&Self> for Polynomial {
+    type Output = Polynomial;
+
+    fn mul(self, rhs: &Self) -> Self::Output {
+        (&self).mul(rhs)
     }
 }
 
@@ -400,6 +513,21 @@ mod polynomial_tests {
     use super::*;
 
     #[test]
+    fn test_to_string() {
+        assert_eq!(Polynomial::from(vec![-1]).to_string(), "-1".to_string());
+        assert_eq!(Polynomial::one().to_string(), "1".to_string());
+        assert_eq!(Polynomial::zero().to_string(), "0".to_string());
+        assert_eq!(Polynomial::from(vec![-2, 1]).to_string(), "t - 2".to_string());
+        assert_eq!(Polynomial::from(vec![1, 0, -7, 2]).to_string(), "2t^3 - 7t^2 + 1".to_string());
+        assert_eq!(Polynomial::from(vec![-1, 2]).to_string(), "2t - 1".to_string());
+        assert_eq!(Polynomial::from(vec![0, -1]).to_string(), "-t".to_string());
+        assert_eq!(Polynomial::from(vec![2, 5, 4, 6]).to_string(), "6t^3 + 4t^2 + 5t + 2".to_string());
+        assert_eq!(Polynomial::from(vec![2, 5, 0, 0, -9]).to_string(), "-9t^4 + 5t + 2".to_string());
+        assert_eq!(Polynomial::from(vec![1, 1, 1]).to_string(), "t^2 + t + 1".to_string());
+        assert_eq!(Polynomial::from(vec![1, -1, 1]).to_string(), "t^2 - t + 1".to_string());
+    }
+
+    #[test]
     fn test_addition() {
         // t^2 + 2t - 7 (+) t - 2
         assert_eq!(Polynomial::from(vec![-2, 1])
@@ -426,46 +554,66 @@ mod polynomial_tests {
     fn test_multiplication() {
         // t^2 + 2t - 7 * t - 2 == t^3 - 11t + 14
         assert_eq!(Polynomial::from(vec![-2, 1])
-                       .mul(Polynomial::from(vec![-7, 2, 1])),
+                       * Polynomial::from(vec![-7, 2, 1]),
                    Polynomial::from(vec![14, -11, 0, 1]));
 
         // t^2 - 3t - 10 * t + 2 == t^3 - t^2 - 16t - 20
         assert_eq!(Polynomial::from(vec![-10, -3, 1])
-                       .mul(Polynomial::from(vec![2, 1])),
+                       * Polynomial::from(vec![2, 1]),
                    Polynomial::from(vec![-20, -16, -1, 1]));
 
         // 2t^3 - 7t^2 + 4 * t^2 - 1 == 2t^5 - 7t^4 - 2t^3 + 11t^2 - 4
         assert_eq!(Polynomial::from(vec![4, 0, -7, 2])
-                       .mul(Polynomial::from(vec![-1, 0, 1])),
+                       * Polynomial::from(vec![-1, 0, 1]),
                    Polynomial::from(vec![-4, 0, 11, -2, -7, 2]));
 
         // t^2 + 2t - 7 * t^2 + 2t - 7 == t^4 + 4t^3 - 10t^2 - 28t + 49
         assert_eq!(Polynomial::from(vec![-7, 2, 1])
-                       .mul(Polynomial::from(vec![-7, 2, 1])),
+                       * Polynomial::from(vec![-7, 2, 1]),
                    Polynomial::from(vec![49, -28, -10, 4, 1]));
 
         // 2t^2 + 2t - 2 * -3t^3 + 2t - 7 == -6t^5 - 6t^4 +10t^3 - 10t^2 - 18t + 14
         assert_eq!(Polynomial::from(vec![-2, 2, 2])
-                       .mul(Polynomial::from(vec![-7, 2, 0, -3])),
+                       * Polynomial::from(vec![-7, 2, 0, -3]),
                    Polynomial::from(vec![14, -18, -10, 10, -6, -6]));
     }
 
     #[test]
     fn test_long_division() {
+        // 14 / 6 == 2 remainder 2
+        assert_eq!(Polynomial::from(vec![14])
+                       .div(&Polynomial::from(vec![6])),
+                   (Polynomial::from(vec![2]), Polynomial::from(vec![2])));
+
+        // t^2 - 1 / 1 == t^2 - 1 remainder 0
+        assert_eq!(Polynomial::from(vec![-1, 0, 1])
+                       .div(&Polynomial::from(vec![1])),
+                   (Polynomial::from(vec![-1, 0, 1]), Polynomial::zero()));
+
+        // t + 2 / -1 == -t - 2 remainder 0
+        assert_eq!(Polynomial::from(vec![2, 1])
+                       .div(&Polynomial::from(vec![-1])),
+                   (Polynomial::from(vec![-2, -1]), Polynomial::zero()));
+
         // t^2 - 3t - 10 / t + 2 == t - 5 remainder 0
         assert_eq!(Polynomial::from(vec![-10, -3, 1])
-                       .div(Polynomial::from(vec![2, 1])),
+                       .div(&Polynomial::from(vec![2, 1])),
                    (Polynomial::from(vec![-5, 1]), Polynomial::zero()));
 
         // t^2 + 2t - 7 / t - 2 == t + 4 remainder 1
         assert_eq!(Polynomial::from(vec![-7, 2, 1])
-                       .div(Polynomial::from(vec![-2, 1])),
+                       .div(&Polynomial::from(vec![-2, 1])),
                    (Polynomial::from(vec![4, 1]), Polynomial::one()));
 
         // 2t^3 - 7t^2 + 4 / t^2 - 1 == 2t - 7 remainder 2t - 3
         assert_eq!(Polynomial::from(vec![4, 0, -7, 2])
-                       .div(Polynomial::from(vec![-1, 0, 1])),
+                       .div(&Polynomial::from(vec![-1, 0, 1])),
                    (Polynomial::from(vec![-7, 2]), Polynomial::from(vec![-3, 2])));
+
+        // t + 2 / 1 == t + 2 remainder 0
+        assert_eq!(Polynomial::from(vec![2, 1])
+                       .div(&Polynomial::one()),
+                   (Polynomial::from(vec![2, 1]), Polynomial::zero()));
     }
 
     #[test]
@@ -490,22 +638,22 @@ mod polynomial_tests {
     fn test_subtraction() {
         // t^2 - 3t - 10 - (t + 2) == t^2 - 4t - 12
         assert_eq!(Polynomial::from(vec![-10, -3, 1])
-                       .sub(Polynomial::from(vec![2, 1])),
+                       - Polynomial::from(vec![2, 1]),
                    Polynomial::from(vec![-12, -4, 1]));
 
         // t^2 + 2t - 7 - (t - 2) == t^2 + t - 5
         assert_eq!(Polynomial::from(vec![-7, 2, 1])
-                       .sub(Polynomial::from(vec![-2, 1])),
+                       - Polynomial::from(vec![-2, 1]),
                    Polynomial::from(vec![-5, 1, 1]));
 
         // t^2 + 2t - 7 - (t^2 + 2t - 7) == 0
         assert_eq!(Polynomial::from(vec![-7, 2, 1])
-                       .sub(Polynomial::from(vec![-7, 2, 1])),
+                       - Polynomial::from(vec![-7, 2, 1]),
                    Polynomial::from(vec![0]));
 
         // -3t^3 + 2t - 7 - (2t^2 + 2t - 2) == -3t^3 - 2t^2 - 5
         assert_eq!(Polynomial::from(vec![-7, 2, 0, -3])
-                       .sub(Polynomial::from(vec![-2, 2, 2])),
+                       - Polynomial::from(vec![-2, 2, 2]),
                    Polynomial::from(vec![-5, 0, -2, -3]));
     }
 

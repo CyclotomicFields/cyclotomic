@@ -110,19 +110,34 @@ impl Euclid {
         I've copied the implementation from above because I can't be bothered to
         do the type-fu required to make it more generic.
         */
-        None
+        let mut trailing_row = vec![m, Polynomial::one(), Polynomial::zero()];
+        let mut leading_row = vec![p, Polynomial::zero(), Polynomial::one()];
+        while !&leading_row[0].is_zero() {
+            let (quotient, remainder) = (&trailing_row[0]).div(&leading_row[0]);
+            let new_leading_row = vec![remainder,
+                                       (&trailing_row[1]).sub(&leading_row[1].mul(&quotient)),
+                                       (&trailing_row[2]).sub(&leading_row[2].mul(&quotient))];
+            trailing_row = leading_row;
+            leading_row = new_leading_row;
+        }
+        if trailing_row[0].is_one() {
+            Some(trailing_row[2].clone())
+        } else if trailing_row[0].neg().is_one() {
+            Some(trailing_row[2].clone().neg())
+        } else {
+            None
+        }
     }
 }
 
 #[cfg(test)]
-mod tests {
+mod euclid_tests {
     use super::*;
 
     #[test]
-    #[ignore]
     fn test_multiplicative_inverse_mod_polynomial() {
         let euclid = Euclid::new();
-        // (t + 2)^-1 in the ring Z[t] / t^3 + 3t^2 + 3t + 1
+        // (t + 2)^-1 == t^2 + t + 1 in the ring Z[t] / t^3 + 3t^2 + 3t + 1
         assert_eq!(euclid.multiplicative_inverse_mod_polynomial(
             Polynomial::from(vec![2, 1]), Polynomial::from(vec![1, 3, 3, 1])),
                    Some(Polynomial::from(vec![1, 1, 1])));
