@@ -1,6 +1,12 @@
 use std::ops::Neg;
 use crate::polynomial::polynomial::Polynomial;
 
+impl Polynomial {
+    pub fn neg(&self) -> Polynomial {
+        Polynomial::new(self.coefficients.iter().map(|c| c.neg()).collect())
+    }
+}
+
 impl Neg for Polynomial {
     type Output = Polynomial;
 

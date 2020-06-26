@@ -7,10 +7,6 @@ impl Polynomial {
     pub fn sub(&self, rhs: &Self) -> Polynomial {
         self.clone().add(rhs.neg())
     }
-
-    pub fn neg(&self) -> Polynomial {
-        Polynomial::new(self.coefficients.iter().map(|c| c.neg()).collect())
-    }
 }
 
 impl Sub for Polynomial {
