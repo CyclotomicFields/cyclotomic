@@ -1,1 +1,10 @@
 pub mod polynomial;
+pub mod construct;
+pub mod substitute;
+pub mod reduce;
+pub mod add;
+pub mod subtract;
+pub mod negate;
+pub mod multiply;
+pub mod divide;
+pub mod display;
