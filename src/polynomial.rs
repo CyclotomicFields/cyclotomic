@@ -216,6 +216,12 @@ impl From<Vec<Q>> for Polynomial {
     }
 }
 
+impl From<Vec<i64>> for Polynomial {
+    fn from(vec: Vec<i64>) -> Self {
+        Polynomial::new(vec.iter().map(|&i| BigInt::from(i)).collect())
+    }
+}
+
 impl Sub for Polynomial {
     type Output = Polynomial;
 
@@ -316,7 +322,7 @@ impl Mul for Polynomial {
 
         let lhs = self;
         let product_degree = lhs.degree() + rhs.degree();
-        let mut left_matrix_rows: Vec<Vec<Z>> = vec![vec![Z::zero();rhs.degree() + 1];product_degree + 1];
+        let mut left_matrix_rows: Vec<Vec<Z>> = vec![vec![Z::zero(); rhs.degree() + 1]; product_degree + 1];
 
         // Populate left matrix, column by column
         for column_number in 0..(rhs.degree() + 1) {
@@ -330,7 +336,7 @@ impl Mul for Polynomial {
         }
 
         // Perform matrix multiplication
-        let mut product_coefficients: Vec<Z> = vec![Z::zero();product_degree + 1];
+        let mut product_coefficients: Vec<Z> = vec![Z::zero(); product_degree + 1];
         for row_number in 0..(product_degree + 1) {
             let mut sum = Z::zero();
             for column_number in 0..(rhs.degree() + 1) {
@@ -348,20 +354,91 @@ impl Mul for Polynomial {
 mod polynomial_tests {
     use super::*;
 
-    fn vec_z(vec: Vec<i64>) -> Vec<Z> {
-        vec.iter().map(|&i| BigInt::from(i)).collect()
+    #[test]
+    fn test_multiplication() {
+        // t^2 + 2t - 7 * t - 2 == t^3 - 11t + 14
+        assert_eq!(Polynomial::from(vec![-2, 1])
+                       .mul(Polynomial::from(vec![-7, 2, 1])),
+                   Polynomial::from(vec![14, -11, 0, 1]));
+
+        // t^2 - 3t - 10 * t + 2 == t^3 - t^2 - 16t - 20
+        assert_eq!(Polynomial::from(vec![-10, -3, 1])
+                       .mul(Polynomial::from(vec![2, 1])),
+                   Polynomial::from(vec![-20, -16, -1, 1]));
+
+        // 2t^3 - 7t^2 + 4 * t^2 - 1 == 2t^5 - 7t^4 - 2t^3 + 11t^2 - 4
+        assert_eq!(Polynomial::from(vec![4, 0, -7, 2])
+                       .mul(Polynomial::from(vec![-1, 0, 1])),
+                   Polynomial::from(vec![-4, 0, 11, -2, -7, 2]));
+
+        // t^2 + 2t - 7 * t^2 + 2t - 7 == t^4 + 4t^3 - 10t^2 - 28t + 49
+        assert_eq!(Polynomial::from(vec![-7, 2, 1])
+                       .mul(Polynomial::from(vec![-7, 2, 1])),
+                   Polynomial::from(vec![49, -28, -10, 4, 1]));
+
+        // 2t^2 + 2t - 2 * -3t^3 + 2t - 7 == -6t^5 - 6t^4 +10t^3 - 10t^2 - 18t + 14
+        assert_eq!(Polynomial::from(vec![-2, 2, 2])
+                       .mul(Polynomial::from(vec![-7, 2, 0, -3])),
+                   Polynomial::from(vec![14, -18, -10, 10, -6, -6]));
     }
 
-    fn q_from_i64(n: i64) -> Q {
-        return Q::from(Z::from(n));
+    #[test]
+    fn test_long_division() {
+        // t^2 - 3t - 10 / t + 2 == t - 5 remainder 0
+        assert_eq!(Polynomial::from(vec![-10, -3, 1])
+                       .div(Polynomial::from(vec![2, 1])),
+                   (Polynomial::from(vec![-5, 1]), Polynomial::new(vec![Z::zero()])));
+
+        // t^2 + 2t - 7 / t - 2 == t + 4 remainder 1
+        assert_eq!(Polynomial::from(vec![-7, 2, 1])
+                       .div(Polynomial::from(vec![-2, 1])),
+                   (Polynomial::from(vec![4, 1]), Polynomial::new(vec![Z::one()])));
+
+        // 2t^3 - 7t^2 + 4 / t^2 - 1 == 2t - 7 remainder 2t - 3
+        assert_eq!(Polynomial::from(vec![4, 0, -7, 2])
+                       .div(Polynomial::from(vec![-1, 0, 1])),
+                   (Polynomial::from(vec![-7, 2]), Polynomial::from(vec![-3, 2])));
     }
 
-    fn vec_q(numerators: Vec<i64>, denominators: Vec<i64>) -> Vec<Q> {
-        let mut qs = vec![];
-        for i in 0..numerators.len() {
-            qs.push(Q::new(Z::from(numerators[i]), Z::from(denominators[i])));
+    #[test]
+    fn test_initialise_with_rational_coefficients() {
+        #[inline]
+        fn vec_q(numerators: Vec<i64>, denominators: Vec<i64>) -> Vec<Q> {
+            let mut qs = vec![];
+            for i in 0..numerators.len() {
+                qs.push(Q::new(Z::from(numerators[i]), Z::from(denominators[i])));
+            }
+            qs
         }
-        qs
+
+        assert_eq!(Polynomial::from(vec_q(vec![-7, 2, 1], vec![3, 5, 1])),
+                   (Polynomial::from(vec![-35, 6, 15])));
+
+        assert_eq!(Polynomial::from(vec_q(vec![-7, 2, 1, 2, -4], vec![2, 5, 1, -9, 3])),
+                   (Polynomial::from(vec![-315, 36, 90, -20, -120])));
+    }
+
+    #[test]
+    fn test_subtraction() {
+        // t^2 - 3t - 10 - (t + 2) == t^2 - 4t - 12
+        assert_eq!(Polynomial::from(vec![-10, -3, 1])
+                       .sub(Polynomial::from(vec![2, 1])),
+                   Polynomial::from(vec![-12, -4, 1]));
+
+        // t^2 + 2t - 7 - (t - 2) == t^2 + t - 5
+        assert_eq!(Polynomial::from(vec![-7, 2, 1])
+                       .sub(Polynomial::from(vec![-2, 1])),
+                   Polynomial::from(vec![-5, 1, 1]));
+
+        // t^2 + 2t - 7 - (t^2 + 2t - 7) == 0
+        assert_eq!(Polynomial::from(vec![-7, 2, 1])
+                       .sub(Polynomial::from(vec![-7, 2, 1])),
+                   Polynomial::from(vec![0]));
+
+        // -3t^3 + 2t - 7 - (2t^2 + 2t - 2) == -3t^3 - 2t^2 - 5
+        assert_eq!(Polynomial::from(vec![-7, 2, 0, -3])
+                       .sub(Polynomial::from(vec![-2, 2, 2])),
+                   Polynomial::from(vec![-5, 0, -2, -3]));
     }
 
     fn check_irreducibility(p: Polynomial) -> Option<bool> {
@@ -371,148 +448,75 @@ mod polynomial_tests {
     }
 
     #[test]
-    fn test_multiplication() {
-        // t^2 + 2t - 7 * t - 2 == t^3 - 11t + 14
-        assert_eq!(Polynomial::new(vec_z(vec![-2, 1]))
-                       .mul(Polynomial::new(vec_z(vec![-7, 2, 1]))),
-                   Polynomial::new(vec_z(vec![14, -11, 0, 1])));
-
-        // t^2 - 3t - 10 * t + 2 == t^3 - t^2 - 16t - 20
-        assert_eq!(Polynomial::new(vec_z(vec![-10, -3, 1]))
-                       .mul(Polynomial::new(vec_z(vec![2, 1]))),
-                   Polynomial::new(vec_z(vec![-20, -16, -1, 1])));
-
-        // 2t^3 - 7t^2 + 4 * t^2 - 1 == 2t^5 - 7t^4 - 2t^3 + 11t^2 - 4
-        assert_eq!(Polynomial::new(vec_z(vec![4, 0, -7, 2]))
-                       .mul(Polynomial::new(vec_z(vec![-1, 0, 1]))),
-                   Polynomial::new(vec_z(vec![-4, 0, 11, -2, -7, 2])));
-
-        // t^2 + 2t - 7 * t^2 + 2t - 7 == t^4 + 4t^3 - 10t^2 - 28t + 49
-        assert_eq!(Polynomial::new(vec_z(vec![-7, 2, 1]))
-                       .mul(Polynomial::new(vec_z(vec![-7, 2, 1]))),
-                   Polynomial::new(vec_z(vec![49, -28, -10, 4, 1])));
-
-        // 2t^2 + 2t - 2 * -3t^3 + 2t - 7 == -6t^5 - 6t^4 +10t^3 - 10t^2 - 18t + 14
-        assert_eq!(Polynomial::new(vec_z(vec![-2, 2, 2]))
-                       .mul(Polynomial::new(vec_z(vec![-7, 2, 0, -3]))),
-                   Polynomial::new(vec_z(vec![14, -18, -10, 10, -6, -6])));
-    }
-
-    #[test]
-    fn test_long_division() {
-        // t^2 - 3t - 10 / t + 2 == t - 5 remainder 0
-        assert_eq!(Polynomial::new(vec_z(vec![-10, -3, 1]))
-                       .div(Polynomial::new(vec_z(vec![2, 1]))),
-                   (Polynomial::new(vec_z(vec![-5, 1])), Polynomial::new(vec![Z::zero()])));
-
-        // t^2 + 2t - 7 / t - 2 == t + 4 remainder 1
-        assert_eq!(Polynomial::new(vec_z(vec![-7, 2, 1]))
-                       .div(Polynomial::new(vec_z(vec![-2, 1]))),
-                   (Polynomial::new(vec_z(vec![4, 1])), Polynomial::new(vec![Z::one()])));
-
-        // 2t^3 - 7t^2 + 4 / t^2 - 1 == 2t - 7 remainder 2t - 3
-        assert_eq!(Polynomial::new(vec_z(vec![4, 0, -7, 2]))
-                       .div(Polynomial::new(vec_z(vec![-1, 0, 1]))),
-                   (Polynomial::new(vec_z(vec![-7, 2])), Polynomial::new(vec_z(vec![-3, 2]))));
-    }
-
-    #[test]
-    fn test_initialise_with_rational_coefficients() {
-        assert_eq!(Polynomial::from(vec_q(vec![-7, 2, 1], vec![3, 5, 1])),
-                   (Polynomial::new(vec_z(vec![-35, 6, 15]))));
-
-        assert_eq!(Polynomial::from(vec_q(vec![-7, 2, 1, 2, -4], vec![2, 5, 1, -9, 3])),
-                   (Polynomial::new(vec_z(vec![-315, 36, 90, -20, -120]))));
-    }
-
-    #[test]
-    fn test_subtraction() {
-        // t^2 - 3t - 10 - (t + 2) == t^2 - 4t - 12
-        assert_eq!(Polynomial::new(vec_z(vec![-10, -3, 1]))
-                       .sub(Polynomial::new(vec_z(vec![2, 1]))),
-                   Polynomial::new(vec_z(vec![-12, -4, 1])));
-
-        // t^2 + 2t - 7 - (t - 2) == t^2 + t - 5
-        assert_eq!(Polynomial::new(vec_z(vec![-7, 2, 1]))
-                       .sub(Polynomial::new(vec_z(vec![-2, 1]))),
-                   Polynomial::new(vec_z(vec![-5, 1, 1])));
-
-        // t^2 + 2t - 7 - (t^2 + 2t - 7) == 0
-        assert_eq!(Polynomial::new(vec_z(vec![-7, 2, 1]))
-                       .sub(Polynomial::new(vec_z(vec![-7, 2, 1]))),
-                   Polynomial::new(vec_z(vec![0])));
-
-        // -3t^3 + 2t - 7 - (2t^2 + 2t - 2) == -3t^3 - 2t^2 - 5
-        assert_eq!(Polynomial::new(vec_z(vec![-7, 2, 0, -3]))
-                       .sub(Polynomial::new(vec_z(vec![-2, 2, 2]))),
-                   Polynomial::new(vec_z(vec![-5, 0, -2, -3])));
-    }
-
-    #[test]
     fn test_irreducibility_check_edge_cases() {
         // t + 1
-        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![1, 1]))), Some(true));
+        assert_eq!(check_irreducibility(Polynomial::from(vec![1, 1])), Some(true));
 
         // t^5
-        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![0, 0, 0, 0, 0, 1]))), Some(false));
+        assert_eq!(check_irreducibility(Polynomial::from(vec![0, 0, 0, 0, 0, 1])), Some(false));
 
         // 10
-        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![10]))), Some(true));
+        assert_eq!(check_irreducibility(Polynomial::from(vec![10])), Some(true));
     }
 
     #[test]
     fn test_irreducibility_check_rational_roots_theorem() {
         // (t - 3)(t - 2)
-        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![6, -5, 1]))), Some(false));
+        assert_eq!(check_irreducibility(Polynomial::from(vec![6, -5, 1])), Some(false));
 
         // (t + 1/2)(t^2 - 5)
-        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![-5, -10, 1, 2]))), Some(false));
+        assert_eq!(check_irreducibility(Polynomial::from(vec![-5, -10, 1, 2])), Some(false));
 
         // 2t^2 + t + 1
-        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![1, 1, 2]))), Some(true));
+        assert_eq!(check_irreducibility(Polynomial::from(vec![1, 1, 2])), Some(true));
 
         // t^3 + 2t^2 - 4
-        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![1, 1, 2]))), Some(true));
+        assert_eq!(check_irreducibility(Polynomial::from(vec![1, 1, 2])), Some(true));
 
         // 4t^3 + t^2 - t + 3
-        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![3, -1, 1, 4]))), Some(true));
+        assert_eq!(check_irreducibility(Polynomial::from(vec![3, -1, 1, 4])), Some(true));
 
         // 3t^3 + 4t^2 - 6t + 18
-        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![18, -6, 4, 3]))), Some(true));
+        assert_eq!(check_irreducibility(Polynomial::from(vec![18, -6, 4, 3])), Some(true));
     }
 
     #[test]
     fn test_irreducibility_check_eisenstein_criterion() {
         // t^4 - 3t + 6
-        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![6, -3, 0, 0, 1]))), Some(true));
+        assert_eq!(check_irreducibility(Polynomial::from(vec![6, -3, 0, 0, 1])), Some(true));
     }
 
     #[test]
     fn test_irreducibility_check_taking_mod_p() {
         // 2t^4 + 3t^2 + 3t + 18
-        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![18, 3, 3, 0, 2]))), Some(true));
+        assert_eq!(check_irreducibility(Polynomial::from(vec![18, 3, 3, 0, 2])), Some(true));
     }
 
     #[test]
     fn test_irreducibility_no_result() {
         // t^4 + 5t^2 + 4
-        assert_eq!(check_irreducibility(Polynomial::new(vec_z(vec![4, 0, 5, 0, 1]))), None);
+        assert_eq!(check_irreducibility(Polynomial::from(vec![4, 0, 5, 0, 1])), None);
     }
 
     #[test]
     fn test_monic_check() {
         // p = 1
-        assert!(Polynomial::new(vec_z(vec![1])).is_monic());
+        assert!(Polynomial::from(vec![1]).is_monic());
         // p = 2t + 1
-        assert!(!Polynomial::new(vec_z(vec![1, 2])).is_monic());
+        assert!(!Polynomial::from(vec![1, 2]).is_monic());
         // p = t^5 - t^3 - 2t^2 - 1
-        assert!(Polynomial::new(vec_z(vec![-1, 0, -2, -1, 0, 1])).is_monic());
+        assert!(Polynomial::from(vec![-1, 0, -2, -1, 0, 1]).is_monic());
     }
 
     #[test]
     fn test_polynomial_substitution() {
+        #[inline]
+        fn q_from_i64(n: i64) -> Q {
+            return Q::from(Z::from(n));
+        }
+
         // p = 1
-        let mut p: Polynomial = Polynomial::new(vec_z(vec![1]));
+        let mut p: Polynomial = Polynomial::from(vec![1]);
 
         assert_eq!(p.substitute(q_from_i64(5)), q_from_i64(1));
         assert_eq!(p.substitute(q_from_i64(0)), q_from_i64(1));
@@ -523,7 +527,7 @@ mod polynomial_tests {
         assert_eq!(p.substitute(q_from_i64(125716)), q_from_i64(1));
 
         // p = 2t + 1
-        p = Polynomial::new(vec_z(vec![1, 2]));
+        p = Polynomial::from(vec![1, 2]);
 
         assert_eq!(p.substitute(q_from_i64(5)), q_from_i64(11));
         assert_eq!(p.substitute(q_from_i64(0)), q_from_i64(1));
@@ -534,7 +538,7 @@ mod polynomial_tests {
         assert_eq!(p.substitute(q_from_i64(125716)), q_from_i64(251433));
 
         // p = t^5 - t^3 - 2t^2 - 1
-        p = Polynomial::new(vec_z(vec![-1, 0, -2, -1, 0, 1]));
+        p = Polynomial::from(vec![-1, 0, -2, -1, 0, 1]);
 
         assert_eq!(p.substitute(q_from_i64(5)), q_from_i64(2949));
         assert_eq!(p.substitute(q_from_i64(0)), q_from_i64(-1));

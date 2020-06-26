@@ -118,20 +118,14 @@ impl Euclid {
 mod tests {
     use super::*;
 
-    fn vec_z(vec: Vec<i64>) -> Vec<Z> {
-        vec.iter().map(|&i| BigInt::from(i)).collect()
-    }
-
     #[test]
     #[ignore]
     fn test_multiplicative_inverse_mod_polynomial() {
         let euclid = Euclid::new();
         // (t + 2)^-1 in the ring Z[t] / t^3 + 3t^2 + 3t + 1
         assert_eq!(euclid.multiplicative_inverse_mod_polynomial(
-            Polynomial::new(vec_z(vec![2, 1])), Polynomial::new(vec_z(vec![1, 3, 3, 1]))),
-                   Some(Polynomial::new(vec_z(vec![1, 1, 1]))));
-
-
+            Polynomial::from(vec![2, 1]), Polynomial::from(vec![1, 3, 3, 1])),
+                   Some(Polynomial::from(vec![1, 1, 1])));
     }
 
     #[test]
