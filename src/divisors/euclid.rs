@@ -2,7 +2,7 @@ extern crate num;
 
 use self::num::{BigInt, BigRational, Zero, ToPrimitive, One, Integer, Signed};
 use std::ops::{Div, Rem, Sub};
-use crate::polynomial::Polynomial;
+use crate::polynomial::polynomial::Polynomial;
 
 type Z = num::bigint::BigInt;
 
