@@ -379,7 +379,7 @@ impl Zero for Polynomial {
     }
 
     fn is_zero(&self) -> bool {
-        self.eq(&Polynomial::new(vec![Z::zero()]))
+        self.eq(&zero())
     }
 }
 
@@ -390,7 +390,7 @@ impl One for Polynomial {
 
     fn is_one(&self) -> bool where
         Self: PartialEq, {
-        self.eq(&Polynomial::new(vec![Z::one()]))
+        self.eq(&one())
     }
 }
 
@@ -455,12 +455,12 @@ mod polynomial_tests {
         // t^2 - 3t - 10 / t + 2 == t - 5 remainder 0
         assert_eq!(Polynomial::from(vec![-10, -3, 1])
                        .div(Polynomial::from(vec![2, 1])),
-                   (Polynomial::from(vec![-5, 1]), Polynomial::new(vec![Z::zero()])));
+                   (Polynomial::from(vec![-5, 1]), Polynomial::zero()));
 
         // t^2 + 2t - 7 / t - 2 == t + 4 remainder 1
         assert_eq!(Polynomial::from(vec![-7, 2, 1])
                        .div(Polynomial::from(vec![-2, 1])),
-                   (Polynomial::from(vec![4, 1]), Polynomial::new(vec![Z::one()])));
+                   (Polynomial::from(vec![4, 1]), Polynomial::one()));
 
         // 2t^3 - 7t^2 + 4 / t^2 - 1 == 2t - 7 remainder 2t - 3
         assert_eq!(Polynomial::from(vec![4, 0, -7, 2])
