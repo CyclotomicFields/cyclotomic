@@ -11,39 +11,39 @@ impl Polynomial {
                                  primes: &Primes) -> Option<bool>
     {
         /*
-    If the degree is one, then it is irreducible, because it cannot factor
-    into polynomials of lower degree.
-    */
+        If the degree is one, then it is irreducible, because it cannot factor
+        into polynomials of lower degree.
+        */
         if self.degree() <= 1 {
             return Some(true);
         }
 
         /*
-    If it only has one term, and that term has degree >= 2, then it's
-    reducible, because 0 will be a root.
-    */
+        If it only has one term, and that term has degree >= 2, then it's
+        reducible, because 0 will be a root.
+        */
         if self.coefficients.len() == 1 && self.degree() >= 2 {
             return Some(false);
         }
 
         /*
-    If the constant term is 0, then it's reducible, because 0 will be a
-    root.
-    */
+        If the constant term is 0, then it's reducible, because 0 will be a
+        root.
+        */
         if self.constant_term_coefficient().is_zero() {
             return Some(false);
         }
 
         /*
-    Rational Roots Theorem
+        Rational Roots Theorem
 
-    All rational roots of p will have a numerator that divides the constant
-    term, and a denominator that divides the leading term coefficient. If
-    we take all the combinations of the divisors of the leading and constant
-    term coefficients and combine them into a fraction, then pass them
-    through the polynomial, then if any value is zero, then clearly the
-    polynomial is reducible over the rationals.
-    */
+        All rational roots of p will have a numerator that divides the constant
+        term, and a denominator that divides the leading term coefficient. If
+        we take all the combinations of the divisors of the leading and constant
+        term coefficients and combine them into a fraction, then pass them
+        through the polynomial, then if any value is zero, then clearly the
+        polynomial is reducible over the rationals.
+        */
         let mut numerators = divisors_strategy.divisors(self.constant_term_coefficient());
         numerators.push(Z::from(-1));
         let denominators = divisors_strategy.divisors(self.leading_term_coefficient());
@@ -54,36 +54,36 @@ impl Polynomial {
         }
 
         /*
-    All factorisations of degree 2 or degree 3 polynomials must result in a
-    degree 1 factor, also known as a root. Therefore if a polynomial of
-    degree 2 or degree 3 has no roots, then there are no factorisations,
-    which means that it is an irreducible polynomial.π
-    */
+        All factorisations of degree 2 or degree 3 polynomials must result in a
+        degree 1 factor, also known as a root. Therefore if a polynomial of
+        degree 2 or degree 3 has no roots, then there are no factorisations,
+        which means that it is an irreducible polynomial.π
+        */
         if self.degree() <= 3 {
             return Some(true);
         }
 
         /*
-    See if we can determine irreducibility using Eisenstein's criterion.
-    */
+        See if we can determine irreducibility using Eisenstein's criterion.
+        */
         if self.is_irreducible_by_eisenstein_criterion(&self.coefficients, prime_factorizer) {
             return Some(true);
         }
 
         /*
-    Reducing mod q
+        Reducing mod q
 
-    If q is a prime that is not a factor of the leading coefficient, then
-    if the polynomial is irreducible over Z mod q, then it is also
-    irreducible over Q.
+        If q is a prime that is not a factor of the leading coefficient, then
+        if the polynomial is irreducible over Z mod q, then it is also
+        irreducible over Q.
 
-    We can check this for some sensible number of candidate primes, q. When
-    checking for irreducibility over Z mod q, we use the Eisenstein
-    criterion. We aren't interested in the case where the polynomial is
-    reducible, because that isn't conclusive information.
-    Todo: It may be computationally faster to use the rational roots theorem
-          to fail fast for reducible polynomials.
-    */
+        We can check this for some sensible number of candidate primes, q. When
+        checking for irreducibility over Z mod q, we use the Eisenstein
+        criterion. We aren't interested in the case where the polynomial is
+        reducible, because that isn't conclusive information.
+        Todo: It may be computationally faster to use the rational roots theorem
+              to fail fast for reducible polynomials.
+        */
         let leading_coefficient_prime_factors = prime_factorizer.prime_factors(self.leading_term_coefficient());
         let mut primes_vec = primes.to_vec().clone();
         primes_vec.retain(|&q| {
@@ -92,9 +92,9 @@ impl Polynomial {
                 && !(self.constant_term_coefficient() % q_z_ref).is_zero()
         });
         /*
-    Todo: Do something more coherent than arbitrarily taking the first
-          five matching primes.
-    */
+        Todo: Do something more coherent than arbitrarily taking the first
+              five matching primes.
+        */
         primes_vec.truncate(5);
         for q in primes_vec {
             let mut coefficients_mod_q = self.coefficients.clone();
@@ -113,17 +113,17 @@ impl Polynomial {
 
     fn is_irreducible_by_eisenstein_criterion(&self, coefficients: &Vec<Z>, prime_factorizer: &impl PrimeFactorize) -> bool {
         /*
-    Eisenstein's Criterion
+        Eisenstein's Criterion
 
-    The polynomial is irreducible if there exists a prime, q, such that:
-      - q is a factor of every non-leading term
-      - q is not a factor of the leading term
-      - q squared is not a factor of the constant term
+        The polynomial is irreducible if there exists a prime, q, such that:
+          - q is a factor of every non-leading term
+          - q is not a factor of the leading term
+          - q squared is not a factor of the constant term
 
-    Find the common prime factors of all the non-leading coefficients, and
-    check all of them against the second and third points of the criterion,
-    as listed above.
-    */
+        Find the common prime factors of all the non-leading coefficients, and
+        check all of them against the second and third points of the criterion,
+        as listed above.
+        */
         let constant_term = &coefficients[0].clone();
         let leading_coefficient = &coefficients[coefficients.len() - 1].clone();
         let mut non_leading_non_zero_coefficients = coefficients.clone();
