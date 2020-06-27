@@ -1,7 +1,7 @@
 use crate::polynomial::polynomial::{Polynomial, Z, Q};
 use std::fmt::{Display, Formatter};
 use std::fmt;
-use num::{Zero, One, ToPrimitive};
+use num::{Zero, One, ToPrimitive, Signed};
 use std::ops::Neg;
 
 impl Polynomial {
@@ -25,7 +25,7 @@ impl Polynomial {
                             format!("{}", c)
                         }
                     } else {
-                        format!("({})", coefficient.to_string())
+                        format!("{}", coefficient.to_string())
                     }
                 } else {
                     format!("({})", coefficient.to_string())
@@ -47,8 +47,12 @@ impl Polynomial {
                         format!("({})", coefficient.to_string())
                     }
                 } else {
-                    format!("({})", coefficient.to_string())
-                }
+                    if coefficient.is_negative() {
+                        format!("- ({})", (coefficient.neg()).to_string())
+                    } else {
+                        format!("+ ({})", coefficient.to_string())
+                    }
+                };
             }
         }
 
@@ -92,16 +96,18 @@ mod polynomial_tests {
 
     #[test]
     fn test_to_string() {
-        assert_eq!(Polynomial::from(vec![-1]).to_string(), "-1".to_string());
         assert_eq!(Polynomial::one().to_string(), "1".to_string());
         assert_eq!(Polynomial::zero().to_string(), "0".to_string());
+        assert_eq!(Polynomial::one().neg().to_string(), "-1".to_string());
         assert_eq!(Polynomial::from(vec![-2, 1]).to_string(), "t - 2".to_string());
         assert_eq!(Polynomial::from(vec![1, 0, -7, 2]).to_string(), "2t^3 - 7t^2 + 1".to_string());
         assert_eq!(Polynomial::from(vec![-1, 2]).to_string(), "2t - 1".to_string());
         assert_eq!(Polynomial::from(vec![0, -1]).to_string(), "-t".to_string());
         assert_eq!(Polynomial::from(vec![2, 5, 4, 6]).to_string(), "6t^3 + 4t^2 + 5t + 2".to_string());
+        assert_eq!(Polynomial::from(vec![2, 5, -4, -6]).to_string(), "-6t^3 - 4t^2 + 5t + 2".to_string());
         assert_eq!(Polynomial::from(vec![2, 5, 0, 0, -9]).to_string(), "-9t^4 + 5t + 2".to_string());
         assert_eq!(Polynomial::from(vec![1, 1, 1]).to_string(), "t^2 + t + 1".to_string());
         assert_eq!(Polynomial::from(vec![1, -1, 1]).to_string(), "t^2 - t + 1".to_string());
+        assert_eq!(Polynomial::from_small_fractions(vec![1, -1, -1], vec![4, 3, 2]).to_string(), "(-1/2)t^2 - (1/3)t + (1/4)".to_string());
     }
 }
