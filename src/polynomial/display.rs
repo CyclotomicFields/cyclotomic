@@ -1,4 +1,4 @@
-use crate::polynomial::polynomial::{Polynomial, Z};
+use crate::polynomial::polynomial::{Polynomial, Z, Q};
 use std::fmt::{Display, Formatter};
 use std::fmt;
 use num::{Zero, One, ToPrimitive};
@@ -13,33 +13,41 @@ impl Polynomial {
         }
 
         #[inline]
-        fn format_coefficient(coefficient: Z, degree: usize, i: usize) -> String {
+        fn format_coefficient(coefficient: Q, degree: usize, i: usize) -> String {
             if i == 0 {
-                return if let Some(c) = coefficient.to_i64() {
-                    if coefficient.is_one() && degree > 0 {
-                        "".to_string()
-                    } else if coefficient.eq(&Z::one().neg()) && degree > 0 {
-                        "-".to_string()
+                return if coefficient.denom().is_one() {
+                    if let Some(c) = coefficient.to_integer().to_i64() {
+                        if coefficient.is_one() && degree > 0 {
+                            "".to_string()
+                        } else if coefficient.eq(&Q::one().neg()) && degree > 0 {
+                            "-".to_string()
+                        } else {
+                            format!("{}", c)
+                        }
                     } else {
-                        format!("{}", c)
+                        format!("({})", coefficient.to_string())
                     }
                 } else {
-                    coefficient.to_string()
+                    format!("({})", coefficient.to_string())
                 };
             }
             if coefficient.is_one() && degree > 0 {
                 "+ ".to_string()
-            } else if coefficient.eq(&Z::one().neg()) && degree > 0 {
+            } else if coefficient.eq(&Q::one().neg()) && degree > 0 {
                 "- ".to_string()
             } else {
-                if let Some(c) = coefficient.to_i64() {
-                    if c < 0 {
-                        format!("- {}", c * -1)
+                return if coefficient.denom().is_one() {
+                    if let Some(c) = coefficient.to_integer().to_i64() {
+                        if c < 0 {
+                            format!("- {}", c * -1)
+                        } else {
+                            format!("+ {}", c)
+                        }
                     } else {
-                        format!("+ {}", c)
+                        format!("({})", coefficient.to_string())
                     }
                 } else {
-                    coefficient.to_string()
+                    format!("({})", coefficient.to_string())
                 }
             }
         }

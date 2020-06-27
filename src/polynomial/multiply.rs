@@ -2,7 +2,7 @@ use std::ops::Mul;
 
 use num::{One, one, Zero};
 
-use crate::polynomial::polynomial::{Polynomial, Z};
+use crate::polynomial::polynomial::{Polynomial, Z, Q};
 
 impl Polynomial {
     // TODO: Figure out how to use a fast library for this.
@@ -17,7 +17,7 @@ impl Polynomial {
 
         let lhs = self;
         let product_degree = lhs.degree() + rhs.degree();
-        let mut left_matrix_rows: Vec<Vec<Z>> = vec![vec![Z::zero(); rhs.degree() + 1]; product_degree + 1];
+        let mut left_matrix_rows: Vec<Vec<Q>> = vec![vec![Q::zero(); rhs.degree() + 1]; product_degree + 1];
 
         // Populate left matrix, column by column
         for column_number in 0..(rhs.degree() + 1) {
@@ -25,15 +25,15 @@ impl Polynomial {
                 if row_number >= column_number && row_number < lhs.degree() + column_number + 1 {
                     left_matrix_rows[row_number][column_number] = lhs.coefficients[row_number - column_number].clone();
                 } else {
-                    left_matrix_rows[row_number][column_number] = Z::zero();
+                    left_matrix_rows[row_number][column_number] = Q::zero();
                 }
             }
         }
 
         // Perform matrix multiplication
-        let mut product_coefficients: Vec<Z> = vec![Z::zero(); product_degree + 1];
+        let mut product_coefficients: Vec<Q> = vec![Q::zero(); product_degree + 1];
         for row_number in 0..(product_degree + 1) {
-            let mut sum = Z::zero();
+            let mut sum = Q::zero();
             for column_number in 0..(rhs.degree() + 1) {
                 sum += &left_matrix_rows[row_number][column_number] * &rhs.coefficients[column_number]
             }
@@ -63,7 +63,7 @@ impl Mul<&Self> for Polynomial {
 
 impl One for Polynomial {
     fn one() -> Self {
-        Polynomial::new(vec![Z::one()])
+        Polynomial::new(vec![Q::one()])
     }
 
     fn is_one(&self) -> bool where

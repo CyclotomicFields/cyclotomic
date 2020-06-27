@@ -2,7 +2,8 @@ use crate::prime_factors::prime_factorize::PrimeFactorize;
 use crate::polynomial::polynomial::{Q, Polynomial, Z};
 use crate::divisors::divisors::Divisors;
 use crate::primes::primes::Primes;
-use num::Zero;
+use num::{Zero, One};
+use num::integer::lcm;
 
 impl Polynomial {
     pub fn is_irreducible_over_q(&self,
@@ -19,10 +20,11 @@ impl Polynomial {
         }
 
         /*
-        If it only has one term, and that term has degree >= 2, then it's
-        reducible, because 0 will be a root.
+        If it only has one term, and that term has degree > 0, then it's
+        reducible, because 0 will be a root. We just checked the degree, so we
+        don't have to check again.
         */
-        if self.coefficients.len() == 1 && self.degree() >= 2 {
+        if self.coefficients.len() == 1 {
             return Some(false);
         }
 
@@ -35,6 +37,13 @@ impl Polynomial {
         }
 
         /*
+        From this point onwards, we rely on having integer coefficients, so
+        we'll transform the polynomial into one with integer coefficients
+        before going on.
+        */
+        let integer_polynomial = self.with_integer_coefficients();
+
+        /*
         Rational Roots Theorem
 
         All rational roots of p will have a numerator that divides the constant
@@ -44,9 +53,9 @@ impl Polynomial {
         through the polynomial, then if any value is zero, then clearly the
         polynomial is reducible over the rationals.
         */
-        let mut numerators = divisors_strategy.divisors(self.constant_term_coefficient());
+        let mut numerators = divisors_strategy.divisors(&integer_polynomial.constant_term_coefficient().to_integer());
         numerators.push(Z::from(-1));
-        let denominators = divisors_strategy.divisors(self.leading_term_coefficient());
+        let denominators = divisors_strategy.divisors(&integer_polynomial.leading_term_coefficient().to_integer());
         if numerators.iter().any(|n| denominators.iter().any(|d| {
             return self.substitute(Q::new(n.clone(), d.clone())).is_zero();
         })) {
@@ -66,7 +75,7 @@ impl Polynomial {
         /*
         See if we can determine irreducibility using Eisenstein's criterion.
         */
-        if self.is_irreducible_by_eisenstein_criterion(&self.coefficients, prime_factorizer) {
+        if Polynomial::is_irreducible_by_eisenstein_criterion(&integer_polynomial.try_integer_coefficients(), prime_factorizer) {
             return Some(true);
         }
 
@@ -84,7 +93,7 @@ impl Polynomial {
         Todo: It may be computationally faster to use the rational roots theorem
               to fail fast for reducible polynomials.
         */
-        let leading_coefficient_prime_factors = prime_factorizer.prime_factors(self.leading_term_coefficient());
+        let leading_coefficient_prime_factors = prime_factorizer.prime_factors(&integer_polynomial.leading_term_coefficient().to_integer());
         let mut primes_vec = primes.to_vec().clone();
         primes_vec.retain(|&q| {
             let q_z_ref = &Z::from(q);
@@ -97,12 +106,12 @@ impl Polynomial {
         */
         primes_vec.truncate(5);
         for q in primes_vec {
-            let mut coefficients_mod_q = self.coefficients.clone();
+            let mut coefficients_mod_q = integer_polynomial.try_integer_coefficients();
             for c in coefficients_mod_q.iter_mut() {
                 let c_mod_q = c.clone() % Z::from(q);
                 *c = c_mod_q;
             }
-            if self.is_irreducible_by_eisenstein_criterion(&coefficients_mod_q, prime_factorizer) {
+            if Polynomial::is_irreducible_by_eisenstein_criterion(&coefficients_mod_q, prime_factorizer) {
                 return Some(true);
             }
         }
@@ -111,7 +120,7 @@ impl Polynomial {
         return None;
     }
 
-    fn is_irreducible_by_eisenstein_criterion(&self, coefficients: &Vec<Z>, prime_factorizer: &impl PrimeFactorize) -> bool {
+    fn is_irreducible_by_eisenstein_criterion(coefficients: &Vec<Z>, prime_factorizer: &impl PrimeFactorize) -> bool {
         /*
         Eisenstein's Criterion
 
@@ -144,6 +153,20 @@ impl Polynomial {
             }
         }
         return false;
+    }
+
+    pub fn with_integer_coefficients(&self) -> Polynomial {
+        let mut lcm_accumulator = Z::one();
+        for c in &self.coefficients {
+            lcm_accumulator = lcm(lcm_accumulator, c.denom().clone());
+        }
+        let lcm = lcm_accumulator;
+        let integer_coefficients: Vec<Z> = self.coefficients.iter().map(|c| (c * &lcm).to_integer()).collect();
+        Polynomial::from(integer_coefficients)
+    }
+
+    pub fn try_integer_coefficients(&self) -> Vec<Z> {
+        self.coefficients.iter().map(|c| c.to_integer()).collect()
     }
 }
 
