@@ -3,6 +3,8 @@ extern crate num;
 use self::num::{BigInt, BigRational, Zero, ToPrimitive, One, Integer, Signed};
 use std::ops::{Div, Rem, Sub};
 use crate::polynomial::polynomial::Polynomial;
+use std::cmp::max;
+use std::borrow::Borrow;
 
 type Z = num::bigint::BigInt;
 
@@ -112,7 +114,7 @@ impl Euclid {
         */
         let mut trailing_row = vec![m, Polynomial::one(), Polynomial::zero()];
         let mut leading_row = vec![p, Polynomial::zero(), Polynomial::one()];
-        while !&leading_row[0].is_zero() {
+        while !(leading_row[0].is_zero()) {
             let (quotient, remainder) = (&trailing_row[0]).div(&leading_row[0]);
             let new_leading_row = vec![remainder,
                                        (&trailing_row[1]).sub(&leading_row[1].mul(&quotient)),
@@ -141,6 +143,16 @@ mod euclid_tests {
         assert_eq!(euclid.multiplicative_inverse_mod_polynomial(
             Polynomial::from(vec![2, 1]), Polynomial::from(vec![1, 3, 3, 1])),
                    Some(Polynomial::from(vec![1, 1, 1])));
+
+        // (t^3 - 1)^-1 has no inverse in the ring Z[t] / t^5 + 4t^3 + 2
+        assert_eq!(euclid.multiplicative_inverse_mod_polynomial(
+            Polynomial::from(vec![-1, 0, 0, 1]), Polynomial::from(vec![2, 0, 0, 4, 0, 1])),
+                   None);
+
+        // (2t  + 4)^-1 == (-1/2)t^3 - t^2 - t in the ring Z[t] / t^4 + 4t^3 + 6t^2 + 4t + 1
+        assert_eq!(euclid.multiplicative_inverse_mod_polynomial(
+            Polynomial::from(vec![4, 2]), Polynomial::from(vec![1, 4, 6, 4, 1])),
+                   Some(Polynomial::from_small_fractions(vec![0, -1, -1, -1], vec![1, 1, 1, 2])));
     }
 
     #[test]

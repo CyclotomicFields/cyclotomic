@@ -6,7 +6,7 @@ pub type Q = num::rational::BigRational;
 
 #[derive(Debug, Clone)]
 pub struct Polynomial {
-    pub coefficients: Vec<Z>
+    pub coefficients: Vec<Q>
 }
 
 impl Polynomial {
@@ -18,11 +18,11 @@ impl Polynomial {
         return self.coefficients.len() - 1;
     }
 
-    pub fn leading_term_coefficient(&self) -> &Z {
+    pub fn leading_term_coefficient(&self) -> &Q {
         &self.coefficients[self.coefficients.len() - 1]
     }
 
-    pub fn constant_term_coefficient(&self) -> &Z {
+    pub fn constant_term_coefficient(&self) -> &Q {
         &self.coefficients[0]
     }
 }

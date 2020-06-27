@@ -2,7 +2,7 @@ use std::ops::Add;
 
 use num::{Zero, zero};
 
-use crate::polynomial::polynomial::{Polynomial, Z};
+use crate::polynomial::polynomial::{Polynomial, Z, Q};
 
 impl Add for Polynomial {
     type Output = Polynomial;
@@ -30,7 +30,7 @@ impl Add for Polynomial {
 
 impl Zero for Polynomial {
     fn zero() -> Self {
-        Polynomial::new(vec![Z::zero()])
+        Polynomial::new(vec![Q::zero()])
     }
 
     fn is_zero(&self) -> bool {

@@ -2,7 +2,7 @@ use std::ops::{Div, MulAssign};
 
 use num::{Integer, One, Zero};
 
-use crate::polynomial::polynomial::{Polynomial, Q};
+use crate::polynomial::polynomial::{Polynomial, Q, Z};
 
 impl Polynomial {
     pub fn div(&self, divisor: &Self) -> (Polynomial, Polynomial) {
@@ -48,28 +48,28 @@ impl Polynomial {
         } else if divisor.neg().is_one() {
             return (self.neg(), Polynomial::zero());
         } else if self.degree() == 0 && divisor.degree() == 0 {
-            let (div, rem) = self.leading_term_coefficient().div_rem(divisor.leading_term_coefficient());
-            return (Polynomial::new(vec![div]), Polynomial::new(vec![rem]));
+            let rational_number = self.leading_term_coefficient().div(divisor.leading_term_coefficient());
+            return (Polynomial::new(vec![rational_number]), Polynomial::zero());
+        } else if divisor.degree() == 0 {
+            let divided_coefficients = self.coefficients.iter().map(|c| c.div(&divisor.coefficients[0])).collect();
+            return (Polynomial::new(divided_coefficients), Polynomial::zero());
         }
-        assert!(self.degree() >= 1);
-        assert!(divisor.degree() >= 1);
+        assert!(self.degree() > 0);
         let mut quotient_accumulator = vec![Q::zero(); self.degree()];
         let mut current_polynomial = self.clone();
 
         while current_polynomial.degree() >= divisor.degree() {
             let current_term_degree = current_polynomial.degree() - divisor.degree();
-            let current_term_coefficient = Q::new(
-                current_polynomial.leading_term_coefficient().clone(),
-                divisor.leading_term_coefficient().clone());
+            let current_term_coefficient = current_polynomial.leading_term_coefficient().div(divisor.leading_term_coefficient());
             quotient_accumulator[current_term_degree] = current_term_coefficient.clone();
             let mut subtraction_coefficients = vec![Q::zero(); current_term_degree];
             subtraction_coefficients.extend(divisor.coefficients.iter().map(|c| Q::from(c.clone())));
             subtraction_coefficients.iter_mut().for_each(|c| c.mul_assign(current_term_coefficient.clone()));
-            current_polynomial = current_polynomial - Polynomial::from(subtraction_coefficients);
+            current_polynomial = current_polynomial - Polynomial::new(subtraction_coefficients);
         }
 
         Polynomial::truncate_coefficients(&mut quotient_accumulator);
-        (Polynomial::from(quotient_accumulator), current_polynomial)
+        (Polynomial::new(quotient_accumulator), current_polynomial)
     }
 }
 
@@ -84,17 +84,20 @@ impl Div<&Self> for Polynomial {
 #[cfg(test)]
 mod polynomial_tests {
     use num::{One, Zero};
-
-    use crate::polynomial::polynomial::Polynomial;
-
     use super::*;
 
     #[test]
     fn test_long_division() {
-        // 14 / 6 == 2 remainder 2
+        // t^2 + 6 / -6t - 1 == -(1/6)t + (1/36) remainder (217/36)
+        assert_eq!(Polynomial::from(vec![6, 0, 1])
+                       .div(&Polynomial::from(vec![-1, -6])),
+                   (Polynomial::from_small_fractions(vec![1, -1], vec![36, 6]),
+                    Polynomial::from_small_fractions(vec![217], vec![36])));
+
+        // 14 / 6 == 7 / 3 remainder 0
         assert_eq!(Polynomial::from(vec![14])
                        .div(&Polynomial::from(vec![6])),
-                   (Polynomial::from(vec![2]), Polynomial::from(vec![2])));
+                   (Polynomial::from_small_fractions(vec![7], vec![3]), Polynomial::zero()));
 
         // t^2 - 1 / 1 == t^2 - 1 remainder 0
         assert_eq!(Polynomial::from(vec![-1, 0, 1])

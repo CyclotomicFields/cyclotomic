@@ -8,18 +8,18 @@ type Q = num::rational::BigRational;
 pub mod sparse;
 
 pub trait AdditiveGroup {
-    fn add_invert(&mut self) -> &mut Self;
-
     /// Adds z to self in place, so self = self + z
     fn add(&mut self, z: &mut Self) -> &mut Self;
+
+    fn add_invert(&mut self) -> &mut Self;
 }
 
 pub trait MultiplicativeGroup {
-    /// Inverts self in place.
-    fn mul_invert(&mut self) -> &mut Self;
-
     /// Multiplies self by z in place, so self = self * z
     fn mul(&mut self, z: &mut Self) -> &mut Self;
+
+    /// Inverts self in place.
+    fn mul_invert(&mut self) -> &mut Self;
 }
 
 /// Provides operations for fields. Expected to satisfy the field axioms.

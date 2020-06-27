@@ -1,9 +1,13 @@
 // Functions that require specific knowledge of which basis is used for the
-// field.In this case, we use the Zumbroich basis, described in GAP
+// field. In this case, we use the Zumbroich basis, described in GAP
 // documentation and probably some papers.
 
 use crate::fields::*;
 use crate::fields::sparse::*;
+use super::num::Zero;
+use std::collections::{HashMap, HashSet};
+use std::ops::Mul;
+use std::convert::TryInto;
 
 // Tries to reduce to a possibly smaller cyclotomic field
 pub fn try_reduce(z: &Number) -> Number {
