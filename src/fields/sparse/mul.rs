@@ -55,8 +55,6 @@ impl MultiplicativeGroup for Number {
     /// to get the multiplicative inverse.
     fn mul_invert(&mut self) -> &mut Self {
         let z = self.clone();
-        println!("z = {:?}", z);
-
         // Let $L = \mathbb{Q}(\zeta_n), K = \mathbb{Q}$.
         // Then $L/K$ is a degree $\phi(n)$ extension.
         let n = z.order;
@@ -73,11 +71,9 @@ impl MultiplicativeGroup for Number {
                 x.mul(&mut apply_automorphism(&z, i));
             }
         }
-        println!("x = {:?}", x);
 
         // The full product:
         let q_cyc = z.clone().mul(&mut x.clone()).clone();
-        println!("q_cyc = {:?}", q_cyc);
 
         // q_cyc is rational, so let's extract the rational bit (all of it).
         // We need to do some tricks to make it rational (it might be in a
@@ -85,11 +81,8 @@ impl MultiplicativeGroup for Number {
 
         // How do you tell if a cyclotomic is really rational?
         let q: Q = try_rational(&q_cyc).unwrap();
-        println!("q = {:?}", q);
 
         let z_inv = x.scalar_mul(&q.inv());
-
-        println!("z_inv = {:?}", z_inv);
 
         *self = z_inv.clone();
 

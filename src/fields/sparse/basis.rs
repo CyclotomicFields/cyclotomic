@@ -42,8 +42,6 @@ pub fn try_reduce(z: &Number) -> Number {
 
     // otherwise gcd is Some and nonzero, so we can divide through
 
-    println!("gcd is {:?}", current_gcd.unwrap());
-
     let new_order = z.order.clone() / current_gcd.unwrap() as i64;
 
     let mut new_coeffs = HashMap::new();
@@ -52,20 +50,15 @@ pub fn try_reduce(z: &Number) -> Number {
             continue;
         }
         let new_exp = *exp / current_gcd.unwrap() as i64;
-        println!("new_exp = {:?}, coeff = {:?}", new_exp, coeff.clone());
         new_coeffs.insert(new_exp, coeff.clone());
     }
     let res = Number::new(new_order, &new_coeffs);
 
-    println!("new_coeffs = {:?}", new_coeffs);
-    println!("reduced {:?} to {:?}", z, res);
     res
 }
 
 pub fn try_rational(z: &Number) -> Option<Q> {
-    println!("orig z = {:?}", z);
     let base_z = convert_to_base(&try_reduce(&convert_to_base(z)));
-    println!("base_z = {:?}", base_z);
 
     // if order is 2, that's already a rational!
     if base_z.order == 2 {
@@ -74,7 +67,6 @@ pub fn try_rational(z: &Number) -> Option<Q> {
 
     let n = base_z.order;
     let phi_n = phi(n);
-    println!("phi(n) = {:?}", phi_n);
 
     let mut n_divisors: Vec<i64> = divisors::get_divisors(n as u64)
         .into_iter()
@@ -86,20 +78,17 @@ pub fn try_rational(z: &Number) -> Option<Q> {
     }
 
     let n_div_powers = count_powers(&n, &n_divisors);
-    println!("n divisors = {:?}", n_div_powers);
 
     let is_squarefree = n_div_powers
         .clone()
         .into_iter()
         .all(|(factor, power)| power < 2);
-    println!("is_squarefree = {:?}", is_squarefree);
 
     let num_primes = n_div_powers
         .clone()
         .into_iter()
         .filter(|(factor, power)| *power > 0)
         .count();
-    println!("num_primes = {:?}", num_primes);
 
     let num_nonzero_terms = base_z
         .coeffs
@@ -107,15 +96,12 @@ pub fn try_rational(z: &Number) -> Option<Q> {
         .into_iter()
         .filter(|(exp, coeff)| *coeff != Q::zero())
         .count();
-    println!("num_nonzero_terms = {:?}", num_nonzero_terms);
 
     let same_coeff = get_same_coeff(&base_z);
-    println!("same_coeff = {:?}", same_coeff);
 
     match same_coeff {
         Some(coeff) => {
             if num_nonzero_terms == phi_n as usize && is_squarefree {
-                println!("it's rational!");
                 Some(coeff.mul(Z::from(i64::pow(-1, num_primes.try_into().unwrap()))))
             } else {
                 None
@@ -158,21 +144,16 @@ pub fn convert_to_base(z: &Number) -> Number {
         .map(|x| x as i64)
         .collect();
     let mut n_div_powers = count_powers(&n, &n_divisors);
-    println!("divisors = {:?}", n_divisors);
 
     // if it has no divisors smaller than itself, it's prime
     if n_div_powers.is_empty() {
         n_div_powers.push((n, 1));
     }
 
-    println!("n is {:?}", n);
-    println!("n divisors: {:?}", n_div_powers);
-
     // TODO: rewrite this to be more functional and readable?
     for (p, power) in &n_div_powers {
         // the maximal power of p that divides n
         let q: i64 = p.pow(*power as u32);
-        println!("q = {:?}^{:?} = {:?}", p, power, q);
 
         // i is in this set (mod q) iff it is not a basis element
         let set: HashSet<i64> = if *p == 2 {
@@ -182,8 +163,6 @@ pub fn convert_to_base(z: &Number) -> Number {
                 .map(|x| n / q * x)
                 .collect()
         };
-
-        println!("bad i are {:?}", set);
 
         let zero = Q::zero();
 
@@ -196,15 +175,11 @@ pub fn convert_to_base(z: &Number) -> Number {
 
             let orig = Number::e(n, i).scalar_mul(&c).clone();
 
-            println!("i = {:?}", i);
-
             if set
                 .clone()
                 .into_iter()
                 .any(|x| math_mod(&x, &q) == math_mod(&i, &q))
             {
-                println!("i = {:?} not ok, rewriting", i);
-
                 // delete from result, we'll add it back later rewritten in the
                 // basis
                 result.coeffs.remove(&i);
@@ -217,13 +192,10 @@ pub fn convert_to_base(z: &Number) -> Number {
                 for k in exps {
                     rhs.coeffs.insert(k, -c.clone());
                 }
-                println!("rewriting {:?} = {:?}", orig, rhs);
                 result.add(&mut rhs);
-            } else {
-                // just because i is ok with regard to p, it might be bad
-                // with regard to a different, later prime. We leave it alone.
-                println!("i = {:?} ok w.r.t p = {:?}, leaving alone", i, p);
             }
+            // just because i is ok with regard to p, it might be bad
+            // with regard to a different, later prime. We leave it alone
         }
     }
 
