@@ -86,27 +86,18 @@ mod polynomial_tests {
     use num::{One, Zero};
     use super::*;
 
-    #[inline]
-    fn vec_q(numerators: Vec<i64>, denominators: Vec<i64>) -> Vec<Q> {
-        let mut qs = vec![];
-        for i in 0..numerators.len() {
-            qs.push(Q::new(Z::from(numerators[i]), Z::from(denominators[i])));
-        }
-        qs
-    }
-
     #[test]
     fn test_long_division() {
         // t^2 + 6 / -6t - 1 == -(1/6)t + (1/36) remainder (217/36)
         assert_eq!(Polynomial::from(vec![6, 0, 1])
                        .div(&Polynomial::from(vec![-1, -6])),
-                   (Polynomial::new(vec_q(vec![1, -1], vec![36, 6])),
-                    Polynomial::new(vec_q(vec![217], vec![36]))));
+                   (Polynomial::from_small_fractions(vec![1, -1], vec![36, 6]),
+                    Polynomial::from_small_fractions(vec![217], vec![36])));
 
         // 14 / 6 == 7 / 3 remainder 0
         assert_eq!(Polynomial::from(vec![14])
                        .div(&Polynomial::from(vec![6])),
-                   (Polynomial::new(vec_q(vec![7], vec![3])), Polynomial::zero()));
+                   (Polynomial::from_small_fractions(vec![7], vec![3]), Polynomial::zero()));
 
         // t^2 - 1 / 1 == t^2 - 1 remainder 0
         assert_eq!(Polynomial::from(vec![-1, 0, 1])
