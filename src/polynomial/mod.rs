@@ -1,7 +1,7 @@
 pub mod polynomial;
 pub mod construct;
 pub mod substitute;
-pub mod reduce;
+pub mod is_irreducible;
 pub mod add;
 pub mod subtract;
 pub mod negate;
