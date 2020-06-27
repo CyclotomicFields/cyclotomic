@@ -148,6 +148,11 @@ mod euclid_tests {
         assert_eq!(euclid.multiplicative_inverse_mod_polynomial(
             Polynomial::from(vec![-1, 0, 0, 1]), Polynomial::from(vec![2, 0, 0, 4, 0, 1])),
                    None);
+
+        // (2t  + 4)^-1 == (-1/2)t^3 - t^2 - t in the ring Z[t] / t^4 + 4t^3 + 6t^2 + 4t + 1
+        assert_eq!(euclid.multiplicative_inverse_mod_polynomial(
+            Polynomial::from(vec![4, 2]), Polynomial::from(vec![1, 4, 6, 4, 1])),
+                   Some(Polynomial::from_small_fractions(vec![0, -1, -1, -1], vec![1, 1, 1, 2])));
     }
 
     #[test]

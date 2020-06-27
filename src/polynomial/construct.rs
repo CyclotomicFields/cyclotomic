@@ -10,6 +10,17 @@ impl Polynomial {
         Polynomial { coefficients }
     }
 
+    pub fn from_small_fractions(coefficient_numerators: Vec<i64>,
+                                coefficient_denominators: Vec<i64>) -> Polynomial {
+        let mut qs = vec![];
+        for i in 0..coefficient_numerators.len() {
+            qs.push(Q::new(
+                Z::from(coefficient_numerators[i]),
+                Z::from(coefficient_denominators[i])));
+        }
+        Polynomial::new(qs)
+    }
+
     pub fn truncate_coefficients<T: Zero>(coefficients: &mut Vec<T>) {
         while coefficients.len() > 0 && coefficients[coefficients.len() - 1].is_zero() {
             coefficients.truncate(coefficients.len() - 1);
