@@ -37,6 +37,12 @@ pub trait CyclotomicFieldElement: FieldElement {
     /// Multiplies in-place by scalar. Recall that $\mathbb{Q}(\zeta_n)$ is a
     /// $\mathbb{Q}$-vector space.
     fn scalar_mul(&mut self, scalar: &Q) -> &mut Self;
+
+    /// Gives zero expressed as an element of $\mathbb{Q}(\zeta_n)$
+    fn zero_order(n: i64) -> Self;
+
+    /// Gives one expressed as an element of $\mathbb{Q}(\zeta_n)$
+    fn one_order(n: i64) -> Self;
 }
 
 // TODO: work out a way to write tests for a trait then instantiate them instead of

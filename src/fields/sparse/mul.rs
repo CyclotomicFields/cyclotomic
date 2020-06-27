@@ -1,5 +1,7 @@
 use crate::fields::{MultiplicativeGroup, CyclotomicFieldElement};
 use crate::fields::sparse::*;
+use galois::apply_automorphism;
+use basis::try_rational;
 
 impl MultiplicativeGroup for Number {
     /// Multiplies term by term, not bothering to do anything interesting.
@@ -8,7 +10,7 @@ impl MultiplicativeGroup for Number {
         let mut z2 = rhs;
         Self::match_orders(z1, z2);
 
-        let mut result = zero_order(z1.order.clone());
+        let mut result = Number::zero_order(z1.order.clone());
 
         // This order is almost certainly not optimal. But you know, whatever.
         // TODO: make it gooder
@@ -64,7 +66,7 @@ impl MultiplicativeGroup for Number {
         // $1 \leq i \leq n-1$ coprime to $n$.
 
         // This is the product except for the term for $t = \id_L$.
-        let mut x = one_order(n);
+        let mut x = Number::one_order(n);
 
         for i in 2..n {
             if are_coprime(i, n) {
