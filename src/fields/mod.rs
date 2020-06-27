@@ -5,19 +5,25 @@ type Z = num::BigInt;
 type Q = num::rational::BigRational;
 
 /// Sparse implementation using hash maps.
-mod sparse;
+pub mod sparse;
 
-/// Provides operations for fields. Expected to satisfy the field axioms.
-pub trait FieldElement {
-    /// Inverts self in place.
-    fn invert(&mut self) -> &mut Self;
+pub trait AdditiveGroup {
+    fn add_invert(&mut self) -> &mut Self;
 
     /// Adds z to self in place, so self = self + z
     fn add(&mut self, z: &mut Self) -> &mut Self;
+}
+
+pub trait MultiplicativeGroup {
+    /// Inverts self in place.
+    fn mul_invert(&mut self) -> &mut Self;
 
     /// Multiplies self by z in place, so self = self * z
     fn mul(&mut self, z: &mut Self) -> &mut Self;
+}
 
+/// Provides operations for fields. Expected to satisfy the field axioms.
+pub trait FieldElement: AdditiveGroup + MultiplicativeGroup {
     /// Equality, but can shuffle coefficients around and simplify expressions
     /// for greater efficiency.
     fn eq(&mut self, other: &mut Self) -> bool;
