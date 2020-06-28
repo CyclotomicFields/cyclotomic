@@ -12,26 +12,47 @@ use rand_chacha::ChaCha20Rng;
 use std::env;
 use std::fmt::Debug;
 use std::fs::File;
+use std::io::Write;
+use std::iter::FromIterator;
+use std::thread;
 use std::time::Instant;
 use test::{black_box, Bencher};
-use std::io::Write;
+use test::NamePadding::PadNone;
 
 fn main() {
     let gen = &mut ChaCha20Rng::seed_from_u64(12345);
 
     let args: Vec<String> = env::args().collect();
-    let num_bench: u64 = if args.len() < 2 {
+    let num_bench: usize = if args.len() < 2 {
         println!("no num bench given");
-        10000
+        12000
     } else {
         println!("using num bench = {}", args[1]);
         args[1].parse().unwrap()
     };
 
-    let mut nums: Vec<Number> = (1..num_bench * 6 + 1)
+    let num_threads: usize = 12;
+    assert_eq!(num_bench % num_threads, 0);
+    println!("num threads = {}", num_threads);
+
+    let nums: Vec<Number> = (1..num_bench * 6 + 1)
         .into_iter()
         .map(|_| random_cyclotomic(gen))
         .collect();
+
+    // cut it up into chunks for each thread
+    let mut chunks: Vec<Vec<Number>> = Vec::new();
+
+    let mut start: usize = 0;
+    for _ in 0..num_threads {
+        let chunk = Vec::from_iter(
+            nums[start..(start + 6 * (num_bench / num_threads))]
+                .iter()
+                .cloned(),
+        );
+        chunks.push(chunk);
+        start = start + 6 * (num_bench / num_threads);
+    }
 
     if args.len() > 2 {
         // writes a gap source file with a function f you can run that will
@@ -42,14 +63,13 @@ fn main() {
         let mut file = File::create(gap_out).unwrap();
         file.write_all(b"f := function() return [");
 
-        let mut i = 0;
-        for _ in 1..=num_bench {
-            let x = &mut nums[i].clone();
-            let y = &mut nums[i + 1].clone();
-            let z = &mut nums[i + 2].clone();
-            let a = &mut nums[i + 3].clone();
-            let b = &mut nums[i + 4].clone();
-            let c = &mut nums[i + 5].clone();
+        for i in 0..num_bench {
+            let x = &mut nums[6 * i].clone();
+            let y = &mut nums[6 * i + 1].clone();
+            let z = &mut nums[6 * i + 2].clone();
+            let a = &mut nums[6 * i + 3].clone();
+            let b = &mut nums[6 * i + 4].clone();
+            let c = &mut nums[6 * i + 5].clone();
 
             write!(
                 &mut file,
@@ -61,28 +81,37 @@ fn main() {
                 print_gap(b),
                 print_gap(c),
             );
-
-            i = i + 6;
         }
 
         file.write_all(b"]; end;");
     }
 
-    let mut i = 0;
-
     let start = Instant::now();
-    for _ in 1..=num_bench {
-        let x = &mut nums[i].clone();
-        let y = &mut nums[i + 1].clone();
-        let z = &mut nums[i + 2].clone();
-        let a = &mut nums[i + 3].clone();
-        let b = &mut nums[i + 4].clone();
-        let c = &mut nums[i + 5].clone();
+    let mut threads = vec![];
 
-        // black_box means don't optimise this away into a no-op
-        black_box(x.mul(y.add(z)).eq(a.mul(b.add(c))));
+    for i in 0..num_threads.clone() {
+        let i = i.clone();
+        let num_bench = num_bench.clone();
+        let num_threads = num_threads.clone();
+        let chunk = chunks[i].clone();
+        let handle = thread::spawn(move || {
+            for j in 0..num_bench / num_threads {
+                let x = &mut chunk[6 * j].clone();
+                let y = &mut chunk[6 * j + 1].clone();
+                let z = &mut chunk[6 * j + 2].clone();
+                let a = &mut chunk[6 * j + 3].clone();
+                let b = &mut chunk[6 * j + 4].clone();
+                let c = &mut chunk[6 * j + 5].clone();
 
-        i = i + 6;
+                // black_box means don't optimise this away into a no-op
+                black_box(x.mul(y.add(z)).eq(a.mul(b.add(c))));
+            }
+        });
+        threads.push(handle);
+    }
+
+    for thread in threads {
+        thread.join();
     }
 
     println!("time elapsed: {} ms", start.elapsed().as_millis());
