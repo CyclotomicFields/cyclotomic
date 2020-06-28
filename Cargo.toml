@@ -14,9 +14,11 @@ rand = "0.7.3"
 divisors = "0.2.1"
 rand_chacha = "0.2.2"
 
-[[bench]]
+[[bin]]
 name = "arithmetic-benchmark"
-harness = false
+
+[profile.release]
+debug = true
 
 [package.metadata.docs.rs]
 rustdoc-args = [ "--html-in-header", "docs/katex-header.html" ]

@@ -11,10 +11,19 @@ use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
 use test::{black_box, Bencher};
 use std::time::Instant;
+use std::env;
 
 fn main() {
     let gen = &mut ChaCha20Rng::seed_from_u64(12345);
-    let num_bench = 10000;
+
+    let args: Vec<String> = env::args().collect();
+    let num_bench: u64 = if args.len() < 2 {
+        println!("no num bench given");
+        10000
+    } else {
+        println!("using num bench = {}", args[1]);
+        args[1].parse().unwrap()
+    };
 
     let mut nums: Vec<Number> = (1..num_bench * 6 + 1)
         .into_iter()
