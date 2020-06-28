@@ -10,10 +10,6 @@ pub struct Polynomial {
 }
 
 impl Polynomial {
-    pub fn is_monic(&self) -> bool {
-        return self.leading_term_coefficient().is_one();
-    }
-
     pub fn degree(&self) -> usize {
         return self.coefficients.len() - 1;
     }
@@ -24,6 +20,10 @@ impl Polynomial {
 
     pub fn constant_term_coefficient(&self) -> &Q {
         &self.coefficients[0]
+    }
+
+    pub fn is_monic(&self) -> bool {
+        return self.leading_term_coefficient().is_one();
     }
 }
 

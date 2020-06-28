@@ -41,7 +41,7 @@ impl Polynomial {
         we'll transform the polynomial into one with integer coefficients
         before going on.
         */
-        let integer_polynomial = self.with_integer_coefficients();
+        let integer_polynomial = self.convert_to_integer_coefficients();
 
         /*
         Rational Roots Theorem
@@ -155,7 +155,7 @@ impl Polynomial {
         return false;
     }
 
-    pub fn with_integer_coefficients(&self) -> Polynomial {
+    fn convert_to_integer_coefficients(&self) -> Polynomial {
         let mut lcm_accumulator = Z::one();
         for c in &self.coefficients {
             lcm_accumulator = lcm(lcm_accumulator, c.denom().clone());
@@ -165,7 +165,7 @@ impl Polynomial {
         Polynomial::from(integer_coefficients)
     }
 
-    pub fn try_integer_coefficients(&self) -> Vec<Z> {
+    fn try_integer_coefficients(&self) -> Vec<Z> {
         self.coefficients.iter().map(|c| c.to_integer()).collect()
     }
 }
