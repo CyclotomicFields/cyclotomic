@@ -2,12 +2,12 @@
 // field. In this case, we use the Zumbroich basis, described in GAP
 // documentation and probably some papers.
 
-use crate::fields::*;
-use crate::fields::sparse::*;
 use super::num::Zero;
+use crate::fields::sparse::*;
+use crate::fields::*;
 use std::collections::{HashMap, HashSet};
-use std::ops::Mul;
 use std::convert::TryInto;
+use std::ops::Mul;
 
 // Tries to reduce to a possibly smaller cyclotomic field
 pub fn try_reduce(z: &Number) -> Number {
@@ -137,7 +137,7 @@ pub fn convert_to_base(z: &Number) -> Number {
     // Note: this is written for readability and is too functional for its
     // own good. The machine code generated might not be very good.
 
-    let n = z.order.clone();
+    let n = z.order;
 
     // currently z, will by the end still be equal to z but will be written in
     // the Zumbroich basis
@@ -170,14 +170,13 @@ pub fn convert_to_base(z: &Number) -> Number {
 
         let zero = Q::zero();
 
-        for i in 0..n.clone() {
+        for i in 0..n {
             // if there isn't even a term for i, why consider it?
             let c = result.coeffs.get(&i).unwrap_or(&zero).clone();
-            if c == Q::zero() {
+
+            if c.clone() == Q::zero() {
                 continue;
             }
-
-            let orig = Number::e(n, i).scalar_mul(&c).clone();
 
             if set
                 .clone()
@@ -192,11 +191,10 @@ pub fn convert_to_base(z: &Number) -> Number {
                 // exponents on the right hand side
                 let exps: Vec<i64> = (1..*p).map(|k| math_mod(&(k * n / p + i), &n)).collect();
 
-                let mut rhs = Number::zero_order(n.clone());
                 for k in exps {
-                    rhs.coeffs.insert(k, -c.clone());
+                    let existing_coeff = result.coeffs.get(&k).unwrap_or(&zero);
+                    result.coeffs.insert(k, existing_coeff-&c);
                 }
-                result.add(&mut rhs);
             }
             // just because i is ok with regard to p, it might be bad
             // with regard to a different, later prime. We leave it alone
