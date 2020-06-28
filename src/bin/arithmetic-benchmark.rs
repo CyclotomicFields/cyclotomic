@@ -33,7 +33,7 @@ fn main() {
 
     // Parallelises perfectly, N threads gives N times speed.
     // We should try to beat GAP without cheating, but this is our trump card.
-    let num_threads: usize = 1;
+    let num_threads: usize = 12;
     assert_eq!(num_bench % num_threads, 0);
     println!("num threads = {}", num_threads);
 

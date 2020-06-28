@@ -201,7 +201,7 @@ pub fn convert_to_base(z: &Number) -> Number {
                     // use the relation to rewrite this root
                     for k in 1..*p {
                         let new_exp = math_mod(&(k * n / p + i), &n);
-                        add_single(&mut result.coeffs, new_exp, -coeff.clone());
+                        add_single(&mut result.coeffs, new_exp, &coeff, Sign::Minus);
                     }
                     break;
                 }

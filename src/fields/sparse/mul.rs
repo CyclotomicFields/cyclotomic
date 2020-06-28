@@ -19,7 +19,7 @@ impl MultiplicativeGroup for Number {
             for (exp2, coeff2) in &z2.coeffs {
                 let new_exp = (exp1 + exp2) % z1.order.clone();
                 let new_coeff = coeff1 * coeff2;
-                add_single(&mut result.coeffs, new_exp, new_coeff.clone());
+                add_single(&mut result.coeffs, new_exp, &new_coeff, Sign::Plus);
             }
         }
 

@@ -11,7 +11,7 @@ use rand::Rng;
 use std::collections::HashSet;
 use std::convert::TryInto;
 use std::fmt;
-use std::ops::Mul;
+use std::ops::{Mul, AddAssign, SubAssign};
 use std::vec::Vec;
 
 pub mod add;
@@ -103,17 +103,27 @@ fn math_mod(x: &i64, n: &i64) -> i64 {
     res
 }
 
-fn add_single(coeffs: &mut FnvHashMap<i64, Q>, exp: i64, coeff: Q) {
-    let maybe_existing_coeff = coeffs.get(&exp).clone();
+#[derive(Eq, PartialEq)]
+enum Sign {
+    Plus,
+    Minus,
+}
+
+fn add_single(coeffs: &mut FnvHashMap<i64, Q>, exp: i64, coeff: &Q, sign: Sign) {
+    let maybe_existing_coeff = coeffs.get_mut(&exp);
     match maybe_existing_coeff {
         None => {
-            coeffs.insert(exp, coeff);
+            if sign == Sign::Plus {
+                coeffs.insert(exp, coeff.clone());
+            } else {
+                coeffs.insert(exp, -coeff.clone());
+            }
         }
         Some(existing_coeff) => {
-            if existing_coeff.is_zero() {
-                coeffs.insert(exp, coeff);
+            if sign == Sign::Plus {
+                existing_coeff.add_assign(coeff.clone());
             } else {
-                coeffs.insert(exp, existing_coeff + coeff);
+                existing_coeff.sub_assign(coeff.clone());
             }
         }
     }
