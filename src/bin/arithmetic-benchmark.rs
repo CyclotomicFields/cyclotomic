@@ -37,7 +37,7 @@ fn main() {
     assert_eq!(num_bench % num_threads, 0);
     println!("num threads = {}", num_threads);
 
-    let nums: Vec<Number> = (1..num_bench * 6 + 1)
+    let nums: Vec<Number> = (0..num_bench * 6)
         .into_iter()
         .map(|_| random_cyclotomic(gen))
         .collect();
@@ -58,7 +58,7 @@ fn main() {
 
     if args.len() > 2 {
         // writes a gap source file with a function f you can run that will
-        // do the same computations
+        // do the same computations, for benchmark purposes.
         let gap_out = args[2].clone();
         println!("writing to {}", gap_out);
 

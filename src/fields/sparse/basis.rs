@@ -143,7 +143,7 @@ pub fn convert_to_base(z: &Number) -> Number {
     let mut result = z.clone();
 
     for (exp, coeff) in &z.coeffs {
-        if coeff == &Q::zero() {
+        if coeff.is_zero() {
             result.coeffs.remove(exp);
         }
     }
@@ -159,7 +159,6 @@ pub fn convert_to_base(z: &Number) -> Number {
         n_div_powers.push((n, 1));
     }
 
-    // TODO: rewrite this to be more functional and readable?
     for (p, power) in &n_div_powers {
         // the maximal power of p that divides n
         let q: i64 = p.pow(*power as u32);
@@ -167,14 +166,16 @@ pub fn convert_to_base(z: &Number) -> Number {
         // i is in this set (mod q) iff it is not a basis element
         let start_bad = if *p == 2 { q / 2 } else { -(q / p - 1) / 2 };
         let end_bad = if *p == 2 { q - 1 } else { (q / p - 1) / 2 };
+
+        // the bad exponents are all mod q
         let mut bad_exponents = Vec::<i64>::new();
         bad_exponents.reserve((end_bad - start_bad + 1) as usize);
         for x in start_bad..=end_bad {
-            bad_exponents.push(n / q * x);
+            bad_exponents.push(math_mod(&(n / q * x), &q));
         }
 
         for i in 0..n {
-            // if there isn't even a term for i, why consider it?
+            // if there isn't even a term for i, no need to convert it
             let coeff = {
                 let maybe_coeff = result.coeffs.get(&i);
 
@@ -190,8 +191,10 @@ pub fn convert_to_base(z: &Number) -> Number {
                 maybe_coeff.unwrap().clone()
             };
 
+            let i_mod_q = math_mod(&i, &q);
+
             for bad_exp in &bad_exponents {
-                if math_mod(&bad_exp, &q) == math_mod(&i, &q) {
+                if *bad_exp == i_mod_q {
                     // delete from result, we'll add it back later, rewritten
                     result.coeffs.remove(&i);
 
