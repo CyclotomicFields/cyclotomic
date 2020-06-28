@@ -25,6 +25,8 @@ to load the primes into memory faster
 that you have push permissions
 7. Check that your push has triggered a pipeline build on
 [Travis](https://travis-ci.com/github/CyclotomicFields/cyclotomic/builds)
+8. Run the benchmark by first installing nightly rust with 
+`rustup install nightly` and then running `cargo +nightly bench`.
 
 ## Building the documentation
 

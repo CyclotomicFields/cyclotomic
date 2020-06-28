@@ -81,15 +81,13 @@ pub fn try_rational(z: &Number) -> Option<Q> {
         n_divisors.push(n);
     }
 
-    let n_div_powers = count_powers(&n, &n_divisors);
+    let n_div_powers = &count_powers(&n, &n_divisors);
 
     let is_squarefree = n_div_powers
-        .clone()
         .into_iter()
-        .all(|(factor, power)| power < 2);
+        .all(|(_, power)| *power < 2);
 
     let num_primes = n_div_powers
-        .clone()
         .into_iter()
         .filter(|(factor, power)| *power > 0)
         .count();

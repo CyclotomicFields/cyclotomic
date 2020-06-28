@@ -1,4 +1,4 @@
-use crate::fields::{MultiplicativeGroup, CyclotomicFieldElement};
+use crate::fields::{MultiplicativeGroup, CyclotomicFieldElement, Q};
 use crate::fields::sparse::*;
 use galois::apply_automorphism;
 use basis::try_rational;
