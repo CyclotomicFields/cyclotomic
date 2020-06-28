@@ -1,6 +1,6 @@
 use crate::fields::sparse::Number;
 use crate::fields::{AdditiveGroup, CyclotomicFieldElement, Q, Z};
-use std::collections::HashMap;
+use fnv::FnvHashMap;
 
 impl AdditiveGroup for Number {
     /// Simplest possible - term wise addition using hashing.
@@ -14,7 +14,7 @@ impl AdditiveGroup for Number {
 
         // We will never need to reduce here, you can't add low powers of
         // $\zeta_n$ and get higher powers. Higher powers do not exist.
-        let mut coeffs: HashMap<i64, Q> = HashMap::new();
+        let mut coeffs: FnvHashMap<i64, Q> = FnvHashMap::default();
         for (exp, coeff) in z1.coeffs.clone().into_iter().chain(z2.coeffs.clone()) {
             match coeffs.clone().get(&exp) {
                 Some(existing_coeff) => coeffs.insert(exp, coeff + existing_coeff),

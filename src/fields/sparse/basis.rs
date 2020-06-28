@@ -5,9 +5,10 @@
 use super::num::Zero;
 use crate::fields::sparse::*;
 use crate::fields::*;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::convert::TryInto;
 use std::ops::Mul;
+use fnv::FnvHashMap;
 
 // Tries to reduce to a possibly smaller cyclotomic field
 pub fn try_reduce(z: &Number) -> Number {
@@ -48,7 +49,7 @@ pub fn try_reduce(z: &Number) -> Number {
 
     let new_order = z.order.clone() / current_gcd.unwrap() as i64;
 
-    let mut new_coeffs = HashMap::new();
+    let mut new_coeffs = FnvHashMap::default();
     for (exp, coeff) in &z.coeffs {
         if coeff.is_zero() {
             continue;

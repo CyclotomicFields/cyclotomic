@@ -4,11 +4,11 @@ use self::num::{One, Zero};
 use crate::fields::{AdditiveGroup, MultiplicativeGroup};
 use crate::fields::{CyclotomicFieldElement, FieldElement, Q, Z};
 use basis::convert_to_base;
+use fnv::FnvHashMap;
+use std::collections::HashSet;
 use num::traits::Inv;
 use quickcheck::{Arbitrary, Gen};
 use rand::Rng;
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::convert::TryInto;
 use std::fmt;
 use std::ops::Mul;
@@ -23,7 +23,7 @@ pub mod mul;
 #[derive(Clone)]
 pub struct Number {
     order: i64,
-    coeffs: HashMap<i64, Q>,
+    coeffs: FnvHashMap<i64, Q>,
 }
 
 impl fmt::Debug for Number {
@@ -44,7 +44,7 @@ impl fmt::Debug for Number {
 }
 
 impl Number {
-    pub fn new(order: i64, coeffs: &HashMap<i64, Q>) -> Number {
+    pub fn new(order: i64, coeffs: &FnvHashMap<i64, Q>) -> Number {
         Number {
             order: order,
             coeffs: coeffs.clone(),
@@ -52,7 +52,7 @@ impl Number {
     }
 
     pub fn increase_order_to(z: &mut Self, new_order: i64) {
-        let mut new_coeffs = HashMap::new();
+        let mut new_coeffs = FnvHashMap::default();
         for (exp, coeff) in &z.coeffs {
             new_coeffs.insert(new_order * exp.clone() / z.order.clone(), coeff.clone());
         }
@@ -171,12 +171,12 @@ impl CyclotomicFieldElement for Number {
     }
 
     fn zero_order(n: i64) -> Number {
-        Number::new(n, &HashMap::new())
+        Number::new(n, &FnvHashMap::default())
     }
 
     fn one_order(n: i64) -> Number {
-        let mut coeffs = HashMap::new();
-        for i in 1..n.clone() {
+        let mut coeffs = FnvHashMap::default();
+        for i in 1..n {
             coeffs.insert(i, -Q::one());
         }
         Number::new(n, &coeffs)
