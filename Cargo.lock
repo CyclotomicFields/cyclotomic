@@ -36,6 +36,7 @@ dependencies = [
  "num",
  "quickcheck",
  "rand",
+ "rand_chacha",
 ]
 
 [[package]]

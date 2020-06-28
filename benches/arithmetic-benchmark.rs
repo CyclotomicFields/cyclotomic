@@ -29,7 +29,10 @@ fn main() {
         let a = &mut nums[i + 3].clone();
         let b = &mut nums[i + 4].clone();
         let c = &mut nums[i + 5].clone();
+
+        // black_box means don't optimise this away into a no-op
         black_box(x.mul(y.add(z)).eq(a.mul(b.add(c))));
+
         i = i + 6;
     }
 
