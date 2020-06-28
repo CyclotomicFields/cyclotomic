@@ -3,6 +3,7 @@ extern crate num;
 use self::num::{One, Zero};
 use crate::fields::{AdditiveGroup, MultiplicativeGroup};
 use crate::fields::{CyclotomicFieldElement, FieldElement, Q, Z};
+use basis::convert_to_base;
 use num::traits::Inv;
 use quickcheck::{Arbitrary, Gen};
 use rand::Rng;
@@ -12,7 +13,6 @@ use std::convert::TryInto;
 use std::fmt;
 use std::ops::Mul;
 use std::vec::Vec;
-use basis::convert_to_base;
 
 pub mod add;
 pub mod basis;
@@ -64,7 +64,6 @@ impl Number {
         let new_order = num::integer::lcm(z1.order, z2.order);
         Number::increase_order_to(z1, new_order);
         Number::increase_order_to(z2, new_order);
-        assert_eq!(z1.order, z2.order);
     }
 }
 
@@ -76,7 +75,6 @@ fn phi(n: i64) -> i64 {
     let mut count = 0;
     for k in 1..n {
         if are_coprime(n, k) {
-            println!("n = {:?} coprime to k = {:?}", n, k);
             count += 1;
         }
     }
@@ -99,7 +97,6 @@ fn get_same_coeff(z: &Number) -> Option<Q> {
 
 fn math_mod(x: &i64, n: &i64) -> i64 {
     let res = (x % n + n) % n;
-    println!("{:?} mod {:?} is {:?}", x, n, res);
     res
 }
 
@@ -122,7 +119,6 @@ fn count_powers(n: &i64, n_divisors: &Vec<i64>) -> Vec<(i64, i64)> {
 
     result
 }
-
 
 impl FieldElement for Number {
     fn eq(&mut self, other: &mut Self) -> bool {
@@ -185,6 +181,33 @@ impl CyclotomicFieldElement for Number {
         }
         Number::new(n, &coeffs)
     }
+}
+
+pub fn random_rational<G>(g: &mut G) -> Q
+where
+    G: rand::RngCore,
+{
+    let p: i64 = g.gen_range(1, 10);
+    let q: i64 = g.gen_range(1, 10);
+    Q::new(Z::from(p), Z::from(q))
+}
+
+pub fn random_cyclotomic<G>(g: &mut G) -> Number
+where
+    G: rand::RngCore,
+{
+    let orders: Vec<i64> = vec![3, 4, 5, 6, 7, 8, 9, 10];
+    let order = orders[g.gen_range(0, orders.len())];
+    let num_terms: u64 = g.gen_range(1, 5);
+    let mut result = Number::zero_order(order.clone());
+
+    for _ in 1..=num_terms {
+        let exp: i64 = g.gen_range(1, order);
+        let coeff = random_rational(g);
+        result.coeffs.insert(exp, coeff);
+    }
+
+    result
 }
 
 // These are precisely the field axioms.
@@ -262,34 +285,12 @@ mod tests {
     #[derive(Clone)]
     struct QArb(Q);
 
-    impl Arbitrary for QArb {
-        fn arbitrary<G>(g: &mut G) -> Self
-        where
-            G: Gen,
-        {
-            let p: i64 = g.gen_range(1, 10);
-            let q: i64 = g.gen_range(1, 10);
-            QArb(Q::new(Z::from(p), Z::from(q)))
-        }
-    }
-
     impl Arbitrary for Number {
         fn arbitrary<G>(g: &mut G) -> Self
         where
             G: Gen,
         {
-            let orders: Vec<i64> = vec![3, 4, 5, 6, 7, 8, 9, 10];
-            let order = orders[g.gen_range(0, orders.len())];
-            let num_terms: u64 = g.gen_range(1, 5);
-            let mut result = Number::zero_order(order.clone());
-
-            for _ in 1..=num_terms {
-                let exp: i64 = g.gen_range(1, order);
-                let QArb(coeff) = QArb::arbitrary(g);
-                result.coeffs.insert(exp, coeff);
-            }
-
-            result
+            random_cyclotomic(g)
         }
     }
 }
