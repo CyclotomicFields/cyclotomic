@@ -281,10 +281,6 @@ mod tests {
     }
     }
 
-    // Just a hack to get arbitrary coefficients
-    #[derive(Clone)]
-    struct QArb(Q);
-
     impl Arbitrary for Number {
         fn arbitrary<G>(g: &mut G) -> Self
         where
