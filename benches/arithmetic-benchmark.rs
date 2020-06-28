@@ -15,6 +15,7 @@ use std::time::Instant;
 fn main() {
     let gen = &mut ChaCha20Rng::seed_from_u64(12345);
     let num_bench = 10000;
+
     let mut nums: Vec<Number> = (1..num_bench * 6 + 1)
         .into_iter()
         .map(|_| random_cyclotomic(gen))

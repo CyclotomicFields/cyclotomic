@@ -143,6 +143,12 @@ pub fn convert_to_base(z: &Number) -> Number {
     // the Zumbroich basis
     let mut result = z.clone();
 
+    for (exp, coeff) in &z.coeffs {
+        if coeff == &Q::zero() {
+            result.coeffs.remove(exp);
+        }
+    }
+
     let n_divisors: Vec<i64> = divisors::get_divisors(n as u64)
         .into_iter()
         .map(|x| x as i64)
@@ -160,13 +166,13 @@ pub fn convert_to_base(z: &Number) -> Number {
         let q: i64 = p.pow(*power as u32);
 
         // i is in this set (mod q) iff it is not a basis element
-        let set: HashSet<i64> = if *p == 2 {
-            (q / 2..q - 1 + 1).map(|x| n / q * x).collect()
-        } else {
-            (-(q / p - 1) / 2..(q / p - 1) / 2 + 1)
-                .map(|x| n / q * x)
-                .collect()
-        };
+        let start_bad = if *p == 2 { q / 2 } else { -(q / p - 1) / 2 };
+        let end_bad = if *p == 2 { q - 1 } else { (q / p - 1) / 2 };
+        let mut bad_exponents = Vec::<i64>::new();
+        bad_exponents.reserve((end_bad - start_bad + 1) as usize);
+        for x in start_bad..=end_bad {
+            bad_exponents.push(n/q * x);
+        }
 
         let zero = Q::zero();
 
@@ -178,10 +184,9 @@ pub fn convert_to_base(z: &Number) -> Number {
                 continue;
             }
 
-            for bad_i in &set {
-                if math_mod(&bad_i, &q) == math_mod(&i, &q) {
-                    // delete from result, we'll add it back later rewritten in the
-                    // basis
+            for bad_exp in &bad_exponents {
+                if math_mod(&bad_exp, &q) == math_mod(&i, &q) {
+                    // delete from result, we'll add it back later, rewritten
                     result.coeffs.remove(&i);
 
                     // use the relation to rewrite this root
