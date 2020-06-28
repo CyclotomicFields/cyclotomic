@@ -132,15 +132,15 @@ impl FieldElement for Number {
         // elements in the same field so are the same iff each nonzero term is
         // the same.
         fn has_diff(left: &Number, right: &Number) -> bool {
-            for (exp_left, coeff_left) in left.coeffs.clone() {
+            for (exp_left, coeff_left) in &left.coeffs {
                 match right.coeffs.get(&exp_left) {
                     None => {
-                        if coeff_left != Q::zero() {
+                        if coeff_left != &Q::zero() {
                             return true;
                         }
                     }
                     Some(coeff_right) => {
-                        if coeff_left != *coeff_right {
+                        if coeff_left != coeff_right {
                             return true;
                         }
                     }
