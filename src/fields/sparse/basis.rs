@@ -171,18 +171,25 @@ pub fn convert_to_base(z: &Number) -> Number {
         let mut bad_exponents = Vec::<i64>::new();
         bad_exponents.reserve((end_bad - start_bad + 1) as usize);
         for x in start_bad..=end_bad {
-            bad_exponents.push(n/q * x);
+            bad_exponents.push(n / q * x);
         }
-
-        let zero = Q::zero();
 
         for i in 0..n {
             // if there isn't even a term for i, why consider it?
-            let c = &result.coeffs.get(&i).unwrap_or(&zero).clone();
+            let coeff = {
+                let maybe_coeff = result.coeffs.get(&i);
 
-            if c == &Q::zero() {
-                continue;
-            }
+                match maybe_coeff {
+                    None => continue,
+                    Some(rational) => {
+                        if rational.is_zero() {
+                            continue;
+                        }
+                    }
+                }
+
+                maybe_coeff.unwrap().clone()
+            };
 
             for bad_exp in &bad_exponents {
                 if math_mod(&bad_exp, &q) == math_mod(&i, &q) {
@@ -192,8 +199,22 @@ pub fn convert_to_base(z: &Number) -> Number {
                     // use the relation to rewrite this root
                     for k in 1..*p {
                         let new_exp = math_mod(&(k * n / p + i), &n);
-                        let existing_coeff = result.coeffs.get(&new_exp).unwrap_or(&zero);
-                        result.coeffs.insert(new_exp, existing_coeff-c);
+                        let maybe_existing_coeff = result.coeffs.get(&new_exp).clone();
+
+                        match maybe_existing_coeff {
+                            None => {
+                                result.coeffs.insert(new_exp, -coeff.clone());
+                            }
+                            Some(existing_coeff) => {
+                                if existing_coeff.is_zero() {
+                                    result.coeffs.insert(new_exp, -coeff.clone());
+                                } else {
+                                    result
+                                        .coeffs
+                                        .insert(new_exp, existing_coeff - coeff.clone());
+                                }
+                            }
+                        }
                     }
                     break;
                 }
