@@ -25,20 +25,10 @@ impl MultiplicativeGroup for Number {
                 // $1 = -\sum_{i=1}^{p-1} \zeta_n^i$ to rewrite the new constant
                 // term in our basis.
                 if new_exp != 0 {
-                    match result.coeffs.get(&new_exp).clone() {
-                        Some(existing_coeff) => {
-                            result.coeffs.insert(new_exp, new_coeff + existing_coeff)
-                        }
-                        None => result.coeffs.insert(new_exp, new_coeff),
-                    };
+                    add_single(&mut result.coeffs, new_exp, new_coeff.clone());
                 } else {
                     for i in 1..result.order.clone() {
-                        match result.coeffs.get(&i).clone() {
-                            Some(existing_coeff) => {
-                                result.coeffs.insert(i, existing_coeff - new_coeff.clone())
-                            }
-                            None => result.coeffs.insert(i, -new_coeff.clone()),
-                        };
+                        add_single(&mut result.coeffs, i, -new_coeff.clone());
                     }
                 }
             }

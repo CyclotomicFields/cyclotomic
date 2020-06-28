@@ -16,7 +16,7 @@ impl AdditiveGroup for Number {
         // $\zeta_n$ and get higher powers. Higher powers do not exist.
         let mut coeffs: FnvHashMap<i64, Q> = FnvHashMap::default();
         for (exp, coeff) in z1.coeffs.clone().into_iter().chain(z2.coeffs.clone()) {
-            match coeffs.clone().get(&exp) {
+            match coeffs.get(&exp).clone() {
                 Some(existing_coeff) => coeffs.insert(exp, coeff + existing_coeff),
                 None => coeffs.insert(exp, coeff),
             };

@@ -198,22 +198,7 @@ pub fn convert_to_base(z: &Number) -> Number {
                     // use the relation to rewrite this root
                     for k in 1..*p {
                         let new_exp = math_mod(&(k * n / p + i), &n);
-                        let maybe_existing_coeff = result.coeffs.get(&new_exp).clone();
-
-                        match maybe_existing_coeff {
-                            None => {
-                                result.coeffs.insert(new_exp, -coeff.clone());
-                            }
-                            Some(existing_coeff) => {
-                                if existing_coeff.is_zero() {
-                                    result.coeffs.insert(new_exp, -coeff.clone());
-                                } else {
-                                    result
-                                        .coeffs
-                                        .insert(new_exp, existing_coeff - coeff.clone());
-                                }
-                            }
-                        }
+                        add_single(&mut result.coeffs, new_exp, -coeff.clone());
                     }
                     break;
                 }

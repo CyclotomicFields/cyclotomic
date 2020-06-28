@@ -5,10 +5,10 @@ use crate::fields::{AdditiveGroup, MultiplicativeGroup};
 use crate::fields::{CyclotomicFieldElement, FieldElement, Q, Z};
 use basis::convert_to_base;
 use fnv::FnvHashMap;
-use std::collections::HashSet;
 use num::traits::Inv;
 use quickcheck::{Arbitrary, Gen};
 use rand::Rng;
+use std::collections::HashSet;
 use std::convert::TryInto;
 use std::fmt;
 use std::ops::Mul;
@@ -98,6 +98,22 @@ fn get_same_coeff(z: &Number) -> Option<Q> {
 fn math_mod(x: &i64, n: &i64) -> i64 {
     let res = (x % n + n) % n;
     res
+}
+
+fn add_single(coeffs: &mut FnvHashMap<i64, Q>, exp: i64, coeff: Q) {
+    let maybe_existing_coeff = coeffs.get(&exp).clone();
+    match maybe_existing_coeff {
+        None => {
+            coeffs.insert(exp, coeff);
+        }
+        Some(existing_coeff) => {
+            if existing_coeff.is_zero() {
+                coeffs.insert(exp, coeff);
+            } else {
+                coeffs.insert(exp, existing_coeff + coeff);
+            }
+        }
+    }
 }
 
 fn count_powers(n: &i64, n_divisors: &Vec<i64>) -> Vec<(i64, i64)> {
