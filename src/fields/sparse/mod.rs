@@ -26,20 +26,23 @@ pub struct Number {
     coeffs: FnvHashMap<i64, Q>,
 }
 
+pub fn print_gap(z: &Number) -> String {
+    let mut str_list: Vec<String> = vec![];
+    for exp in 0..z.order {
+        let zero = Q::zero().clone();
+        let coeff = z.coeffs.get(&exp).unwrap_or(&zero);
+        if !coeff.is_zero() {
+            str_list.push(String::from(
+                format!("{} * E({})^{}", coeff, z.order, exp).as_str(),
+            ))
+        }
+    }
+    str_list.join(" + ")
+}
+
 impl fmt::Debug for Number {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut str_list: Vec<String> = vec![];
-        for exp in 0..self.order {
-            let z = Q::zero().clone();
-            let coeff = self.coeffs.get(&exp).unwrap_or(&z);
-            if *coeff != z {
-                str_list.push(String::from(
-                    format!("{} * E({})^{}", coeff, self.order, exp).as_str(),
-                ))
-            }
-        }
-
-        write!(f, "Number ({})", str_list.join(" + "))
+        write!(f, "Number ({})", print_gap(self))
     }
 }
 
