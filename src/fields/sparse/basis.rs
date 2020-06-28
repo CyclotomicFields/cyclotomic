@@ -172,32 +172,27 @@ pub fn convert_to_base(z: &Number) -> Number {
 
         for i in 0..n {
             // if there isn't even a term for i, why consider it?
-            let c = result.coeffs.get(&i).unwrap_or(&zero).clone();
+            let c = &result.coeffs.get(&i).unwrap_or(&zero).clone();
 
-            if c.clone() == Q::zero() {
+            if c == &Q::zero() {
                 continue;
             }
 
-            if set
-                .clone()
-                .into_iter()
-                .any(|x| math_mod(&x, &q) == math_mod(&i, &q))
-            {
-                // delete from result, we'll add it back later rewritten in the
-                // basis
-                result.coeffs.remove(&i);
+            for bad_i in &set {
+                if math_mod(&bad_i, &q) == math_mod(&i, &q) {
+                    // delete from result, we'll add it back later rewritten in the
+                    // basis
+                    result.coeffs.remove(&i);
 
-                // use the relation to rewrite this root, these are the
-                // exponents on the right hand side
-                let exps: Vec<i64> = (1..*p).map(|k| math_mod(&(k * n / p + i), &n)).collect();
-
-                for k in exps {
-                    let existing_coeff = result.coeffs.get(&k).unwrap_or(&zero);
-                    result.coeffs.insert(k, existing_coeff-&c);
+                    // use the relation to rewrite this root
+                    for k in 1..*p {
+                        let new_exp = math_mod(&(k * n / p + i), &n);
+                        let existing_coeff = result.coeffs.get(&new_exp).unwrap_or(&zero);
+                        result.coeffs.insert(new_exp, existing_coeff-c);
+                    }
+                    break;
                 }
             }
-            // just because i is ok with regard to p, it might be bad
-            // with regard to a different, later prime. We leave it alone
         }
     }
 
