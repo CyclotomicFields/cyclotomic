@@ -120,6 +120,7 @@ fn add_single(coeffs: &mut FnvHashMap<i64, Q>, exp: i64, coeff: &Q, sign: Sign) 
             }
         }
         Some(existing_coeff) => {
+            // TODO: find a way to get rid of coeff.clone() here, it's not needed
             if sign == Sign::Plus {
                 existing_coeff.add_assign(coeff.clone());
             } else {
