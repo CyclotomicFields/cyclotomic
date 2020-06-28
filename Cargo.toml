@@ -18,6 +18,9 @@ fnv = "1.0.7"
 [[bin]]
 name = "arithmetic-benchmark"
 
+[[bin]]
+name = "inversion-benchmark"
+
 [profile.release]
 debug = true
 

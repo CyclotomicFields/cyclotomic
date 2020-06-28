@@ -116,6 +116,15 @@ fn add_single(coeffs: &mut FnvHashMap<i64, Q>, exp: i64, coeff: Q) {
     }
 }
 
+pub fn is_zero(z: &Number) -> bool {
+    for (_, coeff) in &z.coeffs {
+        if !coeff.is_zero() {
+            return false;
+        }
+    }
+    true
+}
+
 fn count_powers(n: &i64, n_divisors: &Vec<i64>) -> Vec<(i64, i64)> {
     let mut result = vec![];
     let mut n_factored = n.clone();
@@ -253,7 +262,6 @@ mod tests {
     quickcheck! {
     fn one_is_mul_identity(z: Number) -> bool {
         let mut same = z.clone().mul(&mut Number::one_order(z.order.clone())).clone();
-        println!("same = {:?}", same);
         same.eq(&mut z.clone())
     }
     }
@@ -283,10 +291,12 @@ mod tests {
     }
 
     quickcheck! {
-    fn mul_has_inverses(z: Number) -> bool {
-        // TODO: skip if z is zero, no inverse
+    fn mul_has_inverses(arb_z: Number) -> bool {
+        let z = convert_to_base(&arb_z);
+        if is_zero(&z) {
+            return true;
+        }
         let mut prod = z.clone().mul_invert().mul(&mut z.clone()).clone();
-        println!("prod = {:?}", prod);
         prod.eq(&mut Number::one_order(z.order))
     }
     }
