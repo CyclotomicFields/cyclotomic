@@ -15,17 +15,17 @@ impl MultiplicativeGroup for Number {
         // This order is almost certainly not optimal. But you know, whatever.
         // TODO: make it gooder
         result.order = z1.order;
-        for (exp1, coeff1) in z1.coeffs.clone() {
-            for (exp2, coeff2) in z2.coeffs.clone() {
+        for (exp1, coeff1) in &z1.coeffs {
+            for (exp2, coeff2) in &z2.coeffs {
                 let new_exp = (exp1 + exp2) % z1.order.clone();
-                let new_coeff = coeff1.clone() * coeff2.clone();
+                let new_coeff = coeff1 * coeff2;
 
                 // Special case: if the new exponent would be 0, since 1 is not
                 // a basis element, we have to use the fact that:
                 // $1 = -\sum_{i=1}^{p-1} \zeta_n^i$ to rewrite the new constant
                 // term in our basis.
                 if new_exp != 0 {
-                    match result.coeffs.clone().get(&new_exp) {
+                    match result.coeffs.get(&new_exp).clone() {
                         Some(existing_coeff) => {
                             result.coeffs.insert(new_exp, new_coeff + existing_coeff)
                         }
@@ -33,7 +33,7 @@ impl MultiplicativeGroup for Number {
                     };
                 } else {
                     for i in 1..result.order.clone() {
-                        match result.coeffs.clone().get(&i) {
+                        match result.coeffs.get(&i).clone() {
                             Some(existing_coeff) => {
                                 result.coeffs.insert(i, existing_coeff - new_coeff.clone())
                             }
