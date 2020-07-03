@@ -1,14 +1,10 @@
 language: rust
 
+# only nightly due to use of #[feature(test)]
 rust:
-  - stable
-  - beta
   - nightly
 
-# nightly failures don't cause overall failure
 jobs:
-  allow_failures:
-    - rust: nightly
   fast_finish: true
 
 # cache dependencies for faster build
