@@ -231,12 +231,11 @@ where
     Q::new(Z::from(p), Z::from(q))
 }
 
-pub fn random_cyclotomic<G>(g: &mut G) -> Number
+pub fn random_cyclotomic<G>(g: &mut G, max_order: i64) -> Number
 where
     G: rand::RngCore,
 {
-    let orders: Vec<i64> = vec![3, 4, 5, 6, 7, 8, 9, 10];
-    let order = orders[g.gen_range(0, orders.len())];
+    let order = g.gen_range(3, max_order);
     let num_terms: u64 = g.gen_range(1, 5);
     let mut result = Number::zero_order(order.clone());
 
@@ -326,7 +325,7 @@ mod tests {
         where
             G: Gen,
         {
-            random_cyclotomic(g)
+            random_cyclotomic(g, 100)
         }
     }
 }

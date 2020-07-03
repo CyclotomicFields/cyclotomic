@@ -28,7 +28,7 @@ fn main() {
 
     let mut nums: Vec<Number> = (1..num_bench + 1)
         .into_iter()
-        .map(|_| convert_to_base(&random_cyclotomic(gen)))
+        .map(|_| convert_to_base(&random_cyclotomic(gen, 1000)))
         .collect();
 
     let start = Instant::now();

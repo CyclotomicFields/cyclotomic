@@ -25,7 +25,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     let num_bench: usize = if args.len() < 2 {
         println!("no num bench given");
-        12000
+        120
     } else {
         println!("using num bench = {}", args[1]);
         args[1].parse().unwrap()
@@ -33,13 +33,13 @@ fn main() {
 
     // Parallelises perfectly, N threads gives N times speed.
     // We should try to beat GAP without cheating, but this is our trump card.
-    let num_threads: usize = 12;
+    let num_threads: usize = 1;
     assert_eq!(num_bench % num_threads, 0);
     println!("num threads = {}", num_threads);
 
     let nums: Vec<Number> = (0..num_bench * 6)
         .into_iter()
-        .map(|_| random_cyclotomic(gen))
+        .map(|_| random_cyclotomic(gen, 1000))
         .collect();
 
     // cut it up into chunks for each thread
