@@ -166,13 +166,6 @@ pub fn convert_to_base(z: &Number) -> Number {
         let start_bad = if *p == 2 { q / 2 } else { -(q / p - 1) / 2 };
         let end_bad = if *p == 2 { q - 1 } else { (q / p - 1) / 2 };
 
-        // the bad exponents are all mod q
-        let mut bad_exponents = Vec::<i64>::new();
-        bad_exponents.reserve((end_bad - start_bad + 1) as usize);
-        for x in start_bad..=end_bad {
-            bad_exponents.push(math_mod(&(n / q * x), &q));
-        }
-
         for i in 0..n {
             // if there isn't even a term for i, no need to convert it
             let coeff = {
@@ -192,8 +185,9 @@ pub fn convert_to_base(z: &Number) -> Number {
 
             let i_mod_q = math_mod(&i, &q);
 
-            for bad_exp in &bad_exponents {
-                if *bad_exp == i_mod_q {
+            for bad_exp_raw in start_bad..=end_bad {
+                let bad_exp = math_mod(&(n/q * bad_exp_raw), &q);
+                if bad_exp == i_mod_q {
                     // delete from result, we'll add it back later, rewritten
                     result.coeffs.remove(&i);
 
