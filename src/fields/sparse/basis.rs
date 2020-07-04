@@ -165,8 +165,15 @@ pub fn convert_to_base(z: &Number) -> Number {
         let end_bad = if *p == 2 { q - 1 } else { (q / p - 1) / 2 };
 
         for bad_exp_raw in start_bad..=end_bad {
-            for i in 0..n {
-                let i_mod_q = math_mod(&i, &q);
+            let bad_exp = math_mod(&(n / q * bad_exp_raw), &q);
+            // We want to remove the i that are equal to bad_exp mod q.
+            // These are exactly the i such that i = bad_exp + aq for some a.
+            // We also need only check 0 <= i <= n-1, which means we only need
+            // to check -bad_exp/q - 1 <= a <= (n-1-bad_exp)/q + 1.
+            // The -1 and +1 are so that even if the division isn't perfect,
+            // then we still check the full range of a we need to check.
+            for a in -bad_exp / q - 1..=((n - 1 - bad_exp) / q + 1) {
+                let i = bad_exp + a * q;
                 // if there isn't even a term for i, no need to convert it
                 let coeff = {
                     let maybe_coeff = result.coeffs.get(&i);
@@ -179,20 +186,14 @@ pub fn convert_to_base(z: &Number) -> Number {
                             }
                         }
                     }
-
                     maybe_coeff.unwrap().clone()
                 };
 
-                let bad_exp = math_mod(&(n / q * bad_exp_raw), &q);
-                if bad_exp == i_mod_q {
-                    // delete from result, we'll add it back later, rewritten
-                    result.coeffs.remove(&i);
-
-                    // use the relation to rewrite this root
-                    for k in 1..*p {
-                        let new_exp = math_mod(&(k * n / p + i), &n);
-                        add_single(&mut result.coeffs, new_exp, &coeff, Sign::Minus);
-                    }
+                // if we got here, i has a nonzero term so must be rewritten
+                result.coeffs.remove(&i);
+                for k in 1..*p {
+                    let new_exp = math_mod(&(k * n / p + i), &n);
+                    add_single(&mut result.coeffs, new_exp, &coeff, Sign::Minus);
                 }
             }
         }
