@@ -83,9 +83,7 @@ pub fn try_rational(z: &Number) -> Option<Q> {
 
     let n_div_powers = &count_powers(&n, &n_divisors);
 
-    let is_squarefree = n_div_powers
-        .into_iter()
-        .all(|(_, power)| *power < 2);
+    let is_squarefree = n_div_powers.into_iter().all(|(_, power)| *power < 2);
 
     let num_primes = n_div_powers
         .into_iter()
@@ -166,27 +164,26 @@ pub fn convert_to_base(z: &Number) -> Number {
         let start_bad = if *p == 2 { q / 2 } else { -(q / p - 1) / 2 };
         let end_bad = if *p == 2 { q - 1 } else { (q / p - 1) / 2 };
 
-        for i in 0..n {
-            // if there isn't even a term for i, no need to convert it
-            let coeff = {
-                let maybe_coeff = result.coeffs.get(&i);
+        for bad_exp_raw in start_bad..=end_bad {
+            for i in 0..n {
+                let i_mod_q = math_mod(&i, &q);
+                // if there isn't even a term for i, no need to convert it
+                let coeff = {
+                    let maybe_coeff = result.coeffs.get(&i);
 
-                match maybe_coeff {
-                    None => continue,
-                    Some(rational) => {
-                        if rational.is_zero() {
-                            continue;
+                    match maybe_coeff {
+                        None => continue,
+                        Some(rational) => {
+                            if rational.is_zero() {
+                                continue;
+                            }
                         }
                     }
-                }
 
-                maybe_coeff.unwrap().clone()
-            };
+                    maybe_coeff.unwrap().clone()
+                };
 
-            let i_mod_q = math_mod(&i, &q);
-
-            for bad_exp_raw in start_bad..=end_bad {
-                let bad_exp = math_mod(&(n/q * bad_exp_raw), &q);
+                let bad_exp = math_mod(&(n / q * bad_exp_raw), &q);
                 if bad_exp == i_mod_q {
                     // delete from result, we'll add it back later, rewritten
                     result.coeffs.remove(&i);
@@ -196,7 +193,6 @@ pub fn convert_to_base(z: &Number) -> Number {
                         let new_exp = math_mod(&(k * n / p + i), &n);
                         add_single(&mut result.coeffs, new_exp, &coeff, Sign::Minus);
                     }
-                    break;
                 }
             }
         }
