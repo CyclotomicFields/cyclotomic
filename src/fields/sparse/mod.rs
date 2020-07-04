@@ -1,29 +1,37 @@
 extern crate num;
+extern crate rustc_hash;
 
 use self::num::{One, Zero};
 use crate::fields::{AdditiveGroup, MultiplicativeGroup};
 use crate::fields::{CyclotomicFieldElement, FieldElement, Q, Z};
 use basis::convert_to_base;
-use fnv::FnvHashMap;
 use num::traits::Inv;
 use quickcheck::{Arbitrary, Gen};
 use rand::Rng;
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::convert::TryInto;
 use std::fmt;
-use std::ops::{Mul, AddAssign, SubAssign};
+use std::hash::BuildHasherDefault;
+use std::hash::Hasher;
+use std::ops::{AddAssign, Mul, SubAssign};
 use std::vec::Vec;
+use std::intrinsics::transmute;
+use rustc_hash::FxHashMap;
 
 pub mod add;
 pub mod basis;
 pub mod galois;
 pub mod mul;
 
+
+type ExpCoeffMap = FxHashMap<i64, Q>;
+
 /// Represents a polynomial in the `order`th root of unity.
 #[derive(Clone)]
 pub struct Number {
     order: i64,
-    coeffs: FnvHashMap<i64, Q>,
+    coeffs: ExpCoeffMap,
 }
 
 pub fn print_gap(z: &Number) -> String {
@@ -47,7 +55,7 @@ impl fmt::Debug for Number {
 }
 
 impl Number {
-    pub fn new(order: i64, coeffs: &FnvHashMap<i64, Q>) -> Number {
+    pub fn new(order: i64, coeffs: &ExpCoeffMap) -> Number {
         Number {
             order: order,
             coeffs: coeffs.clone(),
@@ -55,7 +63,7 @@ impl Number {
     }
 
     pub fn increase_order_to(z: &mut Self, new_order: i64) {
-        let mut new_coeffs = FnvHashMap::default();
+        let mut new_coeffs = ExpCoeffMap::default();
         for (exp, coeff) in &z.coeffs {
             new_coeffs.insert(new_order * exp.clone() / z.order.clone(), coeff.clone());
         }
@@ -109,7 +117,7 @@ enum Sign {
     Minus,
 }
 
-fn add_single(coeffs: &mut FnvHashMap<i64, Q>, exp: i64, coeff: &Q, sign: Sign) {
+fn add_single(coeffs: &mut ExpCoeffMap, exp: i64, coeff: &Q, sign: Sign) {
     let maybe_existing_coeff = coeffs.get_mut(&exp);
     match maybe_existing_coeff {
         None => {
@@ -210,11 +218,11 @@ impl CyclotomicFieldElement for Number {
     }
 
     fn zero_order(n: i64) -> Number {
-        Number::new(n, &FnvHashMap::default())
+        Number::new(n, &ExpCoeffMap::default())
     }
 
     fn one_order(n: i64) -> Number {
-        let mut coeffs = FnvHashMap::default();
+        let mut coeffs = ExpCoeffMap::default();
         for i in 1..n {
             coeffs.insert(i, -Q::one());
         }

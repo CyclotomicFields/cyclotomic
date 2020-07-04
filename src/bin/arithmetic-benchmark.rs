@@ -39,7 +39,7 @@ fn main() {
 
     let nums: Vec<Number> = (0..num_bench * 6)
         .into_iter()
-        .map(|_| random_cyclotomic(gen, 1000))
+        .map(|_| random_cyclotomic(gen, 100))
         .collect();
 
     // cut it up into chunks for each thread
@@ -88,6 +88,7 @@ fn main() {
         file.write_all(b"]; end;");
     }
 
+    println!("starting benchmark");
     let start = Instant::now();
     let mut threads = vec![];
 
