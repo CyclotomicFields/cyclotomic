@@ -73,7 +73,9 @@ fn main() {
         eprintln!("writing GAP expressions to {}", gap_out);
 
         let mut file = File::create(gap_out).unwrap();
-        file.write_all(b"f := function() return [");
+        file.write_all(b"SetCyclotomicsLimit(2^32-1);;\n");
+        file.write_all(b"nop := function (x) end;;\n");
+        file.write_all(b"f := function()\n");
 
         for i in 0..opts.num_tests {
             let x = &mut nums[6 * i].clone();
@@ -85,7 +87,7 @@ fn main() {
 
             write!(
                 &mut file,
-                "{} * {} + {} * {} + {} * {},\n",
+                "nop({} * {} + {} * {} + {} * {});\n",
                 print_gap(x),
                 print_gap(y),
                 print_gap(z),
@@ -95,7 +97,7 @@ fn main() {
             );
         }
 
-        file.write_all(b"]; end;\n");
+        file.write_all(b"end;;\n");
         file.write_all(b"start_time := NanosecondsSinceEpoch();; f();; end_time := NanosecondsSinceEpoch();; Int((end_time-start_time)/1000000);");
     }
 
