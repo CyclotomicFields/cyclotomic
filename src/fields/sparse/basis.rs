@@ -10,19 +10,33 @@ use std::convert::TryInto;
 use std::ops::Mul;
 
 // Tries to reduce to a possibly smaller cyclotomic field
-pub fn try_reduce(z: &Number) -> Number {
+pub fn try_reduce(z: &mut Number) {
     let mut current_gcd: Option<u64> = None;
-    let mut saw_zero = false;
+    let mut saw_exp_zero = false;
+    let mut num_nonzero_terms = 0;
+    let mut coeffs_are_equal = true;
+    let mut last_nonzero_coeff: Option<Q> = None;
 
     for (exp, coeff) in &z.coeffs {
         // this term doesn't really appear
-        if *coeff == Q::zero() {
+        if coeff.is_zero() {
             continue;
+        }
+
+        num_nonzero_terms += 1;
+
+        if coeffs_are_equal {
+            match &last_nonzero_coeff {
+                None => last_nonzero_coeff = Some(coeff.clone()),
+                Some(seen_coeff) => if seen_coeff != coeff {
+                    coeffs_are_equal = false;
+                }
+            }
         }
 
         // 0 will mess up the gcd calculation
         if *exp == 0 {
-            saw_zero = true;
+            saw_exp_zero = true;
             continue;
         }
 
@@ -33,81 +47,66 @@ pub fn try_reduce(z: &Number) -> Number {
     }
 
     if current_gcd.is_none() {
-        // just zero appeared, so this is a rational, we can reduce all the way
-        // to E(2)
-        if saw_zero {
-            let coeff = z.coeffs.get(&0).unwrap();
-            return Number::new(2, &vec![(0, coeff.clone())].into_iter().collect());
+        // if the current gcd was never set, then either 0 is the only exponent
+        // or there are no exponents - rational in both cases.
+        z.order = 1;
+
+        if saw_exp_zero {
+            let coeff = z.coeffs.get(&0).unwrap().clone();
+            z.coeffs.clear();
+            z.coeffs.insert(0, coeff);
+        } else {
+            z.coeffs.clear();
         }
 
-        // not even zero appeared, so this is just zero
-        return Number::zero_order(2);
+        return;
     }
 
     // otherwise gcd is Some and nonzero, so we can divide through
+    let gcd = current_gcd.unwrap() as i64;
 
-    let new_order = z.order.clone() / current_gcd.unwrap() as i64;
+    // no point dividing through by 1
+    if gcd != 1 {
+        let new_order = z.order / gcd;
+        z.order = new_order;
 
-    let mut new_coeffs = ExpCoeffMap::default();
-    for (exp, coeff) in &z.coeffs {
-        if coeff.is_zero() {
-            continue;
+        // don't need to reduce exp=0 since it would just reduce to exp=0
+        for exp in 1..new_order {
+            match z.coeffs.get(&(gcd*exp)) {
+                None => (), // there is no term to rewrite
+                Some(coeff) => {
+                    z.coeffs.insert(exp, coeff.clone());
+                    z.coeffs.remove(&(gcd*exp));
+                }
+            }
         }
-        let new_exp = *exp / current_gcd.unwrap() as i64;
-        new_coeffs.insert(new_exp, coeff.clone());
-    }
-    let res = Number::new(new_order, &new_coeffs);
-
-    res
-}
-
-pub fn try_rational(z: &Number) -> Option<Q> {
-    let base_z = convert_to_base(&try_reduce(&convert_to_base(z)));
-
-    // if order is 2, that's already a rational!
-    if base_z.order == 2 {
-        return Some(base_z.coeffs.get(&0).unwrap_or(&Q::zero()).clone());
     }
 
-    let n = base_z.order;
+    // now all exponents are coprime with the new order
+    let n = z.order;
     let phi_n = phi(n);
-
     let mut n_divisors: Vec<i64> = divisors::get_divisors(n as u64)
         .into_iter()
         .map(|x| x as i64)
         .collect();
-
     if n_divisors.len() == 0 {
         n_divisors.push(n);
     }
 
     let n_div_powers = &count_powers(&n, &n_divisors);
-
     let is_squarefree = n_div_powers.into_iter().all(|(_, power)| *power < 2);
-
     let num_primes = n_div_powers
         .into_iter()
         .filter(|(factor, power)| *power > 0)
         .count();
 
-    let num_nonzero_terms = base_z
-        .coeffs
-        .clone()
-        .into_iter()
-        .filter(|(exp, coeff)| *coeff != Q::zero())
-        .count();
-
-    let same_coeff = get_same_coeff(&base_z);
-
-    match same_coeff {
-        Some(coeff) => {
-            if num_nonzero_terms == phi_n as usize && is_squarefree {
-                Some(coeff.mul(Z::from(i64::pow(-1, num_primes.try_into().unwrap()))))
-            } else {
-                None
-            }
-        }
-        None => None,
+    // if this is the case, it's rational
+    if num_nonzero_terms == phi_n && coeffs_are_equal && is_squarefree {
+        z.order = 1;
+        z.coeffs.clear();
+        let new_coeff = last_nonzero_coeff.unwrap().mul(Z::from(i64::pow(-1, num_primes.try_into().unwrap())));
+        z.coeffs.insert(0, new_coeff);
+        return;
     }
 }
 

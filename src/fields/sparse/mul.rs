@@ -1,7 +1,8 @@
 use crate::fields::{MultiplicativeGroup, CyclotomicFieldElement, Q};
 use crate::fields::sparse::*;
 use galois::apply_automorphism;
-use basis::try_rational;
+use super::num::Zero;
+use crate::fields::sparse::basis::{convert_to_base, try_reduce};
 
 impl MultiplicativeGroup for Number {
     /// Multiplies term by term, not bothering to do anything interesting.
@@ -52,19 +53,20 @@ impl MultiplicativeGroup for Number {
         }
 
         // The full product:
-        let q_cyc = z.clone().mul(&mut x.clone()).clone();
+        let mut q_cyc = convert_to_base(z.clone().mul(&mut x.clone()));
+        try_reduce(&mut q_cyc);
+        println!("q_cyc = {:?}", q_cyc);
 
-        // q_cyc is rational, so let's extract the rational bit (all of it).
-        // We need to do some tricks to make it rational (it might be in a
-        // bit of a weird form).
+        assert_eq!(q_cyc.order, 1);
+        let q_rat = q_cyc.coeffs.get(&0).unwrap();
+        println!("q_rat = {:?}", q_rat);
 
-        // How do you tell if a cyclotomic is really rational?
-        let q: Q = try_rational(&q_cyc).unwrap();
+        if q_rat.is_zero() {
+            panic!("can't invert zero!");
+        }
 
-        let z_inv = x.scalar_mul(&q.inv());
-
+        let z_inv = x.scalar_mul(&q_rat.inv());
         *self = z_inv.clone();
-
         self
     }
 }
