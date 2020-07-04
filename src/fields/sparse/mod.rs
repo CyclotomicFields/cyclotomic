@@ -18,6 +18,7 @@ use std::ops::{AddAssign, Mul, SubAssign};
 use std::vec::Vec;
 use std::intrinsics::transmute;
 use rustc_hash::FxHashMap;
+use crate::fields::sparse::basis::try_reduce;
 
 pub mod add;
 pub mod basis;
@@ -45,7 +46,7 @@ pub fn print_gap(z: &Number) -> String {
             ))
         }
     }
-    str_list.join(" + ")
+    "(".to_string() + &str_list.join(" + ") + ")"
 }
 
 impl fmt::Debug for Number {
@@ -72,6 +73,9 @@ impl Number {
     }
 
     pub fn match_orders(z1: &mut Number, z2: &mut Number) {
+        if z1.order == z2.order {
+            return;
+        }
         let new_order = num::integer::lcm(z1.order, z2.order);
         Number::increase_order_to(z1, new_order);
         Number::increase_order_to(z2, new_order);
@@ -172,8 +176,8 @@ impl FieldElement for Number {
         let mut za = self.clone();
         let mut zb = other.clone();
         Number::match_orders(&mut za, &mut zb);
-        let z1 = convert_to_base(&za);
-        let z2 = convert_to_base(&zb);
+        let mut z1 = convert_to_base(&za);
+        let mut z2 = convert_to_base(&zb);
 
         // Now that we've matched the orders, z1 and z2 are expressed as
         // elements in the same field so are the same iff each nonzero term is

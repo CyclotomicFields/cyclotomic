@@ -14,12 +14,10 @@ rand = "0.7.3"
 divisors = "0.2.1"
 rand_chacha = "0.2.2"
 rustc-hash = "1.1.0"
+clap = "3.0.0-beta.1"
 
 [[bin]]
-name = "arithmetic-benchmark"
-
-[[bin]]
-name = "inversion-benchmark"
+name = "cyclobench"
 
 [profile.release]
 debug = true

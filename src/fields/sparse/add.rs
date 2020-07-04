@@ -1,5 +1,6 @@
 use crate::fields::sparse::{Number, ExpCoeffMap};
 use crate::fields::{AdditiveGroup, CyclotomicFieldElement, Q, Z};
+use crate::fields::sparse::basis::try_reduce;
 
 impl AdditiveGroup for Number {
     /// Simplest possible - term wise addition using hashing.
@@ -21,7 +22,7 @@ impl AdditiveGroup for Number {
             };
         }
 
-        let result = Number::new(z1.order, &coeffs);
+        let mut result = Number::new(z1.order, &coeffs);
         *z1 = result;
         z1
     }
