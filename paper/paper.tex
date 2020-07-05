@@ -128,32 +128,127 @@ counted?
 
 Is it embarassingly parallel? Improvements over GAP?
 
-\section{Sparse Representations}
+\section{Representations}
 
-\subsection{Vectors}
+TODO: pick a better word that doesn't evoke representation theory.
+
+\subsection{GAP's hybrid representation}
+
+Not really hybrid. Sometimes it's all sparse, temporarily is all
+dense.
+
+GAP stores packed cyclotomics sparsely, as a list of exponents and
+coefficients. But when actually doing arithmetic, the arithmetic is
+done densely - on an array of size the order of the field, with the
+ith element of the array being the coefficient of $\zeta_n^i$.
 
 Put GAP's implementation here. Not the mathy stuff, just talk about
 how they use arrays, bags, globals, single-threaded etc.
 
-\subsection{Hash maps}
+\subsection{Pure sparse representation}
 
-This is probably my ``naive'' implementation.
+This is probably my ``sparse'' implementation. Advantages are that
+space usage doesn't depend linearly on the order. We can even operate
+on arbitrarily large orders. Space usage is linear in the number of
+nonzero terms only.
 
-\section{Dense Representation}
+Talk about the hash map implementation, cite it?
+
+\subsection{Dense vector representation}
 
 Probably just the array representations. Maybe some discussion of cool
 assembly hacks for multiplying numbers in a single instruction. Or
 maybe some cyclic array or list (maybe not linked list for cache
 reasons...) thing where certain multiplications can become cheap.
 
+These are only really viable for small orders.
+
+\subsection{True hybrid representation}
+
+A hash map of exponents to chunks? Some kind of hybrid thing?
+
+This is Daniel Roche's thing \cite{Roche2018}, we need to implement
+and cite that, I think.
+
+Seems interesting but I'm not sure if cyclotomics are usually very
+chunky.
+
 \section{Performance-enhancing heuristics}
 
 This is the real-world, ``street smart not book smart'' section.
 
-\subsection{Chunky and equal-spaced representations}
+\subsection{Cheap homomorphisms}
 
-This is Daniel Roche's thing \cite{Roche2018}, we need to implement
-and cite that.
+This is Rob's thing, he already implemented some polynomial algorithms
+(division, evaluation). If you're checking equality, then there is a
+high probability that your elements are not equal. In that case, you
+want to return as soon as possible. This doesn't mean anything for the
+asymptotic complexity but in practice, this speeds comparisons up.
+
+TODO: come up with some better names for the tricks.
+
+\subsubsection{Trick 1: Fast inequality}
+
+There is a ring homomorphism:
+
+$$\mathbb{Q}[x] \to \mathbb{Q}(\zeta_n) = K_n$$
+
+with kernel $(\Phi_n(x))$, given by $f(x) \mapsto f(\zeta_n)$, this is
+the evaluation map.
+
+TODO: check if this trick is any good in terms of
+performance. Comparing to GAP, we might just have to go to really
+large orders to make it seem like this is good.
+
+Implicitly, when we write down an element in $K_n$ as a polynomial,
+we're using this homomorphism, but we can use other evaluation maps
+too. We can evaluate polynomials at ``cheap'' points, like
+integers. If $f$ and $g$ differ in their evaluations at a point, then
+they are different in $\mathbb{Q}[x]$ and thus as elements of $K_n$.
+
+\subsubsection{Trick 2: Fast equality}
+
+The way to actually check equality in $K_n$ is generally to pick bases
+and so on, because it is generally computationally intractable to
+divide two polynomials by $\Phi_n(x)$ since we need to know $\Phi_n$
+and we need to divide - both slow.
+
+But dividing by $x^n - 1$ is cheap (TODO: I am pretty sure this is
+true, maybe some benchmarks). Recall the isomorphism (Chinese
+Remainder Theorem):
+
+$$\frac{\mathbb{Q}[x]}{(x^n-1)} \cong \prod_{d | n}\frac{\mathbb{Q}[x]}{(\Phi_d(x))}$$
+
+So if two elements are the same modulo $x^n-1$, then they're the same
+in \emph{all} of the fields $K_d$ for $d | n$, including $K_n$. And we
+never had to even know $\Phi_n$ to find this out!
+
+Of course, the converse isn't true. It's possible for two elements to
+be the same modulo $\Phi_{d_1}(x)$ and different modulo
+$\Phi_{d_2}(x)$, for $d_1, d_2 | n$. That said, I feel like most
+numbers don't have that many factors, so this is probably true some of
+the time.
+
+TODO: cherry pick the right benchmark so that this is true
+
+
+\subsection{Avoid converting to basis}
+
+This is key! The application (cite my thesis?) involves doing a lot of
+matrix arithmetic, maybe one inversion (compared to billions of other
+operations, takes zero time), then converting to floating point and
+putting the results into a semidefinite program solver.
+
+Notice anything? We never checked equality, so we never needed any
+cyclotomic to be in a unique form! We never used any property of the
+basis! This means we just need a spanning set and \emph{all} of the
+$\zeta_n^i$ will do nicely.
+
+\subsection{Everything is in the same field}
+
+We're working with a large set of cyclotomics, but they're all from
+the same field! There is no point in reducing since we already know
+which field we're in.
 
 \subsection{Optimisations for ``simple'' elements}
 
@@ -174,7 +269,17 @@ are most cache-friendly and least susceptible to false sharing?
 
 \section{Benchmarks}
 
-Ours is the best by far! Cherry pick some good benchmarks.
+Vague conclusions:
+
+GAP is trash for large order fields, runs out of memory fast.
+
+Ours works for arbitrarily sized fields, is faster than GAP as
+terms get sparser.
+
+In the real world use-case, ours is a lot better since we skip all of
+the unnecessary work GAP does.
+
+Magma et al, who knows? Those are closed source!
 
 \section{Conclusions and Future Work}
 
