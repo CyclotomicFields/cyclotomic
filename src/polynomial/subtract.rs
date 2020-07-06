@@ -1,4 +1,4 @@
-use std::ops::{Add, Neg, Sub, AddAssign};
+use std::ops::{Add, Neg, Sub, AddAssign, SubAssign};
 
 use crate::polynomial::polynomial::Polynomial;
 
@@ -19,6 +19,12 @@ impl Sub for Polynomial {
 
     fn sub(self, rhs: Self) -> Self::Output {
         (&self).sub(&rhs)
+    }
+}
+
+impl SubAssign for Polynomial {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.sub_mut(rhs);
     }
 }
 
