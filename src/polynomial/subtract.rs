@@ -1,11 +1,16 @@
-use std::ops::{Add, Neg, Sub};
+use std::ops::{Add, Neg, Sub, AddAssign, SubAssign};
 
 use crate::polynomial::polynomial::Polynomial;
 
 impl Polynomial {
-    // TODO: Stop griefing
+    pub fn sub_mut(&mut self, rhs: Self) {
+        self.add_assign(rhs.neg())
+    }
+
     pub fn sub(&self, rhs: &Self) -> Polynomial {
-        self.clone().add(rhs.neg())
+        let mut clone = self.clone();
+        clone.add_assign(rhs.neg());
+        clone
     }
 }
 
@@ -14,6 +19,12 @@ impl Sub for Polynomial {
 
     fn sub(self, rhs: Self) -> Self::Output {
         (&self).sub(&rhs)
+    }
+}
+
+impl SubAssign for Polynomial {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.sub_mut(rhs);
     }
 }
 
