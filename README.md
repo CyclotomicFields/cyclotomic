@@ -1,14 +1,59 @@
 # Cyclotomic
 
-#### The Dream
+This is a library for exact operations in cyclotomic fields that is
+well-tested, well-documented, and aims for speed in certain use
+cases. Can be used from C, C++ or Rust.
 
-This is a library for exact arithmetic in cyclotomic fields that is
-well-tested, well-documented, and possibly fast.
+## Why use this library?
 
-Have a look at the documentation
-[here](https://cyclotomicfields.github.io/cyclotomic/cyclotomic/).
+There are other libraries for more general use-cases out
+there, for example:
 
-## Getting Started
+* [antic](https://github.com/wbhart/antic)
+* [e-antic](https://github.com/videlec/e-antic)
+* [Arb](http://arblib.org/)
+* [FLINT](http://flintlib.org/)
+
+They all do *many* things and have a wide scope. Our library only does
+one thing, and does it *fast*: cyclotomic field operations. And not
+just that, we are optimised for the specific use case of cyclotomic
+linear algebra, with the intention of using SIMD operations wherever
+it will make our code faster (backed up by extensive benchmarking).
+
+There's a lot of structure common to all number fields, and it's
+possible to get number field operations reasonably fast. But there is
+much, much more that's specific to cyclotomic fields, and this allows
+us to be faster for certain use cases (keep an eye on arXiv for some
+details).
+
+## Quick start
+
+### Use cyclotomic in a Rust program
+
+To install the latest release, install
+[cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html)
+to get a functional Rust installation, including the cargo package
+manager. Then add the `cyclotomic` crate to your `Cargo.toml`:
+
+```toml
+[dependencies]
+cyclotomic = "1.*"
+```
+
+If you're using this before version 1 is released, then change that to
+"0.*", but there'll be a lot of breaking changes.
+
+### Use cyclotomic in a C or C++ program
+
+TODO, but this is very important.
+
+### More documentation
+
+Take a look
+[here](https://cyclotomicfields.github.io/cyclotomic/cyclotomic/) for
+full API documentation, along with code examples.
+
+## Quick start for devs
 
 1. Install Rust using the instructions on their
 [website](https://www.rust-lang.org/tools/install)
@@ -25,7 +70,7 @@ to load the primes into memory faster
 that you have push permissions
 7. Check that your push has triggered a pipeline build on
 [Travis](https://travis-ci.com/github/CyclotomicFields/cyclotomic/builds)
-8. Run the benchmark by first installing nightly rust with 
+8. Run the benchmark by first installing nightly rust with
 `rustup install nightly` and then running `cargo +nightly bench`.
 
 ## Building the documentation
@@ -61,22 +106,19 @@ The goals of this project are (in order):
 3. Profile and benchmark everything so the performance of this library
    is good enough that it can be used to solve non-trivial problems.
 
-## Prior art
+## Inspiration
 
-The best implementation of cyclotomic numbers I'm aware of is the one
-in the
+The implementation we have borrowed most from is the one for the
 [GAP computer algebra system](https://github.com/gap-system/gap/blob/master/src/cyclotom.c),
-which supports all of the operations we're interested in. The problem
-there is that it's not standalone - it comes with a huge computer
-algebra system. The other problem is that it's written in C, and
-doesn't seem to be very easily parallelisable without running multiple
-GAP processes.
+which implements specific logic for cyclotomic fields using various
+basis tricks. This is closest in spirit to what we're doing, but isn't
+standalone.
 
-Another library I've seen is
-[cyclotomic](https://hackage.haskell.org/package/cyclotomic), which is
-standalone. The problem there is that it's written in Haskell, not
-focused on performance, and (in general) Haskell is hard to reason
-about when it comes to performance. For me, at least.
+Another library is
+[cyclotomic](https://hackage.haskell.org/package/cyclotomic) which is
+the same thing but in Haskell. This is just a reimplementation of
+GAP's algorithms, but I find Haskell code easier to read than C
+sometimes, so this deserves a mention.
 
 #### Contributors
 
