@@ -6,18 +6,16 @@ extern crate test;
 use clap::Clap;
 use cyclotomic::fields::sparse::{print_gap, random_cyclotomic, Number};
 use cyclotomic::fields::AdditiveGroup;
-use cyclotomic::fields::FieldElement;
 use cyclotomic::fields::MultiplicativeGroup;
 use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
-use std::env;
-use std::fmt::Debug;
 use std::fs::File;
+use std::io::Result;
 use std::io::Write;
 use std::iter::FromIterator;
 use std::thread;
 use std::time::Instant;
-use test::{black_box, Bencher};
+use test::black_box;
 
 #[derive(Clap)]
 #[clap(version = "1.0")]
@@ -33,6 +31,41 @@ struct Opts {
 
     #[clap(short, long, default_value = "100")]
     order_max: usize,
+}
+
+// Writes a gap source file with a function f you can run that will
+// do the same computations, for benchmark purposes.
+fn write_gap_cycs(nums: &Vec<Number>, filename: String) -> Result<()> {
+    eprintln!("writing GAP expressions to {}", filename);
+
+    let mut file = File::create(filename).unwrap();
+
+    file.write_all(b"SetCyclotomicsLimit(2^32-1);;\n")?;
+    file.write_all(b"nop := function (x) end;;\n")?;
+    file.write_all(b"f := function()\n")?;
+
+    for i in 0..nums.len()/6 {
+        let x = &nums[6 * i].clone();
+        let y = &nums[6 * i + 1].clone();
+        let z = &nums[6 * i + 2].clone();
+        let a = &nums[6 * i + 3].clone();
+        let b = &nums[6 * i + 4].clone();
+        let c = &nums[6 * i + 5].clone();
+
+        write!(
+            &mut file,
+            "nop({} * {} + {} * {} + {} * {});\n",
+            print_gap(x),
+            print_gap(y),
+            print_gap(z),
+            print_gap(a),
+            print_gap(b),
+            print_gap(c),
+        );
+    }
+    file.write_all(b"end;;\n")?;
+    file.write_all(b"start_time := NanosecondsSinceEpoch();; f();; end_time := NanosecondsSinceEpoch();; Int((end_time-start_time)/1000000);")?;
+    Ok(())
 }
 
 fn main() {
@@ -68,37 +101,10 @@ fn main() {
     }
 
     if let Some(gap_out) = opts.gap_out {
-        // writes a gap source file with a function f you can run that will
-        // do the same computations, for benchmark purposes.
-        eprintln!("writing GAP expressions to {}", gap_out);
-
-        let mut file = File::create(gap_out).unwrap();
-        file.write_all(b"SetCyclotomicsLimit(2^32-1);;\n");
-        file.write_all(b"nop := function (x) end;;\n");
-        file.write_all(b"f := function()\n");
-
-        for i in 0..opts.num_tests {
-            let x = &mut nums[6 * i].clone();
-            let y = &mut nums[6 * i + 1].clone();
-            let z = &mut nums[6 * i + 2].clone();
-            let a = &mut nums[6 * i + 3].clone();
-            let b = &mut nums[6 * i + 4].clone();
-            let c = &mut nums[6 * i + 5].clone();
-
-            write!(
-                &mut file,
-                "nop({} * {} + {} * {} + {} * {});\n",
-                print_gap(x),
-                print_gap(y),
-                print_gap(z),
-                print_gap(a),
-                print_gap(b),
-                print_gap(c),
-            );
+        match write_gap_cycs(&nums, gap_out) {
+            Ok(()) => (),
+            Err(e) => eprintln!("error writing gap file: {}", e)
         }
-
-        file.write_all(b"end;;\n");
-        file.write_all(b"start_time := NanosecondsSinceEpoch();; f();; end_time := NanosecondsSinceEpoch();; Int((end_time-start_time)/1000000);");
     }
 
     eprintln!("starting benchmark");
