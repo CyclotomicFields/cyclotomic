@@ -47,6 +47,27 @@ impl Polynomial {
         self.coefficients = product_coefficients;
     }
 
+    pub fn mul_mut_convolutions(&mut self, _rhs: &Self) {
+        /*
+        Using convolutions
+
+        Let the larger of the degrees of the polynomials be n, and let
+        floor(n/2) be m. For each polynomial, split it into two smaller
+        polynomials. The first containing the terms of degree less than or
+        equal to m, and the second containing the rest of the terms.
+
+        For multiplicands A and B, let the split polynomials be A0, A1, B0, B1
+        respectively. We can calculate the original product as a sum of
+        A0 * B0, ((A0 * B1) + (A1 * B0)) * x^m, A1 * B1 * x^2m. We can solve
+        these sub-problems by either recursing or by invoking another
+        multiplication method.
+
+        This looks like four multiplications, but we can actually do it in
+        three by using a little trick, that
+        ((A0 * B1) + (A1 * B0)) = (A0 + A1)(B0 + B1) - (A0 * B0) - (B0 * B1).
+        */
+    }
+
     pub fn mul(&self, rhs: &Self) -> Polynomial {
         let mut clone = self.clone();
         clone.mul_mut(rhs);
