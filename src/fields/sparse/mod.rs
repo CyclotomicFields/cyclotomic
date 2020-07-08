@@ -243,11 +243,11 @@ where
     Q::new(Z::from(p), Z::from(q))
 }
 
-pub fn random_cyclotomic<G>(g: &mut G, max_order: i64) -> Number
+pub fn random_cyclotomic<G>(g: &mut G, min_order: i64, max_order: i64) -> Number
 where
     G: rand::RngCore,
 {
-    let order = g.gen_range(3, max_order);
+    let order = g.gen_range(min_order, max_order);
     let num_terms: u64 = g.gen_range(1, 5);
     let mut result = Number::zero_order(order.clone());
 

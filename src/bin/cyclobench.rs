@@ -29,8 +29,11 @@ struct Opts {
     #[clap(short, long, default_value = "1")]
     threads: usize,
 
+    #[clap(short, long, default_value = "3")]
+    lower_bound_order: usize,
+
     #[clap(short, long, default_value = "100")]
-    order_max: usize,
+    upper_bound_order: usize,
 }
 
 // Writes a gap source file with a function f you can run that will
@@ -71,8 +74,8 @@ fn write_gap_cycs(nums: &Vec<Number>, filename: String) -> Result<()> {
 fn main() {
     let opts: Opts = Opts::parse();
     eprintln!(
-        "num_tests = {}\nthreads = {}\norder max = {}",
-        opts.num_tests, opts.threads, opts.order_max
+        "num_tests = {}\nthreads = {}\nlower bound order = {}\nhigher bound order = {}",
+        opts.num_tests, opts.threads, opts.lower_bound_order, opts.upper_bound_order
     );
 
     let gen = &mut ChaCha20Rng::seed_from_u64(12345);
@@ -83,7 +86,7 @@ fn main() {
 
     let nums: Vec<Number> = (0..opts.num_tests * 6)
         .into_iter()
-        .map(|_| random_cyclotomic(gen, opts.order_max as i64))
+        .map(|_| random_cyclotomic(gen, opts.lower_bound_order as i64, opts.upper_bound_order as i64))
         .collect();
 
     // cut it up into chunks for each thread
