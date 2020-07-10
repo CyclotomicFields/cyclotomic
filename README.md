@@ -26,6 +26,8 @@ much, much more that's specific to cyclotomic fields, and this allows
 us to be faster for certain use cases (keep an eye on arXiv for some
 details).
 
+See [below for some benchmarks against antic](#benchmarks).
+
 ## Quick start
 
 ### Use cyclotomic in a Rust program
@@ -119,6 +121,34 @@ Another library is
 the same thing but in Haskell. This is just a reimplementation of
 GAP's algorithms, but I find Haskell code easier to read than C
 sometimes, so this deserves a mention.
+
+## Benchmarks
+
+There are source code for some benchmarks against various libraries
+under the `benchmarks/` directory. Currently, there are only
+benchmarks for the antic library for number fields (among other
+things).
+
+To compile the benchmark:
+
+```sh
+$ cd benchmarks/antic
+$ g++ -O2 -g -o anticbench main.cpp -leantic -lflint
+```
+
+(assuming you have the e-antic and flint libraries installed (TODO:
+maybe some guidance on how to install those))
+
+To run:
+
+```sh
+$ ./anticbench
+Time elapsed (ms):
+2060
+```
+
+The actual benchmark run is kind of arbitrary and will be documented
+here more thoroughly. Basically some matrix dot products.
 
 #### Contributors
 
