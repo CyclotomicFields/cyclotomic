@@ -98,7 +98,7 @@ int main(int argc, char *argv[]) {
     std::cout << "end print" << std::endl;
     */
 
-    std::cout << "starting benchmark" << std::endl;
+    std::cerr << "starting benchmark" << std::endl;
 
     const auto start = std::chrono::steady_clock::now();
 

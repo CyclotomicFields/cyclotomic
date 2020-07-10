@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 from argparse import ArgumentParser
 parser = ArgumentParser(description="Generate graphs from benchmark data")
 parser.add_argument("--log", help="use a logarithmic scale for the y axis", action="store_true")
-parser.add_argument("--prefix", help="prefix to use for the files generated", nargs=1, default="default_prefix")
+parser.add_argument("--prefix", help="prefix to use for the files generated", default="default_prefix")
 parser.add_argument("file", help="files to graph", nargs="+")
 args = parser.parse_args()
 
