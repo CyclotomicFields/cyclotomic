@@ -150,6 +150,16 @@ Time elapsed (ms):
 The actual benchmark run is kind of arbitrary and will be documented
 here more thoroughly. Basically some matrix dot products.
 
+You might have to increase your stack size to run the benchmark, for
+example:
+
+```sh
+$ ulimit -s 819200
+```
+
+You can tell if you need to do this because the benchmark instantly
+crashes.
+
 #### Contributors
 
 Rob Moore, Kaashif Hymabaccus
