@@ -2,6 +2,7 @@
 import numpy as np
 import matplotlib, glob, sys, itertools, math
 
+# Required pre plt import configuration
 matplotlib.rcParams['pgf.rcfonts'] = False
 matplotlib.rcParams['pgf.texsystem'] = 'pdflatex'
 matplotlib.rcParams['text.usetex'] = True
@@ -10,8 +11,18 @@ matplotlib.rcParams['figure.figsize'] = "4,4"
 
 import matplotlib.pyplot as plt
 
-# prettifies a file name for use in a legend
+from argparse import ArgumentParser
+parser = ArgumentParser(description="Generate graphs from benchmark data")
+parser.add_argument("--log", help="use a logarithmic scale for the y axis", action="store_true")
+parser.add_argument("--prefix", help="prefix to use for the files generated", nargs=1, default="default_prefix")
+parser.add_argument("file", help="files to graph", nargs="+")
+args = parser.parse_args()
+
+NEXT_FIGURE = 1
+log = args.log
+
 def make_pretty_name(fname):
+    """Prettifies a file name for use in a legend"""
     s = fname.split('.')[0] # remove .csv
     old_words = s.split('_')[1:] # remove first word
     words = []
@@ -22,20 +33,6 @@ def make_pretty_name(fname):
             words.append(word)
     ret = ' '.join([word.title() for word in words])
     return ret
-
-NEXT_FIGURE = 1
-log = False
-
-def do_plot(results, xindex, yindex, xlabel, ylabel, title, fname="graph"):
-    global NEXT_FIGURE
-    to_plot = np.array(results).T
-    plt.figure(NEXT_FIGURE)
-    NEXT_FIGURE += 1
-    plt.title(title)
-    plt.xlabel(xlabel)
-    plt.ylabel(ylabel)
-    plt.plot(to_plot[xindex], to_plot[yindex], "rx")
-    plt.savefig(fname+".pgf")
 
 def do_plot_multiple(results_mult, xindex, yindex, xlabel, ylabel, title, fname, labels):
     global NEXT_FIGURE, log
@@ -105,14 +102,8 @@ def tolatex(data, header, output_file):
 
 header = ["|G|", "id", "|cc(G)|", "degree", "time taken"]
 
-log = sys.argv.pop() == "log"
-
-fnames = sys.argv[2:]
-
-if len(fnames) > 1:
-    plot_multiple(fnames, sys.argv[1])
-else:
-    plot(fnames[0])
+fnames = args.file
+plot_multiple(fnames, args.prefix)
 
 for result_csv in fnames:
     with open(result_csv, "r") as result_file:
