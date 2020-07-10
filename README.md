@@ -133,32 +133,27 @@ To compile the benchmark:
 
 ```sh
 $ cd benchmarks/antic
-$ g++ -O2 -g -o anticbench main.cpp -leantic -lflint
+$ make
 ```
 
 (assuming you have the e-antic and flint libraries installed (TODO:
 maybe some guidance on how to install those))
 
-To run:
+To run, specify the order of the cyclotomic field and the number of
+dot products to perform:
 
 ```sh
-$ ./anticbench
-Time elapsed (ms):
-2060
+$ ./anticbench 100 120000
+n = 100
+num_tests = 120000
+generating test data
+starting benchmark
+time elapsed (ms):
+3586
 ```
 
 The actual benchmark run is kind of arbitrary and will be documented
-here more thoroughly. Basically some matrix dot products.
-
-You might have to increase your stack size to run the benchmark, for
-example:
-
-```sh
-$ ulimit -s 819200
-```
-
-You can tell if you need to do this because the benchmark instantly
-crashes.
+here more thoroughly. Basically some dot products.
 
 #### Contributors
 
