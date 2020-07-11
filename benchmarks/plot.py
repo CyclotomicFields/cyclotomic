@@ -18,7 +18,7 @@ parser.add_argument("-l", "--log", help="use a logarithmic scale for the y axis"
 parser.add_argument("-p", "--prefix", help="prefix to use for the files generated", default="default_prefix")
 parser.add_argument("-x", "--x", help="column to use as x axis and label", nargs=2, metavar=("column_index", "label"), required=True)
 parser.add_argument("-y", "--y", help="column to use as y axis and label", nargs=2, metavar=("column_index", "label"), required=True)
-parser.add_argument("file", metavar="file.csv", help="csv files to graph", nargs="+")
+parser.add_argument("-f", "--file", metavar=("label", "file.csv"), help="label and csv files to graph", nargs=2, action="append", required=True)
 args = parser.parse_args()
 
 NEXT_FIGURE = 1
@@ -59,8 +59,8 @@ def plot_multiple(fnames, out_fname, header):
     y_label = header[1]
     if log:
         y_label = f"log({y_label})"
-    ptss = [read_pts(fname) for fname in fnames]
-    do_plot_multiple(ptss, 0, 1, header[0], y_label, f'', f'{out_fname}', fnames)
+    ptss = [read_pts(fname[1]) for fname in fnames]
+    do_plot_multiple(ptss, 0, 1, header[0], y_label, f'', f'{out_fname}', [fname[0] for fname in fnames])
 
 def tolatex(data, header, output_file):
     output = ""
@@ -80,7 +80,7 @@ header = [args.x[1], args.y[1]]
 fnames = args.file
 plot_multiple(fnames, args.prefix, header)
 
-for input_csv in fnames:
+for (_, input_csv) in fnames:
     with open(input_csv, "r", newline="") as input_file:
         csv_reader = csv.reader(input_file, delimiter=",")
         results = [[int(x) for x in row] for row in csv_reader]
