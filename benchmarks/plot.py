@@ -23,7 +23,7 @@ log = args.log
 
 def do_plot_multiple(results_mult, xindex, yindex, xlabel, ylabel, title, fname, labels):
     global NEXT_FIGURE, log
-    marker_color = itertools.cycle(itertools.product("rgbcmy", "x+."))
+    marker_color = itertools.cycle(itertools.product(".x+", "rgbcmy"))
     plt.figure(NEXT_FIGURE)
     NEXT_FIGURE += 1
     plt.title(title)
@@ -35,7 +35,7 @@ def do_plot_multiple(results_mult, xindex, yindex, xlabel, ylabel, title, fname,
         if log:
             for j in range(len(to_plot[yindex])):
                 to_plot[yindex][j] = math.log10(to_plot[yindex][j])
-        color, marker = next(marker_color)
+        marker, color = next(marker_color)
         handle, = plt.plot(to_plot[xindex], to_plot[yindex], label=labels[i], marker=marker, linestyle="None", color=color)
         handles.append(handle)
     lgd = plt.legend(handles=handles, bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
