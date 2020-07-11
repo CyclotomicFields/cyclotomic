@@ -20,7 +20,7 @@ impl Polynomial {
     }
 
     // TODO: Remove the various unnecessary clones
-    fn coefficient_mul_convolutions(lhs: &Vec<Q>, rhs: &Vec<Q>) -> Vec<Q> {
+    fn coefficient_mul_convolutions(lhs: Vec<Q>, rhs: Vec<Q>) -> Vec<Q> {
         /*
         Using convolutions
 
@@ -30,11 +30,11 @@ impl Polynomial {
         if (lhs.len() == 1 && lhs[0].is_zero()) || (rhs.len() == 1 && rhs[0].is_zero()) {
             return vec![Q::zero()];
         } else if lhs.len() == 1 && lhs[0].is_one() {
-            return rhs.clone();
+            return rhs;
         } else if rhs.len() == 1 && rhs[0].is_one() {
-            return lhs.clone();
+            return lhs;
         } else if n < 3 || lhs.len() == 1 || rhs.len() == 1 {
-            return Polynomial::coefficient_mul_naive(lhs, rhs);
+            return Polynomial::coefficient_mul_naive(&lhs, &rhs);
         }
         let m = (n as f64 / 2.0).ceil() as usize;
 
@@ -66,9 +66,9 @@ impl Polynomial {
         multiplications of n/2 coefficients. The naive coefficient-wise
         multiplication is O(n^2), which is why this is effective.
         */
-        let a0b0 = Polynomial::coefficient_mul_convolutions(&a0, &b0);
-        let a1b1 = Polynomial::coefficient_mul_convolutions(&a1, &b1);
-        let mut a0b1_plus_a1b0 = Polynomial::coefficient_mul_convolutions(&a0_plus_a1, &b0_plus_b1);
+        let a0b0 = Polynomial::coefficient_mul_convolutions(a0, b0);
+        let a1b1 = Polynomial::coefficient_mul_convolutions(a1, b1);
+        let mut a0b1_plus_a1b0 = Polynomial::coefficient_mul_convolutions(a0_plus_a1, b0_plus_b1);
         for i in 0..a0b0.len() {
             a0b1_plus_a1b0[i] -= &a0b0[i];
         }
@@ -94,8 +94,8 @@ impl Polynomial {
         product_coefficients
     }
 
-    pub fn mul_mut_convolutions(&mut self, rhs: &Self) {
-        self.coefficients = Polynomial::coefficient_mul_convolutions(&self.coefficients, &rhs.coefficients);
+    pub fn mul_mut_convolutions(&mut self, rhs: Self) {
+        self.coefficients = Polynomial::coefficient_mul_convolutions(self.coefficients.clone(), rhs.coefficients);
     }
 
     pub fn mul_mut_fft(&mut self, _rhs: &Self) {
@@ -108,7 +108,7 @@ impl Polynomial {
 
     pub fn mul(&self, rhs: &Self) -> Polynomial {
         let mut clone = self.clone();
-        clone.mul_mut_convolutions(rhs);
+        clone.mul_mut_convolutions(rhs.clone());
         clone
     }
 }
@@ -131,7 +131,7 @@ impl Mul<&Self> for Polynomial {
 
 impl MulAssign for Polynomial {
     fn mul_assign(&mut self, rhs: Self) {
-        self.mul_mut_convolutions(&rhs);
+        self.mul_mut_convolutions(rhs);
     }
 }
 
