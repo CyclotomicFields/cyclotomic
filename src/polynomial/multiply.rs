@@ -1,76 +1,91 @@
 use std::ops::{Mul, MulAssign};
-
 use num::{One, one, Zero};
 
 use crate::polynomial::polynomial::{Polynomial, Z, Q};
+use std::cmp::max;
 
 impl Polynomial {
-    pub fn mul_mut(&mut self, rhs: &Self) {
-        /*
-        Matrix product method
-
-        Represent the coefficients of the lhs polynomial as diagonal entries in
-        a not-necessarily-square matrix, and perform a matrix multiplication
-        with a column vector containing the coefficients of the rhs polynomial.
-
-        I have no idea if this is fast. I thought it might be, if we exploit a
-        fast library for doing matrix multiplications, which is smart enough to
-        exploit vector instructions on the CPU. Even then I'd have to code it
-        in a way that was less dumb.
-        */
-
-        let product_degree = rhs.degree() + self.degree();
-        let mut left_matrix_rows: Vec<Vec<Q>> = vec![vec![Q::zero(); self.degree() + 1]; product_degree + 1];
-
-        // Populate left matrix, column by column
-        for column_number in 0..(self.degree() + 1) {
-            for row_number in 0..(product_degree + 1) {
-                if row_number >= column_number && row_number < rhs.degree() + column_number + 1 {
-                    left_matrix_rows[row_number][column_number] = rhs.coefficients[row_number - column_number].clone();
-                } else {
-                    left_matrix_rows[row_number][column_number] = Q::zero();
-                }
+    fn coefficient_mul_naive(lhs: &Vec<Q>, rhs: &Vec<Q>) -> Vec<Q> {
+        let mut product_coefficients = vec![Q::zero(); lhs.len() + rhs.len() - 1];
+        for i in 0..lhs.len() {
+            for j in 0..rhs.len() {
+                product_coefficients[i + j] += &lhs[i] * &rhs[j];
             }
         }
-
-        // Perform matrix multiplication
-        let mut product_coefficients: Vec<Q> = vec![Q::zero(); product_degree + 1];
-        for row_number in 0..(product_degree + 1) {
-            let mut sum = Q::zero();
-            for column_number in 0..(self.degree() + 1) {
-                sum += &left_matrix_rows[row_number][column_number] * &self.coefficients[column_number]
-            }
-            product_coefficients[row_number] = sum;
-        }
-
-        Polynomial::truncate_coefficients(&mut product_coefficients);
-        self.coefficients = product_coefficients;
+        product_coefficients
     }
 
-    pub fn mul_mut_convolutions(&mut self, _rhs: &Self) {
+    pub fn mul_mut_naive(&mut self, rhs: &Self) {
+        self.coefficients = Polynomial::coefficient_mul_naive(&self.coefficients, &rhs.coefficients);
+    }
+
+    fn coefficient_mul_convolutions(lhs: &Vec<Q>, rhs: &Vec<Q>) -> Vec<Q> {
         /*
         Using convolutions
 
-        Let the larger of the degrees of the polynomials be n, and let
-        floor(n/2) be m. For each polynomial, split it into two smaller
-        polynomials. The first containing the terms of degree less than or
-        equal to m, and the second containing the rest of the terms.
+        Algorithm written out clearly here: http://www.cse.ust.hk/~dekai/271/notes/L03/L03.pdf
+        */
+        let n: usize = max(lhs.len(), rhs.len()) - 1;
+        if n < 3 {
+            return Polynomial::coefficient_mul_naive(lhs, rhs);
+        }
+        let m = (n as f64 / 2.0).ceil() as usize;
 
-        For multiplicands A and B, let the split polynomials be A0, A1, B0, B1
-        respectively. We can calculate the original product as a sum of
-        A0 * B0, ((A0 * B1) + (A1 * B0)) * x^m, A1 * B1 * x^2m. We can solve
-        these sub-problems by either recursing or by invoking another
-        multiplication method.
+        #[inline]
+        fn split_coefficients(splitting_degree: usize, coefficients: &Vec<Q>) -> (Vec<Q>, Vec<Q>) {
+            let (lower, upper) = coefficients.split_at(splitting_degree);
+            return (Vec::from(lower), Vec::from(upper));
+        }
 
-        This looks like four multiplications, but we can actually do it in
-        three by using a little trick, that
-        ((A0 * B1) + (A1 * B0)) = (A0 + A1)(B0 + B1) - (A0 * B0) - (B0 * B1).
+        let (a0, a1) = split_coefficients(m, &lhs);
+        let (b0, b1) = split_coefficients(m, &rhs);
+
+        let mut a0_plus_a1: Vec<Q> = vec![Q::zero(); m + 1];
+        for i in 0..m + 1 {
+            a0_plus_a1[i] = (a0.get(i).unwrap_or(&Q::zero()) + a1.get(i).unwrap_or(&Q::zero()))
+        }
+        let mut b0_plus_b1: Vec<Q> = vec![Q::zero(); m + 1];
+        for i in 0..m + 1 {
+            b0_plus_b1[i] = (b0.get(i).unwrap_or(&Q::zero()) + b1.get(i).unwrap_or(&Q::zero()))
+        }
+        /*
+        Splits up the multiplication over n coefficients into 3 multiplications of n/2 coefficients.
+        The naive coefficient-wise multiplication is O(n^2), which is why this is effective.
+        */
+        let a0b0 = Polynomial::coefficient_mul_convolutions(&a0, &b0);
+        let a1b1 = Polynomial::coefficient_mul_convolutions(&a1, &b1);
+        let mut a0b1_plus_a1b0 = Polynomial::coefficient_mul_convolutions(&a0_plus_a1, &b0_plus_b1);
+        let zero = Q::zero();
+        for i in 0..n + 1 {
+            a0b1_plus_a1b0[i] -= (a0b0.get(i).unwrap_or(&zero) + a1b1.get(i).unwrap_or(&zero))
+        }
+
+        let first_part_coefficients = a0b0;
+        let mut mid_part_coefficients = vec![Q::zero(); m];
+        mid_part_coefficients.extend(a0b1_plus_a1b0);
+        let mut end_part_coefficients = vec![Q::zero(); 2 * m];
+        end_part_coefficients.extend(a1b1);
+        for i in 0..end_part_coefficients.len() {
+            end_part_coefficients[i] += (first_part_coefficients.get(i).unwrap_or(&Q::zero()) + mid_part_coefficients.get(i).unwrap_or(&Q::zero()));
+        }
+        end_part_coefficients
+    }
+
+    pub fn mul_mut_convolutions(&mut self, rhs: &Self) {
+        self.coefficients = Polynomial::coefficient_mul_convolutions(&self.coefficients, &rhs.coefficients);
+    }
+
+    pub fn mul_mut_fft(&mut self, _rhs: &Self) {
+        /*
+        Using the Fast Fourier Transform
+
+        Algorithm written out clearly here: https://agarri.ga/post/multiply-polynomials-n-log-n-time/
         */
     }
 
     pub fn mul(&self, rhs: &Self) -> Polynomial {
         let mut clone = self.clone();
-        clone.mul_mut(rhs);
+        clone.mul_mut_convolutions(rhs);
         clone
     }
 }
@@ -93,7 +108,7 @@ impl Mul<&Self> for Polynomial {
 
 impl MulAssign for Polynomial {
     fn mul_assign(&mut self, rhs: Self) {
-        self.mul_mut(&rhs);
+        self.mul_mut_convolutions(&rhs);
     }
 }
 
@@ -138,6 +153,11 @@ mod polynomial_tests {
         assert_eq!(Polynomial::from(vec![-2, 2, 2])
                        * Polynomial::from(vec![-7, 2, 0, -3]),
                    Polynomial::from(vec![14, -18, -10, 10, -6, -6]));
+
+        // 2 + 5t + 3t^2 + t^3 - t^4 * 1 + 2t + 2t^2 + 3t^3 + 6t^4 == 2 + 9t + 17t^2 + 23t^3 + 34t^4 + 39t^5 + 19t^6 + 3t^7 - 6t^8
+        assert_eq!(Polynomial::from(vec![2, 5, 3, 1, -1])
+                       * Polynomial::from(vec![1, 2, 2, 3, 6]),
+                   Polynomial::from(vec![2, 9, 17, 23, 34, 39, 19, 3, -6]));
     }
 
     #[test]
@@ -166,5 +186,10 @@ mod polynomial_tests {
         let mut p5 = Polynomial::from(vec![-2, 2, 2]);
         p5 *= Polynomial::from(vec![-7, 2, 0, -3]);
         assert_eq!(p5, Polynomial::from(vec![14, -18, -10, 10, -6, -6]));
+
+        // 2 + 5t + 3t^2 + t^3 - t^4 * 1 + 2t + 2t^2 + 3t^3 + 6t^4 == 2 + 9t + 17t^2 + 23t^3 + 34t^4 + 39t^5 + 19t^6 + 3t^7 - 6t^8
+        let mut p6 = Polynomial::from(vec![2, 5, 3, 1, -1]);
+        p6 *= Polynomial::from(vec![1, 2, 2, 3, 6]);
+        assert_eq!(p6, Polynomial::from(vec![2, 9, 17, 23, 34, 39, 19, 3, -6]));
     }
 }
