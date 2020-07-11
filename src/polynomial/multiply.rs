@@ -1,5 +1,5 @@
 use std::ops::{Mul, MulAssign};
-use num::{One, one, Zero};
+use num::{One, one, Zero, zero};
 
 use crate::polynomial::polynomial::{Polynomial, Z, Q};
 use std::cmp::max;
@@ -19,6 +19,7 @@ impl Polynomial {
         self.coefficients = Polynomial::coefficient_mul_naive(&self.coefficients, &rhs.coefficients);
     }
 
+    // TODO: Remove the various unnecessary clones
     fn coefficient_mul_convolutions(lhs: &Vec<Q>, rhs: &Vec<Q>) -> Vec<Q> {
         /*
         Using convolutions
@@ -26,18 +27,27 @@ impl Polynomial {
         Algorithm written out clearly here: http://www.cse.ust.hk/~dekai/271/notes/L03/L03.pdf
         */
         let n: usize = max(lhs.len(), rhs.len()) - 1;
-        if n < 3 {
-            return Polynomial::coefficient_mul_naive(lhs, rhs);
-        }
-        if lhs.len() == 1 || rhs.len() == 1 {
+        if (lhs.len() == 1 && lhs[0].is_zero()) || (rhs.len() == 1 && rhs[0].is_zero()) {
+            return vec![Q::zero()];
+        } else if lhs.len() == 1 && lhs[0].is_one() {
+            return rhs.clone();
+        } else if rhs.len() == 1 && rhs[0].is_one() {
+            return lhs.clone();
+        } else if n < 3 || lhs.len() == 1 || rhs.len() == 1 {
             return Polynomial::coefficient_mul_naive(lhs, rhs);
         }
         let m = (n as f64 / 2.0).ceil() as usize;
 
         #[inline]
         fn split_coefficients(splitting_degree: usize, coefficients: &Vec<Q>) -> (Vec<Q>, Vec<Q>) {
-            let (lower, upper) = coefficients.split_at(splitting_degree);
-            return (Vec::from(lower), Vec::from(upper));
+            if splitting_degree > coefficients.len() {
+                let mut clone = coefficients.clone();
+                clone.extend(vec![Q::zero(); splitting_degree - coefficients.len() + 1]);
+                (clone, vec![Q::zero(); splitting_degree + 1])
+            } else {
+                let (lower, upper) = coefficients.split_at(splitting_degree);
+                (Vec::from(lower), Vec::from(upper))
+            }
         }
 
         let (a0, a1) = split_coefficients(m, &lhs);
@@ -59,9 +69,11 @@ impl Polynomial {
         let a0b0 = Polynomial::coefficient_mul_convolutions(&a0, &b0);
         let a1b1 = Polynomial::coefficient_mul_convolutions(&a1, &b1);
         let mut a0b1_plus_a1b0 = Polynomial::coefficient_mul_convolutions(&a0_plus_a1, &b0_plus_b1);
-        let zero = Q::zero();
-        for i in 0..n + 1 {
-            a0b1_plus_a1b0[i] -= (a0b0.get(i).unwrap_or(&zero) + a1b1.get(i).unwrap_or(&zero))
+        for i in 0..a0b0.len() {
+            a0b1_plus_a1b0[i] -= &a0b0[i];
+        }
+        for i in 0..a1b1.len() {
+            a0b1_plus_a1b0[i] -= &a1b1[i];
         }
 
         /*
@@ -69,6 +81,7 @@ impl Polynomial {
         */
         let mut product_coefficients = vec![Q::zero(); 2 * m];
         product_coefficients.extend(a1b1);
+        product_coefficients.extend(vec![Q::zero();lhs.len() + rhs.len() - product_coefficients.len()]);
         for i in 0..a0b0.len() {
             product_coefficients[i] += &a0b0[i];
         }
@@ -77,6 +90,7 @@ impl Polynomial {
             product_coefficients[i + m] += &a0b1_plus_a1b0[i];
             i += 1;
         }
+        Polynomial::truncate_coefficients(&mut product_coefficients);
         product_coefficients
     }
 
@@ -137,7 +151,6 @@ mod polynomial_tests {
     use super::*;
 
     #[test]
-    #[ignore]
     fn test_edge_cases() {
         // 0 * 0 == 0
         assert_eq!(Polynomial::zero() * Polynomial::zero(), Polynomial::zero());

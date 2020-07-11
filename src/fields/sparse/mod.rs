@@ -337,7 +337,7 @@ mod tests {
         where
             G: Gen,
         {
-            random_cyclotomic(g, 100, 100)
+            random_cyclotomic(g, 100, 101)
         }
     }
 }
