@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["sparse","Sparse implementation using hash maps."]],"trait":[["AdditiveGroup",""],["CyclotomicFieldElement","Provides convenience functions specific to cyclotomic fields."],["FieldElement","Provides operations for fields. Expected to satisfy the field axioms."],["MultiplicativeGroup",""]],"type":[["Q",""],["Z",""]]});

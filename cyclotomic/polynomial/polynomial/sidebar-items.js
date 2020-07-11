@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Polynomial",""]],"type":[["Q",""],["Z",""]]});

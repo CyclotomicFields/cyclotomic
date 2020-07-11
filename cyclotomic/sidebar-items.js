@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["coprime_counter",""],["divisors",""],["fields","Implementations of field operations in cyclotomic fields."],["polynomial",""],["prime_counter",""],["prime_factors",""],["primes",""]]});

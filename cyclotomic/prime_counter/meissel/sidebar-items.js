@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Meissel",""]],"type":[["R",""],["Z",""],["ZPlus",""]]});

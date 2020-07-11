@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["add",""],["construct",""],["display",""],["divide",""],["is_irreducible",""],["multiply",""],["negate",""],["polynomial",""],["substitute",""],["subtract",""]]});

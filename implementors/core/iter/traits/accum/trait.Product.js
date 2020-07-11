@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["cyclotomic"] = [{"text":"impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/iter/traits/accum/trait.Product.html\" title=\"trait core::iter::traits::accum::Product\">Product</a>&lt;<a class=\"struct\" href=\"cyclotomic/fields/naive/struct.Number.html\" title=\"struct cyclotomic::fields::naive::Number\">Number</a>&gt; for <a class=\"struct\" href=\"cyclotomic/fields/naive/struct.Number.html\" title=\"struct cyclotomic::fields::naive::Number\">Number</a>","synthetic":false,"types":["cyclotomic::fields::naive::Number"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

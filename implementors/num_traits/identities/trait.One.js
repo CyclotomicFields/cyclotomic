@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["cyclotomic"] = [{"text":"impl <a class=\"trait\" href=\"https://docs.rs/num-traits/0.2/num_traits/identities/trait.One.html\" title=\"trait num_traits::identities::One\">One</a> for <a class=\"struct\" href=\"cyclotomic/polynomial/polynomial/struct.Polynomial.html\" title=\"struct cyclotomic::polynomial::polynomial::Polynomial\">Polynomial</a>","synthetic":false,"types":["cyclotomic::polynomial::polynomial::Polynomial"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

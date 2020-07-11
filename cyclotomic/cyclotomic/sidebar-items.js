@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Cyclotomic",""]],"type":[["Q",""],["Z",""]]});

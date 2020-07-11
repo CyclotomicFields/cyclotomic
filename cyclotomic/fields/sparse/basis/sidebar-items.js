@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["convert_to_base","Writes a cyclotomic in the GAP basis (keeps field the same). This is needed for elements to have a unique representation, e.g. to check equality The rewriting rule is taken from GAP but the actual code isn't."],["try_reduce",""]]});

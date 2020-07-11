@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["cyclotomic"] = [{"text":"impl Arbitrary for <a class=\"struct\" href=\"cyclotomic/fields/naive/struct.QArb.html\" title=\"struct cyclotomic::fields::naive::QArb\">QArb</a>","synthetic":false,"types":["cyclotomic::fields::naive::QArb"]},{"text":"impl Arbitrary for <a class=\"struct\" href=\"cyclotomic/fields/naive/struct.Number.html\" title=\"struct cyclotomic::fields::naive::Number\">Number</a>","synthetic":false,"types":["cyclotomic::fields::naive::Number"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

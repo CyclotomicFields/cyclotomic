@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Legendre",""]],"type":[["R",""],["Z",""],["ZPlus",""]]});

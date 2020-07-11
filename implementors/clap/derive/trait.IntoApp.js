@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["cyclobench"] = [{"text":"impl <a class=\"trait\" href=\"https://docs.rs/clap/3.0.0-beta.1/clap/derive/trait.IntoApp.html\" title=\"trait clap::derive::IntoApp\">IntoApp</a> for <a class=\"struct\" href=\"cyclobench/struct.Opts.html\" title=\"struct cyclobench::Opts\">Opts</a>","synthetic":false,"types":["cyclobench::Opts"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
