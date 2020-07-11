@@ -1,0 +1,18 @@
+To run the benchmarks, make sure you have compiled anticbench and
+installed GAP. (TODO: document how to do that)
+
+Then run:
+
+    $ ./run_bench.sh 100000
+
+To generate the benchmark data by runnning 100,000 dot products using
+each of: the antic library, the cyclotomic library, and the GAP
+system.
+
+To plot the graphs, you can use:
+
+   $ cd results
+   $ ../plot.py -x 0 "\$n\$" -y 1 "time taken (ms)" -f "Antic 0.2.1" antic -f "cyclotomic 0.1.0" cyclotomic -f "GAP 4.11.0" gap
+
+which specifies the x and y axes, the filenames with the data, and the
+legend labels to use for the data coming from each file.
