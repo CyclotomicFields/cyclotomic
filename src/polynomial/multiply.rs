@@ -29,6 +29,9 @@ impl Polynomial {
         if n < 3 {
             return Polynomial::coefficient_mul_naive(lhs, rhs);
         }
+        if lhs.len() == 1 || rhs.len() == 1 {
+            return Polynomial::coefficient_mul_naive(lhs, rhs);
+        }
         let m = (n as f64 / 2.0).ceil() as usize;
 
         #[inline]
@@ -49,8 +52,9 @@ impl Polynomial {
             b0_plus_b1[i] = (b0.get(i).unwrap_or(&Q::zero()) + b1.get(i).unwrap_or(&Q::zero()))
         }
         /*
-        Splits up the multiplication over n coefficients into 3 multiplications of n/2 coefficients.
-        The naive coefficient-wise multiplication is O(n^2), which is why this is effective.
+        Splits up the multiplication over n coefficients into the sum of 3
+        multiplications of n/2 coefficients. The naive coefficient-wise
+        multiplication is O(n^2), which is why this is effective.
         */
         let a0b0 = Polynomial::coefficient_mul_convolutions(&a0, &b0);
         let a1b1 = Polynomial::coefficient_mul_convolutions(&a1, &b1);
@@ -60,15 +64,20 @@ impl Polynomial {
             a0b1_plus_a1b0[i] -= (a0b0.get(i).unwrap_or(&zero) + a1b1.get(i).unwrap_or(&zero))
         }
 
-        let first_part_coefficients = a0b0;
-        let mut mid_part_coefficients = vec![Q::zero(); m];
-        mid_part_coefficients.extend(a0b1_plus_a1b0);
-        let mut end_part_coefficients = vec![Q::zero(); 2 * m];
-        end_part_coefficients.extend(a1b1);
-        for i in 0..end_part_coefficients.len() {
-            end_part_coefficients[i] += (first_part_coefficients.get(i).unwrap_or(&Q::zero()) + mid_part_coefficients.get(i).unwrap_or(&Q::zero()));
+        /*
+        Sum the elements from the 3 sub-products.
+        */
+        let mut product_coefficients = vec![Q::zero(); 2 * m];
+        product_coefficients.extend(a1b1);
+        for i in 0..a0b0.len() {
+            product_coefficients[i] += &a0b0[i];
         }
-        end_part_coefficients
+        let mut i = 0;
+        while i < a0b1_plus_a1b0.len() && i + m < product_coefficients.len() {
+            product_coefficients[i + m] += &a0b1_plus_a1b0[i];
+            i += 1;
+        }
+        product_coefficients
     }
 
     pub fn mul_mut_convolutions(&mut self, rhs: &Self) {
@@ -126,6 +135,23 @@ impl One for Polynomial {
 #[cfg(test)]
 mod polynomial_tests {
     use super::*;
+
+    #[test]
+    #[ignore]
+    fn test_edge_cases() {
+        // 0 * 0 == 0
+        assert_eq!(Polynomial::zero() * Polynomial::zero(), Polynomial::zero());
+
+        // 1 * 1 + t + t^2 + t^4 + t^5 == 1 + t + t^2 + t^4 + t^5
+        assert_eq!(Polynomial::one() *
+                       Polynomial::from(vec![1, 1, 1, 0, 1, 1]),
+                   Polynomial::from(vec![1, 1, 1, 0, 1, 1]));
+
+        // t * 1 + t + t^2 + t^4 + t^5 + t^6 == t + t^2 + t^3 + t^5 + t^6 + t^7
+        assert_eq!(Polynomial::from(vec![0, 1]) *
+                       Polynomial::from(vec![1, 1, 1, 0, 1, 1, 1]),
+                   Polynomial::from(vec![0, 1, 1, 1, 0, 1, 1, 1]));
+    }
 
     #[test]
     fn test_multiplication() {
