@@ -10,6 +10,8 @@ impl Polynomial {
             return format!("{}", 0);
         } else if self.is_one() {
             return format!("{}", 1);
+        } else if self.coefficients.is_empty() {
+            return format!("{}", 0);
         }
 
         #[inline]
@@ -99,6 +101,7 @@ mod polynomial_tests {
         assert_eq!(Polynomial::one().to_string(), "1".to_string());
         assert_eq!(Polynomial::zero().to_string(), "0".to_string());
         assert_eq!(Polynomial::one().neg().to_string(), "-1".to_string());
+        assert_eq!(Polynomial::new(vec![]).to_string(), "0".to_string());
         assert_eq!(Polynomial::from(vec![-2, 1]).to_string(), "t - 2".to_string());
         assert_eq!(Polynomial::from(vec![1, 0, -7, 2]).to_string(), "2t^3 - 7t^2 + 1".to_string());
         assert_eq!(Polynomial::from(vec![-1, 2]).to_string(), "2t - 1".to_string());
