@@ -19,22 +19,24 @@ impl Polynomial {
         self.coefficients = Polynomial::coefficient_mul_naive(&self.coefficients, &rhs.coefficients);
     }
 
-    // TODO: Remove the various unnecessary clones
-    fn coefficient_mul_convolutions(lhs: Vec<Q>, rhs: Vec<Q>) -> Vec<Q> {
+    pub fn mul_mut_convolutions(&mut self, rhs: Self) {
         /*
         Using convolutions
 
         Algorithm written out clearly here: http://www.cse.ust.hk/~dekai/271/notes/L03/L03.pdf
         */
-        let n: usize = max(lhs.len(), rhs.len()) - 1;
-        if (lhs.len() == 1 && lhs[0].is_zero()) || (rhs.len() == 1 && rhs[0].is_zero()) {
-            return vec![Q::zero()];
-        } else if lhs.len() == 1 && lhs[0].is_one() {
-            return rhs;
-        } else if rhs.len() == 1 && rhs[0].is_one() {
-            return lhs;
-        } else if n < 3 || lhs.len() == 1 || rhs.len() == 1 {
-            return Polynomial::coefficient_mul_naive(&lhs, &rhs);
+        let n: usize = max(self.coefficients.len(), rhs.coefficients.len()) - 1;
+        if (self.is_zero()) || (rhs.is_zero()) {
+            self.coefficients = vec![Q::zero()];
+            return;
+        } else if self.is_one() {
+            self.coefficients = rhs.coefficients;
+            return;
+        } else if rhs.is_one() {
+            return;
+        } else if n < 3 || self.coefficients.len() == 1 || rhs.coefficients.len() == 1 {
+            self.coefficients = Polynomial::coefficient_mul_naive(&self.coefficients, &rhs.coefficients);
+            return;
         }
         let m = (n as f64 / 2.0).ceil() as usize;
 
@@ -50,8 +52,9 @@ impl Polynomial {
             }
         }
 
-        let (a0, a1) = split_coefficients(m, &lhs);
-        let (b0, b1) = split_coefficients(m, &rhs);
+        let combined_len = self.coefficients.len() + rhs.coefficients.len();
+        let (a0, a1) = split_coefficients(m, &self.coefficients);
+        let (b0, b1) = split_coefficients(m, &rhs.coefficients);
 
         let mut a0_plus_a1: Vec<Q> = vec![Q::zero(); m + 1];
         for i in 0..m + 1 {
@@ -66,36 +69,31 @@ impl Polynomial {
         multiplications of n/2 coefficients. The naive coefficient-wise
         multiplication is O(n^2), which is why this is effective.
         */
-        let a0b0 = Polynomial::coefficient_mul_convolutions(a0, b0);
-        let a1b1 = Polynomial::coefficient_mul_convolutions(a1, b1);
-        let mut a0b1_plus_a1b0 = Polynomial::coefficient_mul_convolutions(a0_plus_a1, b0_plus_b1);
-        for i in 0..a0b0.len() {
-            a0b1_plus_a1b0[i] -= &a0b0[i];
-        }
-        for i in 0..a1b1.len() {
-            a0b1_plus_a1b0[i] -= &a1b1[i];
-        }
+        let mut a0b0 = Polynomial::new(a0);
+        a0b0.mul_mut_convolutions(Polynomial::new(b0));
+        let mut a1b1 = Polynomial::new(a1);
+        a1b1.mul_mut_convolutions(Polynomial::new(b1));
+        let mut a0b1_plus_a1b0 = Polynomial::new(a0_plus_a1);
+        a0b1_plus_a1b0.mul_mut_convolutions(Polynomial::new(b0_plus_b1));
+        a0b1_plus_a1b0.sub_mut(&a0b0);
+        a0b1_plus_a1b0.sub_mut(&a1b1);
 
         /*
         Sum the elements from the 3 sub-products.
         */
         let mut product_coefficients = vec![Q::zero(); 2 * m];
-        product_coefficients.extend(a1b1);
-        product_coefficients.extend(vec![Q::zero();lhs.len() + rhs.len() - product_coefficients.len()]);
-        for i in 0..a0b0.len() {
-            product_coefficients[i] += &a0b0[i];
+        product_coefficients.extend(a1b1.coefficients);
+        product_coefficients.extend(vec![Q::zero();combined_len - product_coefficients.len()]);
+        for i in 0..a0b0.coefficients.len() {
+            product_coefficients[i] += &a0b0.coefficients[i];
         }
         let mut i = 0;
-        while i < a0b1_plus_a1b0.len() && i + m < product_coefficients.len() {
-            product_coefficients[i + m] += &a0b1_plus_a1b0[i];
+        while i < a0b1_plus_a1b0.coefficients.len() && i + m < product_coefficients.len() {
+            product_coefficients[i + m] += &a0b1_plus_a1b0.coefficients[i];
             i += 1;
         }
         Polynomial::truncate_coefficients(&mut product_coefficients);
-        product_coefficients
-    }
-
-    pub fn mul_mut_convolutions(&mut self, rhs: Self) {
-        self.coefficients = Polynomial::coefficient_mul_convolutions(self.coefficients.clone(), rhs.coefficients);
+        self.coefficients = product_coefficients;
     }
 
     pub fn mul_mut_fft(&mut self, _rhs: &Self) {

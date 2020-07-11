@@ -3,7 +3,7 @@ use std::ops::{Add, Neg, Sub, AddAssign, SubAssign};
 use crate::polynomial::polynomial::Polynomial;
 
 impl Polynomial {
-    pub fn sub_mut(&mut self, rhs: Self) {
+    pub fn sub_mut(&mut self, rhs: &Self) {
         self.add_assign(rhs.neg())
     }
 
@@ -24,7 +24,7 @@ impl Sub for Polynomial {
 
 impl SubAssign for Polynomial {
     fn sub_assign(&mut self, rhs: Self) {
-        self.sub_mut(rhs);
+        self.sub_mut(&rhs);
     }
 }
 
