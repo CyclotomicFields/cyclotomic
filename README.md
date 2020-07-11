@@ -129,14 +129,14 @@ under the `benchmarks/` directory. Currently, there are only
 benchmarks for the antic library for number fields (among other
 things).
 
-To compile the benchmark:
+To compile the antic benchmark:
 
 ```sh
 $ cd benchmarks/antic
 $ make
 ```
 
-(assuming you have the e-antic and flint libraries installed (TODO:
+(assuming you have the antic and flint libraries installed (TODO:
 maybe some guidance on how to install those))
 
 To run, specify the order of the cyclotomic field and the number of
@@ -154,6 +154,9 @@ time elapsed (ms):
 
 The actual benchmark run is kind of arbitrary and will be documented
 here more thoroughly. Basically some dot products.
+
+You can also run the benchmark for our library, to compare, using
+the `cyclobench` program. TODO: document this some more.
 
 #### Contributors
 
