@@ -1,8 +1,8 @@
 use num::{One, Zero};
 use quickcheck::Arbitrary;
 
-type Z = num::BigInt;
-type Q = num::rational::BigRational;
+pub type Z = num::BigInt;
+pub type Q = num::rational::BigRational;
 
 /// Sparse implementation using hash maps.
 pub mod sparse;

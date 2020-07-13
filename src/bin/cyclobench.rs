@@ -1,14 +1,18 @@
 #![feature(test)]
 
+extern crate antic;
 extern crate rand;
 extern crate test;
 
+use antic::safe::*;
 use clap::Clap;
 use cyclotomic::fields::sparse::{print_gap, random_cyclotomic, Number};
 use cyclotomic::fields::AdditiveGroup;
 use cyclotomic::fields::MultiplicativeGroup;
-use rand::SeedableRng;
+use cyclotomic::fields::{Q, Z};
+use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::Result;
 use std::io::Write;
@@ -34,6 +38,20 @@ struct Opts {
 
     #[clap(short, long, default_value = "100")]
     upper_bound_order: usize,
+
+    #[clap(short, long, default_value = "cyclotomic")]
+    implementation: String,
+
+    #[clap(long, default_value = "5")]
+    terms: usize,
+}
+
+// Kind of like the stuff in cyclotomic::polynomial, but just for test
+// data, completely unoptimized, and unsuitable for general use.
+#[derive(Clone)]
+struct GenericPolynomial {
+    // (exp, (numerator, denominator))
+    exp_coeffs: HashMap<i64, (i64, u64)>,
 }
 
 // Writes a gap source file with a function f you can run that will
@@ -47,7 +65,7 @@ fn write_gap_cycs(nums: &Vec<Number>, filename: String) -> Result<()> {
     file.write_all(b"nop := function (x) end;;\n")?;
     file.write_all(b"f := function()\n")?;
 
-    for i in 0..nums.len()/6 {
+    for i in 0..nums.len() / 6 {
         let x = &nums[6 * i].clone();
         let y = &nums[6 * i + 1].clone();
         let z = &nums[6 * i + 2].clone();
@@ -71,31 +89,80 @@ fn write_gap_cycs(nums: &Vec<Number>, filename: String) -> Result<()> {
     Ok(())
 }
 
+fn random_polynomial<G>(gen: &mut G, degree: usize, num_terms: usize) -> GenericPolynomial
+where
+    G: rand::RngCore,
+{
+    let rational_bounds = (0, 100);
+    let mut result = GenericPolynomial {
+        exp_coeffs: HashMap::default(),
+    };
+
+    for _ in 0..num_terms {
+        let numerator: i64 = gen.gen_range(rational_bounds.0, rational_bounds.1) as i64;
+        let denominator: u64 = gen.gen_range(rational_bounds.0, rational_bounds.1) as u64;
+        let exponent: i64 = gen.gen_range(0, degree) as i64;
+        result.exp_coeffs.insert(exponent, (numerator, denominator));
+    }
+
+    result
+}
+
+fn into_number(f: &GenericPolynomial, order: i64) -> Number {
+    let mut coeffs = cyclotomic::fields::sparse::ExpCoeffMap::default();
+
+    for (exp, (num, denom)) in &f.exp_coeffs {
+        coeffs.insert(exp, Q::new(Z::from(num), Z::from(denom)));
+    }
+
+    Number::new(order, &coeffs)
+}
+
+fn into_antic(
+    f: &GenericPolynomial,
+    field: &mut antic::safe::NumberField,
+) -> antic::safe::NumberFieldElement {
+    let mut num = antic::safe::NumberFieldElement::new(field);
+    for (exp, (numerator, denominator)) in &f.exp_coeffs {
+        let mut term = antic::safe::NumberFieldElement::new(field);
+        let mut pol = antic::safe::RationalPolynomial::new();
+        let mut coeff = antic::safe::Rational::new(numerator, denominator);
+        pol.set_coeff(exp, &mut coeff);
+        term.set_to_poly(&mut pol, field);
+        let mut sum = antic::safe::NumberFieldElement::new(field);
+        sum.set_to_sum_of(&mut num, &mut term, field);
+        num.set(&mut sum, field);
+    }
+    num
+}
+
 fn main() {
     let opts: Opts = Opts::parse();
     eprintln!(
-        "num_tests = {}\nthreads = {}\nlower bound order = {}\nhigher bound order = {}",
-        opts.num_tests, opts.threads, opts.lower_bound_order, opts.upper_bound_order
+        "implementation = {}\nnum_tests = {}\nthreads = {}\nlower bound order = {}\nhigher bound order = {}",
+        opts.implementation, opts.num_tests, opts.threads, opts.lower_bound_order, opts.upper_bound_order
     );
 
     let gen = &mut ChaCha20Rng::seed_from_u64(12345);
 
     // Parallelises perfectly, N threads gives N times speed.
-    // We should try to beat GAP without cheating, but this is our trump card.
+    // We should try to beat GAP without cheating though.
     assert_eq!(opts.num_tests % opts.threads, 0);
 
-    let nums: Vec<Number> = (0..opts.num_tests * 6)
+    let num_per_test = 6;
+
+    let test_data: Vec<GenericPolynomial> = (0..opts.num_tests * num_per_test)
         .into_iter()
-        .map(|_| random_cyclotomic(gen, opts.lower_bound_order as i64, opts.upper_bound_order as i64))
+        .map(|_| random_polynomial(gen, opts.upper_bound_order, opts.terms))
         .collect();
 
     // cut it up into chunks for each thread
-    let mut chunks: Vec<Vec<Number>> = Vec::new();
+    let mut chunks: Vec<Vec<GenericPolynomial>> = Vec::new();
 
     let mut start: usize = 0;
     for _ in 0..opts.threads {
         let chunk = Vec::from_iter(
-            nums[start..(start + 6 * (opts.num_tests / opts.threads))]
+            test_data[start..(start + 6 * (opts.num_tests / opts.threads))]
                 .iter()
                 .cloned(),
         );
@@ -103,40 +170,98 @@ fn main() {
         start = start + 6 * (opts.num_tests / opts.threads);
     }
 
+    let nums: Vec<Vec<Number>> = chunks
+        .into_iter()
+        .map(|chunk| {
+            chunk
+                .into_iter()
+                .map(|f| into_number(&f, opts.upper_bound_order as i64))
+                .collect()
+        })
+        .collect();
+
+    let mut cyclotomic_polynomial_n =
+        antic::safe::RationalPolynomial::cyclotomic(opts.upper_bound_order as u64);
+    let mut cyclotomic_field_n = antic::safe::NumberField::new(&mut cyclotomic_polynomial_n);
+    let antic_nums: Vec<Vec<antic::safe::NumberFieldElement>> = chunks
+        .into_iter()
+        .map(|chunk| {
+            chunk
+                .into_iter()
+                .map(|f| into_antic(&f, &mut cyclotomic_field_n))
+                .collect()
+        })
+        .collect();
+
     if let Some(gap_out) = opts.gap_out {
-        match write_gap_cycs(&nums, gap_out) {
+        match write_gap_cycs(&nums.into_iter().flatten().collect(), gap_out) {
             Ok(()) => (),
-            Err(e) => eprintln!("error writing gap file: {}", e)
+            Err(e) => eprintln!("error writing gap file: {}", e),
         }
     }
 
     eprintln!("starting benchmark");
     let start = Instant::now();
-    let mut threads = vec![];
 
-    for i in 0..opts.threads.clone() {
-        let i = i.clone();
-        let num_tests = opts.num_tests.clone();
-        let num_threads = opts.threads.clone();
-        let chunk = chunks[i].clone();
-        let handle = thread::spawn(move || {
-            for j in 0..num_tests / num_threads {
-                let x = &mut chunk[6 * j].clone();
-                let y = &mut chunk[6 * j + 1].clone();
-                let z = &mut chunk[6 * j + 2].clone();
-                let a = &mut chunk[6 * j + 3].clone();
-                let b = &mut chunk[6 * j + 4].clone();
-                let c = &mut chunk[6 * j + 5].clone();
+    if opts.implementation.as_str() == "cyclotomic" {
+        let mut threads = vec![];
 
-                // black_box means don't optimise this away into a no-op
-                black_box(x.mul(y).add(z.mul(a)).add(b.mul(c)));
-            }
-        });
-        threads.push(handle);
-    }
+        for i in 0..opts.threads.clone() {
+            let i = i.clone();
+            let num_tests = opts.num_tests.clone();
+            let num_threads = opts.threads.clone();
+            let num_chunk = nums[i].clone();
+            let handle = thread::spawn(move || {
+                for j in 0..num_tests / num_threads {
+                    let x = &mut num_chunk[6 * j].clone();
+                    let y = &mut num_chunk[6 * j + 1].clone();
+                    let z = &mut num_chunk[6 * j + 2].clone();
+                    let a = &mut num_chunk[6 * j + 3].clone();
+                    let b = &mut num_chunk[6 * j + 4].clone();
+                    let c = &mut num_chunk[6 * j + 5].clone();
 
-    for thread in threads {
-        thread.join();
+                    // black_box means don't optimise this away into a no-op
+                    black_box(x.mul(y).add(z.mul(a)).add(b.mul(c)));
+                }
+            });
+            threads.push(handle);
+        }
+
+        for thread in threads {
+            thread.join();
+        }
+    } else if opts.implementation.as_str() == "antic" {
+        for i in 0..opts.num_tests {
+            let chunk = &antic_nums[i];
+            let mut prod1 = antic::safe::NumberFieldElement::new(&mut cyclotomic_field_n);
+            prod1.set_to_mul_of(
+                &mut chunk[0].clone(),
+                &mut chunk[1].clone(),
+                &mut cyclotomic_field_n,
+            );
+
+            let mut prod2 = antic::safe::NumberFieldElement::new(&mut cyclotomic_field_n);
+            prod2.set_to_mul_of(
+                &mut chunk[2].clone(),
+                &mut chunk[3].clone(),
+                &mut cyclotomic_field_n,
+            );
+
+            let mut prod3 = antic::safe::NumberFieldElement::new(&mut cyclotomic_field_n);
+            prod3.set_to_mul_of(
+                &mut chunk[4].clone(),
+                &mut chunk[5].clone(),
+                &mut cyclotomic_field_n,
+            );
+
+            let mut sum1 = antic::safe::NumberFieldElement::new(&mut cyclotomic_field_n);
+            sum1.set_to_sum_of(&mut prod1, &mut prod2, &mut cyclotomic_field_n);
+
+            let mut sum2 = antic::safe::NumberFieldElement::new(&mut cyclotomic_field_n);
+            sum2.set_to_sum_of(&mut sum1, &mut prod3, &mut cyclotomic_field_n);
+        }
+    } else {
+        panic!("bad implementation {}", opts.implementation);
     }
 
     eprintln!("time elapsed (ms):");

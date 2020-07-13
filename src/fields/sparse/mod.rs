@@ -26,7 +26,7 @@ pub mod galois;
 pub mod mul;
 
 
-type ExpCoeffMap = FxHashMap<i64, Q>;
+pub type ExpCoeffMap = FxHashMap<i64, Q>;
 
 /// Represents a polynomial in the `order`th root of unity.
 #[derive(Clone)]

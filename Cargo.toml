@@ -19,6 +19,7 @@ divisors = "0.2.1"
 rand_chacha = "0.2.2"
 rustc-hash = "1.1.0"
 clap = "3.0.0-beta.1"
+antic = "0.1"
 
 [[bin]]
 name = "cyclobench"
