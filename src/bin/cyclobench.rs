@@ -44,6 +44,9 @@ struct Opts {
 
     #[clap(long, default_value = "5")]
     terms: usize,
+
+    #[clap(short, long, default_value = "100", help = "maximum absolute value of integer to use as numerator or denominator in rationals")]
+    q_maximum_integer: usize
 }
 
 // Kind of like the stuff in cyclotomic::polynomial, but just for test
@@ -93,7 +96,7 @@ fn random_polynomial<G>(gen: &mut G, degree: usize, num_terms: usize) -> Generic
 where
     G: rand::RngCore,
 {
-    let rational_bounds = (0, 100);
+    let rational_bounds = (1, 10);
     let mut result = GenericPolynomial {
         exp_coeffs: HashMap::default(),
     };
@@ -112,7 +115,7 @@ fn into_number(f: &GenericPolynomial, order: i64) -> Number {
     let mut coeffs = cyclotomic::fields::sparse::ExpCoeffMap::default();
 
     for (exp, (num, denom)) in &f.exp_coeffs {
-        coeffs.insert(exp, Q::new(Z::from(num), Z::from(denom)));
+        coeffs.insert(*exp, Q::new(Z::from(*num), Z::from(*denom)));
     }
 
     Number::new(order, &coeffs)
@@ -126,8 +129,8 @@ fn into_antic(
     for (exp, (numerator, denominator)) in &f.exp_coeffs {
         let mut term = antic::safe::NumberFieldElement::new(field);
         let mut pol = antic::safe::RationalPolynomial::new();
-        let mut coeff = antic::safe::Rational::new(numerator, denominator);
-        pol.set_coeff(exp, &mut coeff);
+        let mut coeff = antic::safe::Rational::new(*numerator, *denominator);
+        pol.set_coeff(*exp, &mut coeff);
         term.set_to_poly(&mut pol, field);
         let mut sum = antic::safe::NumberFieldElement::new(field);
         sum.set_to_sum_of(&mut num, &mut term, field);
@@ -151,6 +154,7 @@ fn main() {
 
     let num_per_test = 6;
 
+    eprintln!("generating test data");
     let test_data: Vec<GenericPolynomial> = (0..opts.num_tests * num_per_test)
         .into_iter()
         .map(|_| random_polynomial(gen, opts.upper_bound_order, opts.terms))
@@ -161,16 +165,16 @@ fn main() {
 
     let mut start: usize = 0;
     for _ in 0..opts.threads {
-        let chunk = Vec::from_iter(
-            test_data[start..(start + 6 * (opts.num_tests / opts.threads))]
-                .iter()
-                .cloned(),
-        );
+        let mut chunk = vec![];
+        for i in start..(start + 6 * (opts.num_tests / opts.threads)) {
+            chunk.push(test_data[i].clone());
+        }
         chunks.push(chunk);
         start = start + 6 * (opts.num_tests / opts.threads);
     }
 
     let nums: Vec<Vec<Number>> = chunks
+        .clone()
         .into_iter()
         .map(|chunk| {
             chunk
@@ -184,6 +188,7 @@ fn main() {
         antic::safe::RationalPolynomial::cyclotomic(opts.upper_bound_order as u64);
     let mut cyclotomic_field_n = antic::safe::NumberField::new(&mut cyclotomic_polynomial_n);
     let antic_nums: Vec<Vec<antic::safe::NumberFieldElement>> = chunks
+        .clone()
         .into_iter()
         .map(|chunk| {
             chunk
@@ -194,7 +199,7 @@ fn main() {
         .collect();
 
     if let Some(gap_out) = opts.gap_out {
-        match write_gap_cycs(&nums.into_iter().flatten().collect(), gap_out) {
+        match write_gap_cycs(&nums.clone().into_iter().flatten().collect(), gap_out) {
             Ok(()) => (),
             Err(e) => eprintln!("error writing gap file: {}", e),
         }
@@ -204,61 +209,51 @@ fn main() {
     let start = Instant::now();
 
     if opts.implementation.as_str() == "cyclotomic" {
-        let mut threads = vec![];
+        for i in 0..opts.threads {
+            let num_chunk = &nums[i];
+            for j in 0..opts.num_tests / opts.threads {
+                let x = &mut num_chunk[6 * j].clone();
+                let y = &mut num_chunk[6 * j + 1].clone();
+                let z = &mut num_chunk[6 * j + 2].clone();
+                let a = &mut num_chunk[6 * j + 3].clone();
+                let b = &mut num_chunk[6 * j + 4].clone();
+                let c = &mut num_chunk[6 * j + 5].clone();
 
-        for i in 0..opts.threads.clone() {
-            let i = i.clone();
-            let num_tests = opts.num_tests.clone();
-            let num_threads = opts.threads.clone();
-            let num_chunk = nums[i].clone();
-            let handle = thread::spawn(move || {
-                for j in 0..num_tests / num_threads {
-                    let x = &mut num_chunk[6 * j].clone();
-                    let y = &mut num_chunk[6 * j + 1].clone();
-                    let z = &mut num_chunk[6 * j + 2].clone();
-                    let a = &mut num_chunk[6 * j + 3].clone();
-                    let b = &mut num_chunk[6 * j + 4].clone();
-                    let c = &mut num_chunk[6 * j + 5].clone();
-
-                    // black_box means don't optimise this away into a no-op
-                    black_box(x.mul(y).add(z.mul(a)).add(b.mul(c)));
-                }
-            });
-            threads.push(handle);
-        }
-
-        for thread in threads {
-            thread.join();
+                // black_box means don't optimise this away into a no-op
+                black_box(x.mul(y).add(z.mul(a)).add(b.mul(c)));
+            }
         }
     } else if opts.implementation.as_str() == "antic" {
-        for i in 0..opts.num_tests {
+        for i in 0..opts.threads {
             let chunk = &antic_nums[i];
-            let mut prod1 = antic::safe::NumberFieldElement::new(&mut cyclotomic_field_n);
-            prod1.set_to_mul_of(
-                &mut chunk[0].clone(),
-                &mut chunk[1].clone(),
-                &mut cyclotomic_field_n,
-            );
+            for j in 0..opts.num_tests / opts.threads {
+                let mut prod1 = antic::safe::NumberFieldElement::new(&mut cyclotomic_field_n);
+                prod1.set_to_mul_of(
+                    &mut chunk[6 * j + 0].clone(),
+                    &mut chunk[6 * j + 1].clone(),
+                    &mut cyclotomic_field_n,
+                );
 
-            let mut prod2 = antic::safe::NumberFieldElement::new(&mut cyclotomic_field_n);
-            prod2.set_to_mul_of(
-                &mut chunk[2].clone(),
-                &mut chunk[3].clone(),
-                &mut cyclotomic_field_n,
-            );
+                let mut prod2 = antic::safe::NumberFieldElement::new(&mut cyclotomic_field_n);
+                prod2.set_to_mul_of(
+                    &mut chunk[6 * j + 2].clone(),
+                    &mut chunk[6 * j + 3].clone(),
+                    &mut cyclotomic_field_n,
+                );
 
-            let mut prod3 = antic::safe::NumberFieldElement::new(&mut cyclotomic_field_n);
-            prod3.set_to_mul_of(
-                &mut chunk[4].clone(),
-                &mut chunk[5].clone(),
-                &mut cyclotomic_field_n,
-            );
+                let mut prod3 = antic::safe::NumberFieldElement::new(&mut cyclotomic_field_n);
+                prod3.set_to_mul_of(
+                    &mut chunk[6 * j + 4].clone(),
+                    &mut chunk[6 * j + 5].clone(),
+                    &mut cyclotomic_field_n,
+                );
 
-            let mut sum1 = antic::safe::NumberFieldElement::new(&mut cyclotomic_field_n);
-            sum1.set_to_sum_of(&mut prod1, &mut prod2, &mut cyclotomic_field_n);
+                let mut sum1 = antic::safe::NumberFieldElement::new(&mut cyclotomic_field_n);
+                sum1.set_to_sum_of(&mut prod1, &mut prod2, &mut cyclotomic_field_n);
 
-            let mut sum2 = antic::safe::NumberFieldElement::new(&mut cyclotomic_field_n);
-            sum2.set_to_sum_of(&mut sum1, &mut prod3, &mut cyclotomic_field_n);
+                let mut sum2 = antic::safe::NumberFieldElement::new(&mut cyclotomic_field_n);
+                sum2.set_to_sum_of(&mut sum1, &mut prod3, &mut cyclotomic_field_n);
+            }
         }
     } else {
         panic!("bad implementation {}", opts.implementation);
