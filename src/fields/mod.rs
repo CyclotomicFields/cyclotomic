@@ -27,7 +27,7 @@ pub trait FieldElement: AdditiveGroupElement + MultiplicativeGroupElement {
 }
 
 /// Provides convenience functions specific to cyclotomic fields.
-pub trait CyclotomicFieldElement: FieldElement {
+pub trait CyclotomicFieldElement: FieldElement + Clone {
     /// Returns $\zeta_n$^k.
     fn e(n: i64, k: i64) -> Self;
 

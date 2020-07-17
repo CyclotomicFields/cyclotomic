@@ -27,3 +27,7 @@ mod polynomial;
 #[macro_use]
 pub mod fields;
 
+/// Implementations of vector and matrix algorithms, designed to work with
+/// matrix rings over a cyclotomic field.
+pub mod linear_algebra;
+
