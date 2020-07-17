@@ -2,29 +2,31 @@ extern crate num;
 extern crate rustc_hash;
 
 use self::num::{One, Zero};
+use crate::fields::sparse::basis::try_reduce;
 use crate::fields::{AdditiveGroupElement, MultiplicativeGroupElement};
 use crate::fields::{CyclotomicFieldElement, FieldElement, Q, Z};
 use basis::convert_to_base;
 use num::traits::Inv;
 use quickcheck::{Arbitrary, Gen};
 use rand::Rng;
+use rustc_hash::FxHashMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::convert::TryInto;
 use std::fmt;
 use std::hash::BuildHasherDefault;
 use std::hash::Hasher;
+use std::intrinsics::transmute;
 use std::ops::{AddAssign, Mul, SubAssign};
 use std::vec::Vec;
-use std::intrinsics::transmute;
-use rustc_hash::FxHashMap;
-use crate::fields::sparse::basis::try_reduce;
+
+#[macro_use]
+use crate::fields::*;
 
 pub mod add;
 pub mod basis;
 pub mod galois;
 pub mod mul;
-
 
 pub type ExpCoeffMap = FxHashMap<i64, Q>;
 
@@ -260,74 +262,13 @@ where
     result
 }
 
-// These are precisely the field axioms.
-// TODO: write these tests for the trait, then instantiate somehow? can rust do that?
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[quickcheck]
-    fn zero_is_add_identity(z: Number) -> bool {
-        z.clone().add(&mut Number::zero_order(z.order.clone())).eq(&mut z.clone())
-    }
-
-    #[quickcheck]
-    fn add_is_associative(x: Number, y: Number, z: Number) -> bool {
-        (x.clone().add(&mut y.clone())).add(&mut z.clone()).eq(x.clone().add(y.clone().add(&mut z.clone())))
-    }
-
-    #[quickcheck]
-    fn add_is_commutative(x: Number, y: Number) -> bool {
-        x.clone().add(&mut y.clone()).eq(y.clone().add(&mut x.clone()))
-    }
-
-    #[quickcheck]
-    fn one_is_mul_identity(z: Number) -> bool {
-        let mut same = z.clone().mul(&mut Number::one_order(z.order.clone())).clone();
-        same.eq(&mut z.clone())
-    }
-
-    #[quickcheck]
-    fn add_has_inverses(z: Number) -> bool {
-        z.clone().add(z.clone().add_invert()).eq(&mut Number::zero_order(z.order))
-    }
-
-    #[quickcheck]
-    fn zero_kills_all(z: Number) -> bool {
-        Number::zero_order(z.order.clone()).mul(&mut z.clone()).eq(&mut Number::zero_order(z.order))
-    }
-
-    #[quickcheck]
-    fn mul_is_commutative(x: Number, y: Number) -> bool {
-        x.clone().mul(&mut y.clone()).eq(y.clone().mul(&mut x.clone()))
-    }
-
-    #[quickcheck]
-    fn mul_is_associative(x: Number, y: Number, z: Number) -> bool {
-        (x.clone().mul(&mut y.clone())).mul(&mut z.clone()).eq(x.clone().mul(y.clone().mul(&mut z.clone())))
-    }
-
-    #[quickcheck]
-    fn mul_has_inverses(arb_z: Number) -> bool {
-        let z = convert_to_base(&arb_z);
-        if is_zero(&z) {
-            return true;
-        }
-        let mut prod = z.clone().mul_invert().mul(&mut z.clone()).clone();
-        prod.eq(&mut Number::one_order(z.order))
-    }
-
-    #[quickcheck]
-    fn mul_distributes_over_add(x: Number, y: Number, z: Number) -> bool {
-        x.clone().mul(y.clone().add(&mut z.clone())).eq(x.clone().mul(&mut y.clone()).add(x.clone().mul(&mut z.clone())))
-    }
-
-    impl Arbitrary for Number {
-        fn arbitrary<G>(g: &mut G) -> Self
-        where
-            G: Gen,
-        {
-            random_cyclotomic(g, 100, 101)
-        }
+impl Arbitrary for Number {
+    fn arbitrary<G>(g: &mut G) -> Self
+    where
+        G: Gen,
+    {
+        random_cyclotomic(g, 100, 101)
     }
 }
+
+field_axiom_tests!(Number);

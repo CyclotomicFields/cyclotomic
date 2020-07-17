@@ -24,5 +24,6 @@ mod polynomial;
 ///
 /// The precise semantics of these operations, including whether they can be
 /// done in-place, varies for each implementation.
+#[macro_use]
 pub mod fields;
 

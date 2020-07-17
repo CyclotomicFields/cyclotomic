@@ -4,9 +4,6 @@ use quickcheck::Arbitrary;
 pub type Z = num::BigInt;
 pub type Q = num::rational::BigRational;
 
-/// Sparse implementation using hash maps.
-pub mod sparse;
-
 pub trait AdditiveGroupElement {
     /// Adds z to self in place, so self = self + z
     fn add(&mut self, z: &mut Self) -> &mut Self;
@@ -45,6 +42,92 @@ pub trait CyclotomicFieldElement: FieldElement {
     fn one_order(n: i64) -> Self;
 }
 
-// TODO: work out a way to write tests for a trait then instantiate them instead of
-// tests individually for each module.
+#[macro_export]
+macro_rules! field_axiom_tests {
+    ($type: ident) => {
+        #[cfg(test)]
+        mod tests {
+            use super::*;
+
+            #[quickcheck]
+            fn zero_is_add_identity(z: $type) -> bool {
+                z.clone()
+                    .add(&mut $type::zero_order(z.order.clone()))
+                    .eq(&mut z.clone())
+            }
+
+            #[quickcheck]
+            fn add_is_associative(x: $type, y: $type, z: $type) -> bool {
+                (x.clone().add(&mut y.clone()))
+                    .add(&mut z.clone())
+                    .eq(x.clone().add(y.clone().add(&mut z.clone())))
+            }
+
+            #[quickcheck]
+            fn add_is_commutative(x: $type, y: $type) -> bool {
+                x.clone()
+                    .add(&mut y.clone())
+                    .eq(y.clone().add(&mut x.clone()))
+            }
+
+            #[quickcheck]
+            fn one_is_mul_identity(z: $type) -> bool {
+                let mut same = z
+                    .clone()
+                    .mul(&mut $type::one_order(z.order.clone()))
+                    .clone();
+                same.eq(&mut z.clone())
+            }
+
+            #[quickcheck]
+            fn add_has_inverses(z: $type) -> bool {
+                z.clone()
+                    .add(z.clone().add_invert())
+                    .eq(&mut $type::zero_order(z.order))
+            }
+
+            #[quickcheck]
+            fn zero_kills_all(z: $type) -> bool {
+                $type::zero_order(z.order.clone())
+                    .mul(&mut z.clone())
+                    .eq(&mut $type::zero_order(z.order))
+            }
+
+            #[quickcheck]
+            fn mul_is_commutative(x: $type, y: $type) -> bool {
+                x.clone()
+                    .mul(&mut y.clone())
+                    .eq(y.clone().mul(&mut x.clone()))
+            }
+
+            #[quickcheck]
+            fn mul_is_associative(x: $type, y: $type, z: $type) -> bool {
+                (x.clone().mul(&mut y.clone()))
+                    .mul(&mut z.clone())
+                    .eq(x.clone().mul(y.clone().mul(&mut z.clone())))
+            }
+
+            #[quickcheck]
+            fn mul_has_inverses(arb_z: $type) -> bool {
+                let z = convert_to_base(&arb_z);
+                if is_zero(&z) {
+                    return true;
+                }
+                let mut prod = z.clone().mul_invert().mul(&mut z.clone()).clone();
+                prod.eq(&mut $type::one_order(z.order))
+            }
+
+            #[quickcheck]
+            fn mul_distributes_over_add(x: $type, y: $type, z: $type) -> bool {
+                x.clone().mul(y.clone().add(&mut z.clone())).eq(x
+                    .clone()
+                    .mul(&mut y.clone())
+                    .add(x.clone().mul(&mut z.clone())))
+            }
+        }
+    };
+}
+
+/// Sparse implementation using hash maps.
+pub mod sparse;
 
