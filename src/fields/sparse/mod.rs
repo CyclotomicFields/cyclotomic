@@ -2,7 +2,7 @@ extern crate num;
 extern crate rustc_hash;
 
 use self::num::{One, Zero};
-use crate::fields::{AdditiveGroup, MultiplicativeGroup};
+use crate::fields::{AdditiveGroupElement, MultiplicativeGroupElement};
 use crate::fields::{CyclotomicFieldElement, FieldElement, Q, Z};
 use basis::convert_to_base;
 use num::traits::Inv;
@@ -266,56 +266,48 @@ where
 mod tests {
     use super::*;
 
-    quickcheck! {
+    #[quickcheck]
     fn zero_is_add_identity(z: Number) -> bool {
         z.clone().add(&mut Number::zero_order(z.order.clone())).eq(&mut z.clone())
     }
-    }
 
-    quickcheck! {
+    #[quickcheck]
     fn add_is_associative(x: Number, y: Number, z: Number) -> bool {
         (x.clone().add(&mut y.clone())).add(&mut z.clone()).eq(x.clone().add(y.clone().add(&mut z.clone())))
     }
-    }
 
-    quickcheck! {
+    #[quickcheck]
     fn add_is_commutative(x: Number, y: Number) -> bool {
         x.clone().add(&mut y.clone()).eq(y.clone().add(&mut x.clone()))
     }
-    }
 
-    quickcheck! {
+    #[quickcheck]
     fn one_is_mul_identity(z: Number) -> bool {
         let mut same = z.clone().mul(&mut Number::one_order(z.order.clone())).clone();
         same.eq(&mut z.clone())
     }
-    }
 
-    quickcheck! {
+    #[quickcheck]
     fn add_has_inverses(z: Number) -> bool {
         z.clone().add(z.clone().add_invert()).eq(&mut Number::zero_order(z.order))
     }
-    }
 
-    quickcheck! {
+    #[quickcheck]
     fn zero_kills_all(z: Number) -> bool {
         Number::zero_order(z.order.clone()).mul(&mut z.clone()).eq(&mut Number::zero_order(z.order))
     }
-    }
 
-    quickcheck! {
+    #[quickcheck]
     fn mul_is_commutative(x: Number, y: Number) -> bool {
         x.clone().mul(&mut y.clone()).eq(y.clone().mul(&mut x.clone()))
     }
-    }
 
-    quickcheck! {
+    #[quickcheck]
     fn mul_is_associative(x: Number, y: Number, z: Number) -> bool {
         (x.clone().mul(&mut y.clone())).mul(&mut z.clone()).eq(x.clone().mul(y.clone().mul(&mut z.clone())))
     }
-    }
 
-    quickcheck! {
+    #[quickcheck]
     fn mul_has_inverses(arb_z: Number) -> bool {
         let z = convert_to_base(&arb_z);
         if is_zero(&z) {
@@ -324,12 +316,10 @@ mod tests {
         let mut prod = z.clone().mul_invert().mul(&mut z.clone()).clone();
         prod.eq(&mut Number::one_order(z.order))
     }
-    }
 
-    quickcheck! {
+    #[quickcheck]
     fn mul_distributes_over_add(x: Number, y: Number, z: Number) -> bool {
         x.clone().mul(y.clone().add(&mut z.clone())).eq(x.clone().mul(&mut y.clone()).add(x.clone().mul(&mut z.clone())))
-    }
     }
 
     impl Arbitrary for Number {

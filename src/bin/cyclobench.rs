@@ -7,8 +7,8 @@ extern crate test;
 use antic::safe::*;
 use clap::Clap;
 use cyclotomic::fields::sparse::{print_gap, random_cyclotomic, Number};
-use cyclotomic::fields::AdditiveGroup;
-use cyclotomic::fields::MultiplicativeGroup;
+use cyclotomic::fields::AdditiveGroupElement;
+use cyclotomic::fields::MultiplicativeGroupElement;
 use cyclotomic::fields::{Q, Z};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
@@ -49,7 +49,7 @@ struct Opts {
     #[clap(short, long, default_value = "100", help = "maximum absolute value of integer to use as numerator or denominator in rationals")]
     q_maximum_integer: usize,
 
-    #[clap(long, help = "use static test data in binary")]
+    #[clap(long, help = "use static test data")]
     static_test_data: bool
 }
 

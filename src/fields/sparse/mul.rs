@@ -1,10 +1,10 @@
-use crate::fields::{MultiplicativeGroup, CyclotomicFieldElement, Q};
+use crate::fields::{MultiplicativeGroupElement, CyclotomicFieldElement, Q};
 use crate::fields::sparse::*;
 use galois::apply_automorphism;
 use super::num::Zero;
 use crate::fields::sparse::basis::{convert_to_base, try_reduce};
 
-impl MultiplicativeGroup for Number {
+impl MultiplicativeGroupElement for Number {
     /// Multiplies term by term, not bothering to do anything interesting.
     fn mul(&mut self, rhs: &mut Self) -> &mut Self {
         let mut z1 = self;

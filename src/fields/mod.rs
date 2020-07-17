@@ -7,14 +7,14 @@ pub type Q = num::rational::BigRational;
 /// Sparse implementation using hash maps.
 pub mod sparse;
 
-pub trait AdditiveGroup {
+pub trait AdditiveGroupElement {
     /// Adds z to self in place, so self = self + z
     fn add(&mut self, z: &mut Self) -> &mut Self;
 
     fn add_invert(&mut self) -> &mut Self;
 }
 
-pub trait MultiplicativeGroup {
+pub trait MultiplicativeGroupElement {
     /// Multiplies self by z in place, so self = self * z
     fn mul(&mut self, z: &mut Self) -> &mut Self;
 
@@ -23,7 +23,7 @@ pub trait MultiplicativeGroup {
 }
 
 /// Provides operations for fields. Expected to satisfy the field axioms.
-pub trait FieldElement: AdditiveGroup + MultiplicativeGroup {
+pub trait FieldElement: AdditiveGroupElement + MultiplicativeGroupElement {
     /// Equality, but can shuffle coefficients around and simplify expressions
     /// for greater efficiency.
     fn eq(&mut self, other: &mut Self) -> bool;

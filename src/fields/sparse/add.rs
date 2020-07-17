@@ -1,8 +1,8 @@
 use crate::fields::sparse::{Number, ExpCoeffMap};
-use crate::fields::{AdditiveGroup, CyclotomicFieldElement, Q, Z};
+use crate::fields::{AdditiveGroupElement, CyclotomicFieldElement, Q, Z};
 use crate::fields::sparse::basis::try_reduce;
 
-impl AdditiveGroup for Number {
+impl AdditiveGroupElement for Number {
     /// Simplest possible - term wise addition using hashing.
     ///
     /// Purposely written so it is obviously symmetric in the parameters, thus
