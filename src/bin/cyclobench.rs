@@ -10,17 +10,17 @@ use cyclotomic::fields::sparse::{print_gap, random_cyclotomic, Number};
 use cyclotomic::fields::AdditiveGroupElement;
 use cyclotomic::fields::MultiplicativeGroupElement;
 use cyclotomic::fields::{Q, Z};
+use quickcheck::Gen;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{Result, Read};
 use std::io::Write;
+use std::io::{Read, Result};
 use std::iter::FromIterator;
 use std::thread;
 use std::time::Instant;
 use test::black_box;
-use quickcheck::Gen;
 
 #[derive(Clap)]
 #[clap(version = "1.0")]
@@ -40,17 +40,27 @@ struct Opts {
     #[clap(short, long, default_value = "100")]
     upper_bound_order: usize,
 
-    #[clap(short, long, default_value = "cyclotomic", help = "cyclotomic or antic")]
+    #[clap(
+        short,
+        long,
+        default_value = "cyclotomic",
+        help = "cyclotomic or antic"
+    )]
     implementation: String,
 
     #[clap(long, default_value = "5")]
     terms: usize,
 
-    #[clap(short, long, default_value = "100", help = "maximum absolute value of integer to use as numerator or denominator in rationals")]
+    #[clap(
+        short,
+        long,
+        default_value = "100",
+        help = "maximum absolute value of integer to use as numerator or denominator in rationals"
+    )]
     q_maximum_integer: usize,
 
     #[clap(long, help = "use static test data")]
-    static_test_data: bool
+    static_test_data: bool,
 }
 
 // Kind of like the stuff in cyclotomic::polynomial, but just for test
@@ -59,7 +69,7 @@ struct Opts {
 struct GenericCyclotomic {
     // (exp, (numerator, denominator))
     exp_coeffs: HashMap<i64, (i64, u64)>,
-    order: i64
+    order: i64,
 }
 
 // Writes a gap source file with a function f you can run that will
@@ -114,7 +124,7 @@ where
     let rational_bounds = (1, 10);
     let mut result = GenericCyclotomic {
         exp_coeffs: HashMap::default(),
-        order: degree as i64
+        order: degree as i64,
     };
 
     for _ in 0..num_terms {
@@ -125,6 +135,21 @@ where
     }
 
     result
+}
+
+fn random_generic_cyclotomics<G>(
+    n: usize,
+    gen: &mut G,
+    degree: usize,
+    num_terms: usize,
+) -> Vec<GenericCyclotomic>
+where
+    G: rand::RngCore,
+{
+    (0..n)
+        .into_iter()
+        .map(|_| random_generic_cyclotomic(gen, degree, num_terms))
+        .collect()
 }
 
 fn into_number(f: &GenericCyclotomic) -> Number {
@@ -171,11 +196,12 @@ fn main() {
     let num_per_test = 6;
 
     eprintln!("generating test data");
-    let random_test_data: Vec<GenericCyclotomic> = (0..opts.num_tests * num_per_test)
-        .into_iter()
-        .map(|_| random_generic_cyclotomic(gen, opts.upper_bound_order, opts.terms))
-        .collect();
-
+    let random_test_data: Vec<GenericCyclotomic> = random_generic_cyclotomics(
+        opts.num_tests * num_per_test,
+        gen,
+        opts.lower_bound_order,
+        opts.terms,
+    );
     eprintln!("reading static test data");
     let static_test_data: Vec<GenericCyclotomic> = include!("test_data_expressions");
 
@@ -186,27 +212,15 @@ fn main() {
     };
 
     // cut it up into chunks for each thread
-    let mut chunks: Vec<Vec<GenericCyclotomic>> = Vec::new();
-
-    let mut start: usize = 0;
-    for _ in 0..opts.threads {
-        let mut chunk = vec![];
-        for i in start..(start + 6 * (opts.num_tests / opts.threads)) {
-            chunk.push(test_data[i].clone());
-        }
-        chunks.push(chunk);
-        start = start + 6 * (opts.num_tests / opts.threads);
-    }
+    let mut chunks: Vec<Vec<GenericCyclotomic>> = test_data
+        .chunks(test_data.len() / opts.threads)
+        .map(|chunk| chunk.to_vec())
+        .collect();
 
     let nums: Vec<Vec<Number>> = chunks
         .clone()
         .into_iter()
-        .map(|chunk| {
-            chunk
-                .into_iter()
-                .map(|f| into_number(&f))
-                .collect()
-        })
+        .map(|chunk| chunk.into_iter().map(|f| into_number(&f)).collect())
         .collect();
 
     let mut cyclotomic_polynomial_n =
@@ -262,7 +276,11 @@ fn number_bench(opts: &Opts, nums: &Vec<Vec<Number>>) {
     }
 }
 
-fn antic_bench(opts: &Opts, mut cyclotomic_field_n: &mut NumberField, antic_nums: &Vec<Vec<NumberFieldElement>>) {
+fn antic_bench(
+    opts: &Opts,
+    mut cyclotomic_field_n: &mut NumberField,
+    antic_nums: &Vec<Vec<NumberFieldElement>>,
+) {
     for i in 0..opts.threads {
         let chunk = &antic_nums[i];
         for j in 0..opts.num_tests / opts.threads {
