@@ -28,6 +28,33 @@ details).
 
 See [below for some benchmarks against antic](#benchmarks).
 
+## Features
+
+* Sparse representations:
+  - Using the Zumbroich basis (GAP-inspired) and hash maps of
+    exponents to coefficients
+
+## TODO
+
+* C FFI interface for calling our Rust code from other languages
+
+* Sparse representations:
+  - Arbitrary integer exponents and efficient multi-level hashing,
+    cached factorisations etc. This is for very large degree fields.
+  - Vector of pairs of exponents and coefficients (sorted with a heap?)
+  - Hash map of exponents to coefficients using structure constant
+    multiplication
+
+* Dense representations:
+  - Vector of coefficients and Zumbroich basis (the same as GAP,
+    unpacked)
+  - Vector of coefficients and explicit polynomial division
+
+* Explicit construction as field of fractions of ring of
+  integers. Trivial inversion, good when you're only multiplying?
+
+* More investigation and thought into SIMD usage.
+
 ## Quick start
 
 ### Use cyclotomic in a Rust program
