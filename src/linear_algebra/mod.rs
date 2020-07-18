@@ -49,3 +49,22 @@ where
 }
 
 struct Vector<T: CyclotomicFieldElement>(Vec<T>);
+
+impl<T> Vector<T>
+where
+    T: CyclotomicFieldElement,
+{
+    fn dot_product(&mut self, other: &mut Self) -> T {
+        let v1 = &self.0;
+        let mut v2 = &mut other.0;
+        let mut result = T::zero_order(1);
+
+        assert_eq!(v1.len(), v2.len());
+
+        for i in 0..v1.len() {
+            result.add(&mut v1[i].clone().add(&mut v2[i]));
+        }
+
+        result
+    }
+}
