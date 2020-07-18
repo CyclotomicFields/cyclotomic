@@ -3,6 +3,8 @@ use crate::fields::CyclotomicFieldElement;
 /// Terrible implementation of a matrix (not contiguous)
 struct Matrix<T: CyclotomicFieldElement>(Vec<Vec<T>>);
 
+// TODO: more tests!
+
 impl<T> Matrix<T>
 where
     T: CyclotomicFieldElement,

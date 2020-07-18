@@ -107,14 +107,21 @@ fn write_gap_cycs(nums: &Vec<Number>, filename: String) -> Result<()> {
     Ok(())
 }
 
-fn read_gap_cycs(filename: String) -> Result<Vec<GenericCyclotomic>> {
-    let mut file = File::open(filename)?;
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
+fn write_gap_cycs_flat(nums: &Vec<Number>, filename: String) -> Result<()> {
+    eprintln!("writing GAP expressions to {}", filename);
 
-    let mut cycs = vec![];
+    let mut file = File::create(filename).unwrap();
 
-    Ok(cycs)
+    file.write_all(b"SetCyclotomicsLimit(2^32-1);;\n")?;
+    file.write_all(b"cycs := [\n")?;
+
+    for i in 0..nums.len() - 1 {
+        let z = &nums[i];
+        write!(&mut file, "{},\n", print_gap(z))?;
+    }
+    write!(&mut file, "{}\n", print_gap(&nums[nums.len() - 1]))?;
+    file.write_all(b"];;\n")?;
+    Ok(())
 }
 
 fn random_generic_cyclotomic<G>(gen: &mut G, degree: usize, num_terms: usize) -> GenericCyclotomic
@@ -238,10 +245,20 @@ fn main() {
         .collect();
 
     if let Some(gap_out) = opts.gap_out.clone() {
-        match write_gap_cycs(&nums.clone().into_iter().flatten().collect(), gap_out) {
+        match write_gap_cycs(
+            &nums.clone().into_iter().flatten().collect(),
+            gap_out.clone(),
+        ) {
             Ok(()) => (),
             Err(e) => eprintln!("error writing gap file: {}", e),
-        }
+        };
+        match write_gap_cycs_flat(
+            &nums.clone().into_iter().flatten().collect(),
+            "flat_".to_owned() + gap_out.as_str(),
+        ) {
+            Ok(()) => (),
+            Err(e) => eprintln!("error writing flat gap file: {}", e),
+        };
     }
 
     eprintln!("starting benchmark");
