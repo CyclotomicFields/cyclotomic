@@ -1,6 +1,6 @@
-use crate::fields::sparse_vec::{Number, ExpCoeffMap};
-use crate::fields::{AdditiveGroupElement, CyclotomicFieldElement, Q, Z};
 use crate::fields::sparse_vec::basis::try_reduce;
+use crate::fields::sparse_vec::{ExpCoeffMap, Number};
+use crate::fields::{AdditiveGroupElement, CyclotomicFieldElement, Q, Z};
 
 impl AdditiveGroupElement for Number {
     fn add(&mut self, rhs: &mut Self) -> &mut Self {
@@ -11,7 +11,8 @@ impl AdditiveGroupElement for Number {
         let mut i1 = 0;
         let mut i2 = 0;
 
-        let mut result_coeffs = vec![];
+        // TODO: what's the best preallocated capacity to use here?
+        let mut result_coeffs: Vec<(i64, Q)> = vec![];
 
         while i1 < z1.coeffs.len() || i2 < z2.coeffs.len() {
             let mut exp1 = &z1.coeffs[i1].0;
@@ -19,18 +20,39 @@ impl AdditiveGroupElement for Number {
             let mut exp2 = &z2.coeffs[i2].0;
             let mut coeff2 = &z2.coeffs[i2].1;
 
-            // the terms of z1 with no matching term in z2, they don't change
-            while exp1 < exp2 && i1 < z1.coeffs.len() {
-                result_coeffs.push((exp1, coeff1));
+            // the terms of z1 with no matching term in z2
+            while (exp1 < exp2 || i2 == z2.coeffs.len()) && i1 < z1.coeffs.len() {
+                result_coeffs.push((*exp1, coeff1.clone()));
 
                 i1 += 1;
                 exp1 = &z1.coeffs[i1].0;
                 coeff1 = &mut z1.coeffs[i1].1;
             }
 
-            // the terms of z2 with no matching term in z1, these do appear
-            // in the result
+            // the terms of z2 with no matching term in z1
+            while (exp2 < exp1 || i1 == z1.coeffs.len()) && i2 < z2.coeffs.len() {
+                result_coeffs.push((*exp2, coeff2.clone()));
+
+                i2 += 1;
+                exp2 = &z2.coeffs[i2].0;
+                coeff2 = &z2.coeffs[i2].1;
+            }
+
+            // the matching terms, the ones we have to actually add
+            while exp1 == exp2 && i1 < z1.coeffs.len() && i2 < z2.coeffs.len() {
+                result_coeffs.push((*exp1, coeff1 + coeff2));
+
+                i1 += 1;
+                exp1 = &z1.coeffs[i1].0;
+                coeff1 = &mut z1.coeffs[i1].1;
+
+                i2 += 1;
+                exp2 = &z2.coeffs[i2].0;
+                coeff2 = &z2.coeffs[i2].1;
+            }
         }
+
+        self.coeffs = result_coeffs;
 
         self
     }
