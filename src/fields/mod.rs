@@ -131,3 +131,7 @@ macro_rules! field_axiom_tests {
 /// Sparse implementation using hash maps.
 pub mod sparse;
 
+/// Sparse implementation using vectors of (exponent, coefficient), sorted
+/// by exponent.
+pub mod sparse_vec;
+

@@ -54,7 +54,7 @@ impl<T> Vector<T>
 where
     T: CyclotomicFieldElement,
 {
-    fn dot_product(&mut self, other: &mut Self) -> T {
+    fn dot_product(&self, other: &mut Self) -> T {
         let v1 = &self.0;
         let mut v2 = &mut other.0;
         let mut result = T::zero_order(1);
@@ -67,4 +67,7 @@ where
 
         result
     }
+
+    // NOTE: the L2 norm might not be cyclotomic, so we can't
+    // have a norm function without general number fields.
 }

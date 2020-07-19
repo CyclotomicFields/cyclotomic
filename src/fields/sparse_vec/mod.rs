@@ -28,20 +28,16 @@ pub mod basis;
 pub mod galois;
 pub mod mul;
 
-pub type ExpCoeffMap = FxHashMap<i64, Q>;
-
 /// Represents a polynomial in the `order`th root of unity.
 #[derive(Clone)]
 pub struct Number {
     order: i64,
-    coeffs: ExpCoeffMap,
+    coeffs: Vec<(i64, Q)>
 }
 
 pub fn print_gap(z: &Number) -> String {
     let mut str_list: Vec<String> = vec![];
-    for exp in 0..z.order {
-        let zero = Q::zero().clone();
-        let coeff = z.coeffs.get(&exp).unwrap_or(&zero);
+    for (exp, coeff) in &z.coeffs {
         if !coeff.is_zero() {
             str_list.push(String::from(
                 format!("{} * E({})^{}", coeff, z.order, exp).as_str(),
@@ -58,7 +54,7 @@ impl fmt::Debug for Number {
 }
 
 impl Number {
-    pub fn new(order: i64, coeffs: &ExpCoeffMap) -> Number {
+    pub fn new(order: i64, coeffs: &Vec<(i64, Q)>) -> Number {
         Number {
             order: order,
             coeffs: coeffs.clone(),
@@ -66,12 +62,9 @@ impl Number {
     }
 
     pub fn increase_order_to(z: &mut Self, new_order: i64) {
-        let mut new_coeffs = ExpCoeffMap::default();
-        for (exp, coeff) in &z.coeffs {
-            new_coeffs.insert(new_order * exp.clone() / z.order.clone(), coeff.clone());
+        for (&mut exp, _) in &mut z.coeffs {
+            exp = new_order * exp / z.order;
         }
-        z.order = new_order.clone();
-        z.coeffs = new_coeffs;
     }
 
     pub fn match_orders(z1: &mut Number, z2: &mut Number) {
@@ -123,7 +116,7 @@ enum Sign {
     Minus,
 }
 
-fn add_single(coeffs: &mut ExpCoeffMap, exp: i64, coeff: &Q, sign: Sign) {
+fn add_single(coeffs: &mut Vec<(i64, Q)>, exp: i64, coeff: &Q, sign: Sign) {
     let maybe_existing_coeff = coeffs.get_mut(&exp);
     match maybe_existing_coeff {
         None => {

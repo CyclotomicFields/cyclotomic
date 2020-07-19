@@ -3,28 +3,36 @@ use crate::fields::{AdditiveGroupElement, CyclotomicFieldElement, Q, Z};
 use crate::fields::sparse_vec::basis::try_reduce;
 
 impl AdditiveGroupElement for Number {
-    /// Simplest possible - term wise addition using hashing.
-    ///
-    /// Purposely written so it is obviously symmetric in the parameters, thus
-    /// commutative by inspection. Of course, there are tests for that.
     fn add(&mut self, rhs: &mut Self) -> &mut Self {
         let mut z1 = self;
         let mut z2 = rhs;
         Self::match_orders(&mut z1, &mut z2);
 
-        // We will never need to reduce here, you can't add low powers of
-        // $\zeta_n$ and get higher powers. Higher powers do not exist.
-        let mut coeffs = ExpCoeffMap::default();
-        for (exp, coeff) in z1.coeffs.clone().into_iter().chain(z2.coeffs.clone()) {
-            match coeffs.get(&exp).clone() {
-                Some(existing_coeff) => coeffs.insert(exp, coeff + existing_coeff),
-                None => coeffs.insert(exp, coeff),
-            };
+        let mut i1 = 0;
+        let mut i2 = 0;
+
+        let mut result_coeffs = vec![];
+
+        while i1 < z1.coeffs.len() || i2 < z2.coeffs.len() {
+            let mut exp1 = &z1.coeffs[i1].0;
+            let mut coeff1 = &mut z1.coeffs[i1].1;
+            let mut exp2 = &z2.coeffs[i2].0;
+            let mut coeff2 = &z2.coeffs[i2].1;
+
+            // the terms of z1 with no matching term in z2, they don't change
+            while exp1 < exp2 && i1 < z1.coeffs.len() {
+                result_coeffs.push((exp1, coeff1));
+
+                i1 += 1;
+                exp1 = &z1.coeffs[i1].0;
+                coeff1 = &mut z1.coeffs[i1].1;
+            }
+
+            // the terms of z2 with no matching term in z1, these do appear
+            // in the result
         }
 
-        let mut result = Number::new(z1.order, &coeffs);
-        *z1 = result;
-        z1
+        self
     }
 
     fn add_invert(&mut self) -> &mut Self {
