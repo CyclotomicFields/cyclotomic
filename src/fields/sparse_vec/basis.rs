@@ -52,9 +52,9 @@ pub fn try_reduce(z: &mut Number) {
         z.order = 1;
 
         if saw_exp_zero {
-            let coeff = z.coeffs.get(&0).unwrap().clone();
+            let coeff = z.coeffs[0].1.clone();
             z.coeffs.clear();
-            z.coeffs.insert(0, coeff);
+            z.coeffs.push((0, coeff));
         } else {
             z.coeffs.clear();
         }
@@ -71,14 +71,8 @@ pub fn try_reduce(z: &mut Number) {
         z.order = new_order;
 
         // don't need to reduce exp=0 since it would just reduce to exp=0
-        for exp in 1..new_order {
-            match z.coeffs.get(&(gcd*exp)) {
-                None => (), // there is no term to rewrite
-                Some(coeff) => {
-                    z.coeffs.insert(exp, coeff.clone());
-                    z.coeffs.remove(&(gcd*exp));
-                }
-            }
+        for (&mut exp, _) in &mut z.coeffs {
+            exp = exp/gcd;
         }
     }
 
@@ -105,7 +99,7 @@ pub fn try_reduce(z: &mut Number) {
         z.order = 1;
         z.coeffs.clear();
         let new_coeff = last_nonzero_coeff.unwrap().mul(Z::from(i64::pow(-1, num_primes.try_into().unwrap())));
-        z.coeffs.insert(0, new_coeff);
+        z.coeffs.push((0, new_coeff));
         return;
     }
 }
@@ -138,9 +132,13 @@ pub fn convert_to_base(z: &Number) -> Number {
     // the Zumbroich basis
     let mut result = z.clone();
 
-    for (exp, coeff) in &z.coeffs {
+    let mut i = 0;
+    while i < result.coeffs.len() {
+        let coeff = &result.coeffs[i].1;
         if coeff.is_zero() {
-            result.coeffs.remove(exp);
+            result.coeffs.remove(i);
+        } else {
+            i += 1;
         }
     }
 
@@ -174,25 +172,28 @@ pub fn convert_to_base(z: &Number) -> Number {
             for a in -bad_exp / q - 1..=((n - 1 - bad_exp) / q + 1) {
                 let i = bad_exp + a * q;
                 // if there isn't even a term for i, no need to convert it
-                let coeff = {
-                    let maybe_coeff = result.coeffs.get(&i);
 
-                    match maybe_coeff {
-                        None => continue,
-                        Some(rational) => {
-                            if rational.is_zero() {
-                                continue;
-                            }
-                        }
+                // TODO: this is horrific for vectors, good for hash maps, there
+                // must be a smarter way
+                let mut i_coeff = &Q::zero();
+                let mut i_index = -1;
+
+                for j in 0..result.coeffs.len() {
+                    if result.coeffs[i].0 == i {
+                        i_coeff = &result.coeffs[i].1;
+                        i_index = j;
                     }
-                    maybe_coeff.unwrap().clone()
-                };
+                }
+
+                if i_coeff.is_zero() {
+                    continue;
+                }
 
                 // if we got here, i has a nonzero term so must be rewritten
-                result.coeffs.remove(&i);
+                result.coeffs.remove(i_index);
                 for k in 1..*p {
                     let new_exp = math_mod(&(k * n / p + i), &n);
-                    add_single(&mut result.coeffs, new_exp, &coeff, Sign::Minus);
+                    add_single(&mut result.coeffs, new_exp, &i_coeff, Sign::Minus);
                 }
             }
         }
