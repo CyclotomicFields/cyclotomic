@@ -117,23 +117,33 @@ enum Sign {
 }
 
 fn add_single(coeffs: &mut Vec<(i64, Q)>, exp: i64, coeff: &Q, sign: Sign) {
-    let maybe_existing_coeff = coeffs.get_mut(&exp);
-    match maybe_existing_coeff {
-        None => {
-            if sign == Sign::Plus {
-                coeffs.insert(exp, coeff.clone());
-            } else {
-                coeffs.insert(exp, -coeff.clone());
-            }
+    // TODO: this is horrifically bad for efficiency, please replace
+    let mut exp_index = -1;
+    let sign = if sign == Sign::Plus { 1 } else { -1 };
+
+    for i in 0..coeffs.len() {
+        // Found the exponent, no need to shift stuff around, we need to
+        // actually add.
+        if coeffs[i].0 == exp {
+            exp_index = i;
+            let exp_coeff = &mut coeffs[i].1;
+            exp_coeff.add_assign(sign * coeff);
+            return;
         }
-        Some(existing_coeff) => {
-            // TODO: find a way to get rid of coeff.clone() here, it's not needed
-            if sign == Sign::Plus {
-                existing_coeff.add_assign(coeff.clone());
-            } else {
-                existing_coeff.sub_assign(coeff.clone());
-            }
+
+        // exp didn't appear in coeffs.
+        // This is the first bigger exponent we've seen, so we know
+        // exp belongs at index i.
+        if coeffs[i].0 > exp {
+            exp_index = i;
+            coeffs.insert(i, (exp, sign * coeff.clone()));
+            return;
         }
+    }
+
+    // exp is larger than any exponent in coeffs right now
+    if exp_index == -1 {
+        coeffs.push((exp, sign*coeff));
     }
 }
 

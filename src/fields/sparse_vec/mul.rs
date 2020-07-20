@@ -13,13 +13,13 @@ impl MultiplicativeGroupElement for Number {
 
         let mut result = Number::zero_order(z1.order.clone());
 
-        // This order is almost certainly not optimal. But you know, whatever.
-        // TODO: make it gooder
         result.order = z1.order;
         for (exp1, coeff1) in &z1.coeffs {
             for (exp2, coeff2) in &z2.coeffs {
                 let new_exp = (exp1 + exp2) % z1.order.clone();
                 let new_coeff = coeff1 * coeff2;
+
+                // TODO: effiency is horrific for the vectors here!
                 add_single(&mut result.coeffs, new_exp, &new_coeff, Sign::Plus);
             }
         }

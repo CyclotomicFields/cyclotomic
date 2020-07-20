@@ -8,8 +8,11 @@ pub fn apply_automorphism(z: &Number, i: i64) -> Number {
     let mut result = Number::zero_order(z.order);
 
     for (exp, coeff) in z.coeffs.clone() {
-        result.coeffs.insert(math_mod(&(exp * i), &z.order), coeff);
+        result.coeffs.push((math_mod(&(exp * i), &z.order), coeff));
     }
+
+    // this is O(nlogn), surely not optimal! TODO: improve!
+    result.sort_by(|(exp1, _), (exp2, _)| { exp1.cmp(exp2) });
 
     result
 }
