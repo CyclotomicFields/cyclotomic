@@ -58,7 +58,7 @@ impl MultiplicativeGroupElement for Number {
         println!("q_cyc = {:?}", q_cyc);
 
         assert_eq!(q_cyc.order, 1);
-        let q_rat = q_cyc.coeffs.get(&0).unwrap();
+        let q_rat = q_cyc.coeffs[0].1.clone();
         println!("q_rat = {:?}", q_rat);
 
         if q_rat.is_zero() {

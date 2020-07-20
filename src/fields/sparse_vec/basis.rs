@@ -71,8 +71,8 @@ pub fn try_reduce(z: &mut Number) {
         z.order = new_order;
 
         // don't need to reduce exp=0 since it would just reduce to exp=0
-        for (&mut exp, _) in &mut z.coeffs {
-            exp = exp/gcd;
+        for p in &mut z.coeffs {
+            p.0 = p.0/gcd;
         }
     }
 
@@ -175,13 +175,14 @@ pub fn convert_to_base(z: &Number) -> Number {
 
                 // TODO: this is horrific for vectors, good for hash maps, there
                 // must be a smarter way
-                let mut i_coeff = &Q::zero();
-                let mut i_index = -1;
+                let mut i_coeff = Q::zero();
+
+                let mut i_index: Option<usize> = None;
 
                 for j in 0..result.coeffs.len() {
-                    if result.coeffs[i].0 == i {
-                        i_coeff = &result.coeffs[i].1;
-                        i_index = j;
+                    if result.coeffs[i as usize].0 == i {
+                        i_coeff = result.coeffs[i as usize].1.clone();
+                        i_index = Some(j);
                     }
                 }
 
@@ -190,7 +191,10 @@ pub fn convert_to_base(z: &Number) -> Number {
                 }
 
                 // if we got here, i has a nonzero term so must be rewritten
-                result.coeffs.remove(i_index);
+                if let Some(index) = i_index {
+                    result.coeffs.remove(index);
+                }
+
                 for k in 1..*p {
                     let new_exp = math_mod(&(k * n / p + i), &n);
                     add_single(&mut result.coeffs, new_exp, &i_coeff, Sign::Minus);

@@ -12,7 +12,7 @@ pub fn apply_automorphism(z: &Number, i: i64) -> Number {
     }
 
     // this is O(nlogn), surely not optimal! TODO: improve!
-    result.sort_by(|(exp1, _), (exp2, _)| { exp1.cmp(exp2) });
+    result.coeffs.sort_by(|(exp1, _), (exp2, _)| { exp1.cmp(exp2) });
 
     result
 }

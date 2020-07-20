@@ -32,7 +32,7 @@ pub mod mul;
 #[derive(Clone)]
 pub struct Number {
     order: i64,
-    coeffs: Vec<(i64, Q)>
+    coeffs: Vec<(i64, Q)>,
 }
 
 pub fn print_gap(z: &Number) -> String {
@@ -62,8 +62,8 @@ impl Number {
     }
 
     pub fn increase_order_to(z: &mut Self, new_order: i64) {
-        for (&mut exp, _) in &mut z.coeffs {
-            exp = new_order * exp / z.order;
+        for p in &mut z.coeffs {
+            p.0 = new_order * p.0 / z.order;
         }
     }
 
@@ -118,32 +118,32 @@ enum Sign {
 
 fn add_single(coeffs: &mut Vec<(i64, Q)>, exp: i64, coeff: &Q, sign: Sign) {
     // TODO: this is horrifically bad for efficiency, please replace
-    let mut exp_index = -1;
-    let sign = if sign == Sign::Plus { 1 } else { -1 };
+    let mut exp_index: i64 = -1;
+    let sign = if sign == Sign::Plus { Z::from(1) } else { Z::from(-1) };
 
     for i in 0..coeffs.len() {
         // Found the exponent, no need to shift stuff around, we need to
         // actually add.
-        if coeffs[i].0 == exp {
-            exp_index = i;
-            let exp_coeff = &mut coeffs[i].1;
-            exp_coeff.add_assign(sign * coeff);
+        if coeffs[i as usize].0 == exp {
+            exp_index = i as i64;
+            let exp_coeff = &mut coeffs[i as usize].1;
+            exp_coeff.add_assign(coeff.mul(sign));
             return;
         }
 
         // exp didn't appear in coeffs.
         // This is the first bigger exponent we've seen, so we know
         // exp belongs at index i.
-        if coeffs[i].0 > exp {
-            exp_index = i;
-            coeffs.insert(i, (exp, sign * coeff.clone()));
+        if coeffs[i as usize].0 > exp {
+            exp_index = i as i64;
+            coeffs.insert(i as usize, (exp, coeff.mul(sign)));
             return;
         }
     }
 
     // exp is larger than any exponent in coeffs right now
     if exp_index == -1 {
-        coeffs.push((exp, sign*coeff));
+        coeffs.push((exp, coeff.mul(sign)));
     }
 }
 
@@ -184,28 +184,19 @@ impl FieldElement for Number {
         let mut z1 = convert_to_base(&za);
         let mut z2 = convert_to_base(&zb);
 
-        // Now that we've matched the orders, z1 and z2 are expressed as
-        // elements in the same field so are the same iff each nonzero term is
-        // the same.
-        fn has_diff(left: &Number, right: &Number) -> bool {
-            for (exp_left, coeff_left) in &left.coeffs {
-                match right.coeffs.get(&exp_left) {
-                    None => {
-                        if coeff_left != &Q::zero() {
-                            return true;
-                        }
-                    }
-                    Some(coeff_right) => {
-                        if coeff_left != coeff_right {
-                            return true;
-                        }
-                    }
-                }
-            }
-            false
-        }
+        // TODO: make this zero-copy with manual iteration and clever tricks
+        let coeffs1_nz: Vec<(i64, Q)> = z1
+            .coeffs
+            .into_iter()
+            .filter(|(exp, coeff)| !coeff.is_zero())
+            .collect();
+        let coeffs2_nz: Vec<(i64, Q)> = z2
+            .coeffs
+            .into_iter()
+            .filter(|(exp, coeff)| !coeff.is_zero())
+            .collect();
 
-        !has_diff(&z1, &z2) && !has_diff(&z2, &z1)
+        coeffs1_nz == coeffs2_nz
     }
 }
 
@@ -227,15 +218,11 @@ impl CyclotomicFieldElement for Number {
     }
 
     fn zero_order(n: i64) -> Number {
-        Number::new(n, &ExpCoeffMap::default())
+        Number::new(n, &vec![])
     }
 
     fn one_order(n: i64) -> Number {
-        let mut coeffs = ExpCoeffMap::default();
-        for i in 1..n {
-            coeffs.insert(i, -Q::one());
-        }
-        Number::new(n, &coeffs)
+        Number::new(n, &vec![(0, Q::one())])
     }
 }
 
@@ -259,9 +246,10 @@ where
     for _ in 1..=num_terms {
         let exp: i64 = g.gen_range(1, order);
         let coeff = random_rational(g);
-        result.coeffs.insert(exp, coeff);
+        result.coeffs.push((exp, coeff));
     }
 
+    result.coeffs.sort_by(|(exp1, _), (exp2, _)| exp1.cmp(exp2));
     result
 }
 
