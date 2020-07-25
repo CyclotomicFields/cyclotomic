@@ -232,7 +232,7 @@ impl Arbitrary for Number {
     where
         G: Gen,
     {
-        random_cyclotomic(g, 100, 101)
+        random_cyclotomic(g, 10, 20)
     }
 }
 

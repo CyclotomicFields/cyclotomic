@@ -102,7 +102,7 @@ pub fn try_reduce(z: &mut Number) {
         z.order = 1;
         z.coeffs.clear();
         let new_coeff = last_nonzero_coeff.unwrap().mul(Z::from(i64::pow(-1, num_primes.try_into().unwrap())));
-        z.coeffs[0] = new_coeff;
+        z.coeffs.push(new_coeff);
         return;
     }
 }
@@ -163,16 +163,17 @@ pub fn convert_to_base(z: &Number) -> Number {
             // The -1 and +1 are so that even if the division isn't perfect,
             // then we still check the full range of a we need to check.
             for a in -bad_exp / q - 1..=((n - 1 - bad_exp) / q + 1) {
-                let i = bad_exp + a * q;
+                let i: i64 = bad_exp + a * q;
+                println!("i = {}", i);
                 // if there isn't even a term for i, no need to convert it
-                let coeff = result.coeffs[i as usize].clone();
+                let coeff = result.coeffs[(math_mod(&i, &n)) as usize].clone();
 
                 if coeff.is_zero() {
                     continue;
                 }
 
                 // if we got here, i has a nonzero term so must be rewritten
-                result.coeffs[i as usize].set_zero();
+                result.coeffs[math_mod(&i, &n) as usize].set_zero();
                 for k in 1..*p {
                     let new_exp = math_mod(&(k * n / p + i), &n);
                     add_single(&mut result.coeffs, new_exp, &coeff, Sign::Minus);
