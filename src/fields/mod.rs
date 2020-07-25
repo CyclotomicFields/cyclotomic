@@ -134,3 +134,6 @@ pub mod sparse;
 /// Dense representation using a vector of coefficients.
 pub mod dense;
 
+/// Common utilities
+pub mod util;
+

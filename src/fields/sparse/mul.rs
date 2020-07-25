@@ -3,6 +3,7 @@ use crate::fields::sparse::*;
 use galois::apply_automorphism;
 use super::num::Zero;
 use crate::fields::sparse::basis::{convert_to_base, try_reduce};
+use crate::fields::util::*;
 
 impl MultiplicativeGroupElement for Number {
     /// Multiplies term by term, not bothering to do anything interesting.

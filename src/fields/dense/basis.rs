@@ -8,6 +8,7 @@ use crate::fields::*;
 use std::collections::HashSet;
 use std::convert::TryInto;
 use std::ops::Mul;
+use crate::fields::util::*;
 
 // Tries to reduce to a possibly smaller cyclotomic field
 pub fn try_reduce(z: &mut Number) {

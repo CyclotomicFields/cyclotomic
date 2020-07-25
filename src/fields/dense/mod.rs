@@ -5,6 +5,7 @@ use self::num::{One, Zero};
 use crate::fields::dense::basis::try_reduce;
 use crate::fields::{AdditiveGroupElement, MultiplicativeGroupElement};
 use crate::fields::{CyclotomicFieldElement, FieldElement, Q, Z};
+use crate::fields::util::*;
 use basis::convert_to_base;
 use num::traits::Inv;
 use quickcheck::{Arbitrary, Gen};
@@ -83,20 +84,6 @@ impl Number {
     }
 }
 
-fn are_coprime(x: i64, y: i64) -> bool {
-    num::integer::gcd(x as u64, y as u64) == 1
-}
-
-fn phi(n: i64) -> i64 {
-    let mut count = 0;
-    for k in 1..n {
-        if are_coprime(n, k) {
-            count += 1;
-        }
-    }
-    count
-}
-
 fn get_same_coeff(z: &Number) -> Option<Q> {
     let nonzero_coeffs: HashSet<Q> = z.coeffs.clone().into_iter().filter(|q| !q.is_zero()).collect();
 
@@ -108,17 +95,6 @@ fn get_same_coeff(z: &Number) -> Option<Q> {
     } else {
         None
     }
-}
-
-fn math_mod(x: &i64, n: &i64) -> i64 {
-    let res = (x % n + n) % n;
-    res
-}
-
-#[derive(Eq, PartialEq)]
-enum Sign {
-    Plus,
-    Minus,
 }
 
 fn add_single(coeffs: &mut Vec<Q>, exp: i64, coeff: &Q, sign: Sign) {
@@ -139,25 +115,6 @@ pub fn is_zero(z: &Number) -> bool {
     true
 }
 
-fn count_powers(n: &i64, n_divisors: &Vec<i64>) -> Vec<(i64, i64)> {
-    let mut result = vec![];
-    let mut n_factored = n.clone();
-
-    for divisor in n_divisors {
-        let mut power: u64 = 0;
-
-        while n_factored % divisor == 0 {
-            power += 1;
-            n_factored = n_factored / divisor;
-        }
-
-        if power != 0 {
-            result.push((divisor.clone(), power as i64));
-        }
-    }
-
-    result
-}
 
 impl FieldElement for Number {
     fn eq(&mut self, other: &mut Self) -> bool {
@@ -232,7 +189,7 @@ impl Arbitrary for Number {
     where
         G: Gen,
     {
-        random_cyclotomic(g, 10, 20)
+        random_cyclotomic(g, 2, 10)
     }
 }
 
