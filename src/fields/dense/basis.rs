@@ -3,7 +3,7 @@
 // documentation and probably some papers.
 
 use super::num::Zero;
-use crate::fields::sparse_vec::*;
+use crate::fields::dense::*;
 use crate::fields::*;
 use std::collections::HashSet;
 use std::convert::TryInto;
@@ -17,7 +17,8 @@ pub fn try_reduce(z: &mut Number) {
     let mut coeffs_are_equal = true;
     let mut last_nonzero_coeff: Option<Q> = None;
 
-    for (exp, coeff) in &z.coeffs {
+    for exp in 0..z.order {
+        let coeff = z.coeffs[exp as usize].clone();
         // this term doesn't really appear
         if coeff.is_zero() {
             continue;
@@ -28,21 +29,21 @@ pub fn try_reduce(z: &mut Number) {
         if coeffs_are_equal {
             match &last_nonzero_coeff {
                 None => last_nonzero_coeff = Some(coeff.clone()),
-                Some(seen_coeff) => if seen_coeff != coeff {
+                Some(seen_coeff) => if *seen_coeff != coeff {
                     coeffs_are_equal = false;
                 }
             }
         }
 
         // 0 will mess up the gcd calculation
-        if *exp == 0 {
+        if exp == 0 {
             saw_exp_zero = true;
             continue;
         }
 
         match current_gcd {
-            None => current_gcd = Some(*exp as u64),
-            Some(gcd) => current_gcd = Some(num::integer::gcd(gcd, *exp as u64)),
+            None => current_gcd = Some(exp as u64),
+            Some(gcd) => current_gcd = Some(num::integer::gcd(gcd, exp as u64)),
         }
     }
 
@@ -52,11 +53,11 @@ pub fn try_reduce(z: &mut Number) {
         z.order = 1;
 
         if saw_exp_zero {
-            let coeff = z.coeffs[0].1.clone();
-            z.coeffs.clear();
-            z.coeffs.push((0, coeff));
+            let coeff = z.coeffs[0].clone();
+            *z = Number::zero_order(z.order);
+            z.coeffs[0] = coeff;
         } else {
-            z.coeffs.clear();
+            *z = Number::zero_order(z.order);
         }
 
         return;
@@ -71,9 +72,11 @@ pub fn try_reduce(z: &mut Number) {
         z.order = new_order;
 
         // don't need to reduce exp=0 since it would just reduce to exp=0
-        for p in &mut z.coeffs {
-            p.0 = p.0/gcd;
+        for exp in 1..new_order {
+            z.coeffs[exp as usize] = z.coeffs[(gcd*exp) as usize].clone();
         }
+
+        z.coeffs.truncate(new_order as usize);
     }
 
     // now all exponents are coprime with the new order
@@ -99,7 +102,7 @@ pub fn try_reduce(z: &mut Number) {
         z.order = 1;
         z.coeffs.clear();
         let new_coeff = last_nonzero_coeff.unwrap().mul(Z::from(i64::pow(-1, num_primes.try_into().unwrap())));
-        z.coeffs.push((0, new_coeff));
+        z.coeffs[0] = new_coeff;
         return;
     }
 }
@@ -132,16 +135,6 @@ pub fn convert_to_base(z: &Number) -> Number {
     // the Zumbroich basis
     let mut result = z.clone();
 
-    let mut i = 0;
-    while i < result.coeffs.len() {
-        let coeff = &result.coeffs[i].1;
-        if coeff.is_zero() {
-            result.coeffs.remove(i);
-        } else {
-            i += 1;
-        }
-    }
-
     let n_divisors: Vec<i64> = divisors::get_divisors(n as u64)
         .into_iter()
         .map(|x| x as i64)
@@ -172,32 +165,17 @@ pub fn convert_to_base(z: &Number) -> Number {
             for a in -bad_exp / q - 1..=((n - 1 - bad_exp) / q + 1) {
                 let i = bad_exp + a * q;
                 // if there isn't even a term for i, no need to convert it
+                let coeff = result.coeffs[i as usize].clone();
 
-                // TODO: this is horrific for vectors, good for hash maps, there
-                // must be a smarter way
-                let mut i_coeff = Q::zero();
-
-                let mut i_index: Option<usize> = None;
-
-                for j in 0..result.coeffs.len() {
-                    if result.coeffs[i as usize].0 == i {
-                        i_coeff = result.coeffs[i as usize].1.clone();
-                        i_index = Some(j);
-                    }
-                }
-
-                if i_coeff.is_zero() {
+                if coeff.is_zero() {
                     continue;
                 }
 
                 // if we got here, i has a nonzero term so must be rewritten
-                if let Some(index) = i_index {
-                    result.coeffs.remove(index);
-                }
-
+                result.coeffs[i as usize].set_zero();
                 for k in 1..*p {
                     let new_exp = math_mod(&(k * n / p + i), &n);
-                    add_single(&mut result.coeffs, new_exp, &i_coeff, Sign::Minus);
+                    add_single(&mut result.coeffs, new_exp, &coeff, Sign::Minus);
                 }
             }
         }

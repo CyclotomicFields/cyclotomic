@@ -1,8 +1,8 @@
 use crate::fields::{MultiplicativeGroupElement, CyclotomicFieldElement, Q};
-use crate::fields::sparse_vec::*;
+use crate::fields::dense::*;
 use galois::apply_automorphism;
 use super::num::Zero;
-use crate::fields::sparse_vec::basis::{convert_to_base, try_reduce};
+use basis::{convert_to_base, try_reduce};
 
 impl MultiplicativeGroupElement for Number {
     /// Multiplies term by term, not bothering to do anything interesting.
@@ -11,15 +11,15 @@ impl MultiplicativeGroupElement for Number {
         let mut z2 = rhs;
         Self::match_orders(z1, z2);
 
-        let mut result = Number::zero_order(z1.order.clone());
+        let mut result = Number::zero_order(z1.order);
 
+        // This order is almost certainly not optimal. But you know, whatever.
+        // TODO: make it gooder
         result.order = z1.order;
-        for (exp1, coeff1) in &z1.coeffs {
-            for (exp2, coeff2) in &z2.coeffs {
-                let new_exp = (exp1 + exp2) % z1.order.clone();
-                let new_coeff = coeff1 * coeff2;
-
-                // TODO: effiency is horrific for the vectors here!
+        for i in 0..z1.order {
+            for j in 0..z2.order {
+                let new_exp = (i + j) % z1.order;
+                let new_coeff = &z1.coeffs[i as usize] * &z2.coeffs[j as usize];
                 add_single(&mut result.coeffs, new_exp, &new_coeff, Sign::Plus);
             }
         }
@@ -58,7 +58,7 @@ impl MultiplicativeGroupElement for Number {
         println!("q_cyc = {:?}", q_cyc);
 
         assert_eq!(q_cyc.order, 1);
-        let q_rat = q_cyc.coeffs[0].1.clone();
+        let q_rat = q_cyc.coeffs[0].clone();
         println!("q_rat = {:?}", q_rat);
 
         if q_rat.is_zero() {
