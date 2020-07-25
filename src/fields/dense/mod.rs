@@ -28,7 +28,7 @@ pub mod mul;
 #[derive(Clone)]
 pub struct Number {
     order: i64,
-    coeffs: Vec<Q>,
+    pub coeffs: Vec<Q>,
 }
 
 pub fn print_gap(z: &Number) -> String {

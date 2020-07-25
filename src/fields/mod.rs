@@ -131,5 +131,10 @@ pub mod sparse;
 /// Dense representation using a vector of coefficients.
 pub mod dense;
 
+/// Dense representation using structure constants to multiply. Only supports
+/// multiplication between elements expressed as elements of the same field,
+/// which is the common case.
+pub mod structure;
+
 /// Common utilities
 pub mod util;
