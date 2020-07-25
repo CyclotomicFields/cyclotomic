@@ -1,12 +1,11 @@
-use num::{One};
-
+use num::One;
 
 pub type Z = num::bigint::BigInt;
 pub type Q = num::rational::BigRational;
 
 #[derive(Debug, Clone)]
 pub struct Polynomial {
-    pub coefficients: Vec<Q>
+    pub coefficients: Vec<Q>,
 }
 
 impl Polynomial {

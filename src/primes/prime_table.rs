@@ -1,11 +1,11 @@
-use std::path::{Path, PathBuf};
 use std::fs::File;
 use std::io::Read;
+use std::path::{Path, PathBuf};
 
 type ZPlus = u64;
 
 pub struct PrimeTableReader<'a> {
-    directory_path: &'a Path
+    directory_path: &'a Path,
 }
 
 impl<'a> PrimeTableReader<'a> {
@@ -21,7 +21,9 @@ impl<'a> PrimeTableReader<'a> {
         let prime_tables_path = Path::new("prime_tables");
         let first_million_primes_txt_path = prime_tables_path.join("primes1.txt");
         let first_million_primes_csv_path = prime_tables_path.join("primes1.csv");
-        return if prime_tables_path.is_dir() && (first_million_primes_txt_path.is_file() || first_million_primes_csv_path.is_file()) {
+        return if prime_tables_path.is_dir()
+            && (first_million_primes_txt_path.is_file() || first_million_primes_csv_path.is_file())
+        {
             Some(PrimeTableReader::new(prime_tables_path))
         } else {
             None
@@ -34,18 +36,32 @@ impl<'a> PrimeTableReader<'a> {
         return if primes_csv_file_path.is_file() {
             let mut primes_text_file: File = File::open(primes_csv_file_path).unwrap();
             let mut primes_text_content: String = String::new();
-            let bytes_read = primes_text_file.read_to_string(&mut primes_text_content).unwrap();
-            println!("Read {} bytes from prime table containing first million primes (primes1.csv)", bytes_read);
+            let bytes_read = primes_text_file
+                .read_to_string(&mut primes_text_content)
+                .unwrap();
+            println!(
+                "Read {} bytes from prime table containing first million primes (primes1.csv)",
+                bytes_read
+            );
             PrimeTableReader::read_primes_from_csv(primes_text_content)
         } else if primes_txt_file_path.is_file() {
             let mut primes_text_file: File = File::open(primes_txt_file_path).unwrap();
             let mut primes_text_content: String = String::new();
-            let bytes_read = primes_text_file.read_to_string(&mut primes_text_content).unwrap();
-            println!("Read {} bytes from prime table containing first million primes (primes1.txt)", bytes_read);
+            let bytes_read = primes_text_file
+                .read_to_string(&mut primes_text_content)
+                .unwrap();
+            println!(
+                "Read {} bytes from prime table containing first million primes (primes1.txt)",
+                bytes_read
+            );
             PrimeTableReader::read_primes_from_table(primes_text_content)
         } else {
-            panic!("Couldn't find either {:?} or {:?} inside directory {}",
-                   primes_csv_file_path, primes_txt_file_path, self.directory_path.display())
+            panic!(
+                "Couldn't find either {:?} or {:?} inside directory {}",
+                primes_csv_file_path,
+                primes_txt_file_path,
+                self.directory_path.display()
+            )
         };
     }
 

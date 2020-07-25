@@ -1,10 +1,8 @@
 extern crate num;
 
-use self::num::{BigInt, BigRational, Zero, ToPrimitive, One, Integer, Signed};
-use std::ops::{Div, Sub};
+use self::num::{BigInt, BigRational, Integer, One, Signed, ToPrimitive, Zero};
 use crate::polynomial::polynomial::Polynomial;
-
-
+use std::ops::{Div, Sub};
 
 type Z = num::bigint::BigInt;
 
@@ -51,9 +49,11 @@ impl Euclid {
         let mut leading_row = vec![(*n).clone(), Z::zero(), Z::one()];
         while !&leading_row[0].is_zero() {
             let (quotient, remainder) = (&trailing_row[0]).div_rem(&leading_row[0]);
-            let new_leading_row = vec![remainder,
-                                       &trailing_row[1] - &quotient * &leading_row[1],
-                                       &trailing_row[2] - &quotient * &leading_row[2]];
+            let new_leading_row = vec![
+                remainder,
+                &trailing_row[1] - &quotient * &leading_row[1],
+                &trailing_row[2] - &quotient * &leading_row[2],
+            ];
             trailing_row = leading_row;
             leading_row = new_leading_row;
         }
@@ -103,7 +103,11 @@ impl Euclid {
         }
     }
 
-    pub fn multiplicative_inverse_mod_polynomial(&self, p: Polynomial, m: Polynomial) -> Option<Polynomial> {
+    pub fn multiplicative_inverse_mod_polynomial(
+        &self,
+        p: Polynomial,
+        m: Polynomial,
+    ) -> Option<Polynomial> {
         /*
         As with finding the multiplicative inverse for integers mod n, we
         take the GCD of the polynomial with the principal ideal polynomial of
@@ -116,9 +120,11 @@ impl Euclid {
         let mut leading_row = vec![p, Polynomial::zero(), Polynomial::one()];
         while !(leading_row[0].is_zero()) {
             let (quotient, remainder) = (&trailing_row[0]).div(&leading_row[0]);
-            let new_leading_row = vec![remainder,
-                                       (&trailing_row[1]).sub(&leading_row[1].mul(&quotient)),
-                                       (&trailing_row[2]).sub(&leading_row[2].mul(&quotient))];
+            let new_leading_row = vec![
+                remainder,
+                (&trailing_row[1]).sub(&leading_row[1].mul(&quotient)),
+                (&trailing_row[2]).sub(&leading_row[2].mul(&quotient)),
+            ];
             trailing_row = leading_row;
             leading_row = new_leading_row;
         }
@@ -140,19 +146,34 @@ mod euclid_tests {
     fn test_multiplicative_inverse_mod_polynomial() {
         let euclid = Euclid::new();
         // (t + 2)^-1 == t^2 + t + 1 in the ring Z[t] / t^3 + 3t^2 + 3t + 1
-        assert_eq!(euclid.multiplicative_inverse_mod_polynomial(
-            Polynomial::from(vec![2, 1]), Polynomial::from(vec![1, 3, 3, 1])),
-                   Some(Polynomial::from(vec![1, 1, 1])));
+        assert_eq!(
+            euclid.multiplicative_inverse_mod_polynomial(
+                Polynomial::from(vec![2, 1]),
+                Polynomial::from(vec![1, 3, 3, 1])
+            ),
+            Some(Polynomial::from(vec![1, 1, 1]))
+        );
 
         // (t^3 - 1)^-1 has no inverse in the ring Z[t] / t^5 + 4t^3 + 2
-        assert_eq!(euclid.multiplicative_inverse_mod_polynomial(
-            Polynomial::from(vec![-1, 0, 0, 1]), Polynomial::from(vec![2, 0, 0, 4, 0, 1])),
-                   None);
+        assert_eq!(
+            euclid.multiplicative_inverse_mod_polynomial(
+                Polynomial::from(vec![-1, 0, 0, 1]),
+                Polynomial::from(vec![2, 0, 0, 4, 0, 1])
+            ),
+            None
+        );
 
         // (2t  + 4)^-1 == (-1/2)t^3 - t^2 - t in the ring Z[t] / t^4 + 4t^3 + 6t^2 + 4t + 1
-        assert_eq!(euclid.multiplicative_inverse_mod_polynomial(
-            Polynomial::from(vec![4, 2]), Polynomial::from(vec![1, 4, 6, 4, 1])),
-                   Some(Polynomial::from_small_fractions(vec![0, -1, -1, -1], vec![1, 1, 1, 2])));
+        assert_eq!(
+            euclid.multiplicative_inverse_mod_polynomial(
+                Polynomial::from(vec![4, 2]),
+                Polynomial::from(vec![1, 4, 6, 4, 1])
+            ),
+            Some(Polynomial::from_small_fractions(
+                vec![0, -1, -1, -1],
+                vec![1, 1, 1, 2]
+            ))
+        );
     }
 
     #[test]
@@ -162,16 +183,34 @@ mod euclid_tests {
         assert_eq!(euclid.gcd(&Z::from(5), &Z::from(5)), Z::from(5));
         assert_eq!(euclid.gcd(&Z::from(420), &Z::from(1782)), Z::from(6));
         assert_eq!(euclid.gcd(&Z::from(371250), &Z::from(873630)), Z::from(90));
-        assert_eq!(euclid.gcd(&Z::from(3283741336253_i64), &Z::from(0234551825263_i64)), Z::from(7));
+        assert_eq!(
+            euclid.gcd(&Z::from(3283741336253_i64), &Z::from(0234551825263_i64)),
+            Z::from(7)
+        );
     }
 
     #[test]
     fn test_multiplicative_inverse_mod_n() {
         let euclid = Euclid::new();
-        assert_eq!(euclid.multiplicative_inverse_mod_n(&Z::from(5), &Z::from(17)), Some(Z::from(7)));
-        assert_eq!(euclid.multiplicative_inverse_mod_n(&Z::from(3), &Z::from(26)), Some(Z::from(9)));
-        assert_eq!(euclid.multiplicative_inverse_mod_n(&Z::from(5), &Z::from(10)), None);
-        assert_eq!(euclid.multiplicative_inverse_mod_n(&Z::from(16), &Z::from(24)), None);
-        assert_eq!(euclid.multiplicative_inverse_mod_n(&Z::from(27), &Z::from(392)), Some(Z::from(363)));
+        assert_eq!(
+            euclid.multiplicative_inverse_mod_n(&Z::from(5), &Z::from(17)),
+            Some(Z::from(7))
+        );
+        assert_eq!(
+            euclid.multiplicative_inverse_mod_n(&Z::from(3), &Z::from(26)),
+            Some(Z::from(9))
+        );
+        assert_eq!(
+            euclid.multiplicative_inverse_mod_n(&Z::from(5), &Z::from(10)),
+            None
+        );
+        assert_eq!(
+            euclid.multiplicative_inverse_mod_n(&Z::from(16), &Z::from(24)),
+            None
+        );
+        assert_eq!(
+            euclid.multiplicative_inverse_mod_n(&Z::from(27), &Z::from(392)),
+            Some(Z::from(363))
+        );
     }
 }

@@ -1,6 +1,6 @@
-use crate::primes::primes::Primes;
-use crate::prime_counter::prime_counter::PrimeCounter;
 use crate::prime_counter::legendre::Legendre;
+use crate::prime_counter::prime_counter::PrimeCounter;
+use crate::primes::primes::Primes;
 
 type R = f64;
 type ZPlus = u64;
@@ -19,7 +19,10 @@ impl<'a> PrimeCounter for Meissel<'a> {
 
 impl<'a> Meissel<'a> {
     pub fn new(primes: &Primes) -> Meissel {
-        Meissel { primes, legendre: Legendre::new(primes) }
+        Meissel {
+            primes,
+            legendre: Legendre::new(primes),
+        }
     }
 
     fn pi_prime(&self, x: R, relevant_primes: &Primes) -> ZPlus {
@@ -39,22 +42,25 @@ impl<'a> Meissel<'a> {
             pi(x / p) for the primes in the interval [ cbrt(x), sqrt(x) ).
             */
             let cbrt_x = x.powf(1.0 / 3.0).floor() as ZPlus;
-            if let (Some(cbrt_primes), Some(intermediate_primes)) = (relevant_primes.range(0, cbrt_x), relevant_primes.range(cbrt_x, x.sqrt().floor() as ZPlus)) {
+            if let (Some(cbrt_primes), Some(intermediate_primes)) = (
+                relevant_primes.range(0, cbrt_x),
+                relevant_primes.range(cbrt_x, x.sqrt().floor() as ZPlus),
+            ) {
                 let legendre_sum = self.legendre.legendre_sum(x, cbrt_primes.to_vec());
                 let pi_cbrt_x = cbrt_primes.len() as R;
                 let pi_sqrt_x = pi_cbrt_x + intermediate_primes.len() as R;
-                let constant_term = ((pi_sqrt_x + pi_cbrt_x - 2.0) * (pi_sqrt_x - pi_cbrt_x + 1.0)) / 2.0;
+                let constant_term =
+                    ((pi_sqrt_x + pi_cbrt_x - 2.0) * (pi_sqrt_x - pi_cbrt_x + 1.0)) / 2.0;
                 let mut sqrt_primes_vec = cbrt_primes.to_vec().clone();
                 sqrt_primes_vec.extend(intermediate_primes.to_vec().clone());
                 let sqrt_primes = Primes::new(sqrt_primes_vec);
                 let intermediate_primes_pi_sum = intermediate_primes
                     .to_vec()
                     .iter()
-                    .map(|&p| {
-                        self.pi_prime(x / p as R, &sqrt_primes)
-                    })
+                    .map(|&p| self.pi_prime(x / p as R, &sqrt_primes))
                     .sum::<ZPlus>();
-                return (legendre_sum + constant_term as Z - intermediate_primes_pi_sum as Z) as ZPlus;
+                return (legendre_sum + constant_term as Z - intermediate_primes_pi_sum as Z)
+                    as ZPlus;
             } else {
                 panic!("Not enough in-memory primes to compute pi({})", x);
             }
@@ -72,7 +78,9 @@ mod meissel_tests {
 
     #[test]
     fn test_meissel_fast() {
-        let primes = Primes::new(vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67]);
+        let primes = Primes::new(vec![
+            2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67,
+        ]);
         let strategy: Meissel = Meissel::new(&primes);
         assert_eq!(strategy.pi(1.0_f64), 0);
         assert_eq!(strategy.pi(2.0_f64), 1);

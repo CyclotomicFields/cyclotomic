@@ -1,8 +1,8 @@
-extern crate num;
 extern crate divisors;
+extern crate num;
 
 use self::divisors::get_divisors;
-use self::num::{Zero, ToPrimitive, BigInt};
+use self::num::{BigInt, ToPrimitive, Zero};
 use crate::divisors::divisors::Divisors;
 
 type Z = num::bigint::BigInt;
@@ -62,7 +62,10 @@ mod tests {
         assert_eq!(strategy.divisors(&Z::from(2)), vec_z(vec![1, 2]));
         assert_eq!(strategy.divisors(&Z::from(6)), vec_z(vec![1, 2, 3, 6]));
         assert_eq!(strategy.divisors(&Z::from(1)), vec_z(vec![1]));
-        assert_eq!(strategy.divisors(&Z::from(12)), vec_z(vec![1, 2, 3, 4, 6, 12]));
+        assert_eq!(
+            strategy.divisors(&Z::from(12)),
+            vec_z(vec![1, 2, 3, 4, 6, 12])
+        );
         assert_eq!(strategy.divisors(&Z::from(-10)), vec_z(vec![1, 2, 5, 10]));
     }
 
@@ -70,11 +73,23 @@ mod tests {
     fn test_divisors_without_one() {
         let strategy = LibraryDivisors::new();
         assert_eq!(strategy.divisors_without_one(&Z::from(2)), vec_z(vec![2]));
-        assert_eq!(strategy.divisors_without_one(&Z::from(4)), vec_z(vec![2, 4]));
-        assert_eq!(strategy.divisors_without_one(&Z::from(6)), vec_z(vec![2, 3, 6]));
+        assert_eq!(
+            strategy.divisors_without_one(&Z::from(4)),
+            vec_z(vec![2, 4])
+        );
+        assert_eq!(
+            strategy.divisors_without_one(&Z::from(6)),
+            vec_z(vec![2, 3, 6])
+        );
         assert_eq!(strategy.divisors_without_one(&Z::from(1)), vec_z(vec![]));
-        assert_eq!(strategy.divisors_without_one(&Z::from(12)), vec_z(vec![2, 3, 4, 6, 12]));
-        assert_eq!(strategy.divisors_without_one(&Z::from(-10)), vec_z(vec![2, 5, 10]));
+        assert_eq!(
+            strategy.divisors_without_one(&Z::from(12)),
+            vec_z(vec![2, 3, 4, 6, 12])
+        );
+        assert_eq!(
+            strategy.divisors_without_one(&Z::from(-10)),
+            vec_z(vec![2, 5, 10])
+        );
     }
 
     fn vec_z(vec: Vec<i64>) -> Vec<Z> {

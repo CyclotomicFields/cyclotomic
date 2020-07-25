@@ -1,9 +1,8 @@
 use std::ops::{Add, AddAssign};
 
-use num::{Zero, zero};
+use num::{zero, Zero};
 
 use crate::polynomial::polynomial::{Polynomial, Q};
-
 
 impl Polynomial {
     fn add_mut(&mut self, rhs: Self) {
@@ -22,7 +21,8 @@ impl Polynomial {
             // This is suboptimal. It could be implemented faster by doing a
             // bulk copy of the slice of data corresponding to the additional
             // coefficients present in the RHS polynomial.
-            self.coefficients.extend(vec![Q::zero();rhs.degree() - self.degree()]);
+            self.coefficients
+                .extend(vec![Q::zero(); rhs.degree() - self.degree()]);
             while i < rhs.coefficients.len() {
                 self.coefficients[i] = rhs.coefficients[i].clone();
                 i += 1;
@@ -67,24 +67,28 @@ mod polynomial_tests {
     #[test]
     fn test_addition() {
         // t^2 + 2t - 7 (+) t - 2
-        assert_eq!(Polynomial::from(vec![-2, 1])
-                       .add(Polynomial::from(vec![-7, 2, 1])),
-                   Polynomial::from(vec![-9, 3, 1]));
+        assert_eq!(
+            Polynomial::from(vec![-2, 1]).add(Polynomial::from(vec![-7, 2, 1])),
+            Polynomial::from(vec![-9, 3, 1])
+        );
 
         // t^2 - t - 10 (+) t + 2
-        assert_eq!(Polynomial::from(vec![-10, -1, 1])
-                       .add(Polynomial::from(vec![2, 1])),
-                   Polynomial::from(vec![-8, 0, 1]));
+        assert_eq!(
+            Polynomial::from(vec![-10, -1, 1]).add(Polynomial::from(vec![2, 1])),
+            Polynomial::from(vec![-8, 0, 1])
+        );
 
         // 2t^3 - 7t^2 + 1 (+) t^2 - 1
-        assert_eq!(Polynomial::from(vec![1, 0, -7, 2])
-                       .add(Polynomial::from(vec![-1, 0, 1])),
-                   Polynomial::from(vec![0, 0, -6, 2]));
+        assert_eq!(
+            Polynomial::from(vec![1, 0, -7, 2]).add(Polynomial::from(vec![-1, 0, 1])),
+            Polynomial::from(vec![0, 0, -6, 2])
+        );
 
         // t^2 + 2t - 7 (+) -t^2 + 2t - 7
-        assert_eq!(Polynomial::from(vec![-7, 2, 1])
-                       .add(Polynomial::from(vec![-7, 2, -1])),
-                   Polynomial::from(vec![-14, 4]));
+        assert_eq!(
+            Polynomial::from(vec![-7, 2, 1]).add(Polynomial::from(vec![-7, 2, -1])),
+            Polynomial::from(vec![-14, 4])
+        );
     }
 
     #[test]

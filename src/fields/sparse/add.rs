@@ -1,7 +1,5 @@
-use crate::fields::sparse::{Number, ExpCoeffMap};
+use crate::fields::sparse::{ExpCoeffMap, Number};
 use crate::fields::{AdditiveGroupElement, CyclotomicFieldElement, Q, Z};
-
-
 
 impl AdditiveGroupElement for Number {
     /// Simplest possible - term wise addition using hashing.

@@ -1,8 +1,8 @@
 use crate::coprime_counter::coprime_counter::CoprimeCounter;
-use crate::prime_factors::prime_factorize::PrimeFactorize;
 use crate::divisors::library_divisors::LibraryDivisors;
+use crate::prime_factors::prime_factorize::PrimeFactorize;
 use crate::prime_factors::recursive_prime_factorize::RecursivePrimeFactorize;
-use num::{ToPrimitive, Zero, One, Integer};
+use num::{Integer, One, ToPrimitive, Zero};
 use std::ops::Div;
 
 type R = f64;
@@ -10,7 +10,7 @@ type Q = num::rational::BigRational;
 type Z = num::bigint::BigInt;
 
 struct HybridCoprimeCounter<PF: PrimeFactorize> {
-    prime_factorizer: PF
+    prime_factorizer: PF,
 }
 
 impl<PF: PrimeFactorize> HybridCoprimeCounter<PF> {
@@ -66,10 +66,13 @@ impl<PF: PrimeFactorize> CoprimeCounter for HybridCoprimeCounter<PF> {
         } else {
             let mut prime_factors = self.prime_factorizer.prime_factors(&n);
             prime_factors.dedup();
-            Z::from((n.to_f64().unwrap() * prime_factors
-                .iter()
-                .map(|p| 1.0 - (p.to_f64().unwrap()).recip())
-                .product::<R>()) as i64)
+            Z::from(
+                (n.to_f64().unwrap()
+                    * prime_factors
+                        .iter()
+                        .map(|p| 1.0 - (p.to_f64().unwrap()).recip())
+                        .product::<R>()) as i64,
+            )
         };
     }
 }
@@ -94,9 +97,21 @@ mod phi_tests {
     fn test_phi_medium() {
         let euler_product = HybridCoprimeCounter::default();
         // It's not actually accurate for numbers much bigger than this.
-        assert_eq!(euler_product.phi(&Z::from(123456789101112_i64)), Z::from(41135376570624_i64));
-        assert_eq!(euler_product.phi(&Z::from(1234567891011121_i64)), Z::from(1126818037342720_i64));
-        assert_eq!(euler_product.phi(&Z::from(12345678910111212_i64)), Z::from(4055421449693376_i64));
-        assert_eq!(euler_product.phi(&Z::from(12345678910111_i64)), Z::from(12345678910110_i64));
+        assert_eq!(
+            euler_product.phi(&Z::from(123456789101112_i64)),
+            Z::from(41135376570624_i64)
+        );
+        assert_eq!(
+            euler_product.phi(&Z::from(1234567891011121_i64)),
+            Z::from(1126818037342720_i64)
+        );
+        assert_eq!(
+            euler_product.phi(&Z::from(12345678910111212_i64)),
+            Z::from(4055421449693376_i64)
+        );
+        assert_eq!(
+            euler_product.phi(&Z::from(12345678910111_i64)),
+            Z::from(12345678910110_i64)
+        );
     }
 }

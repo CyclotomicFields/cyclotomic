@@ -5,10 +5,8 @@
 use super::num::Zero;
 use crate::fields::sparse::*;
 
-
 use std::convert::TryInto;
 use std::ops::Mul;
-
 
 // Tries to reduce to a possibly smaller cyclotomic field
 pub fn try_reduce(z: &mut Number) {
@@ -29,8 +27,10 @@ pub fn try_reduce(z: &mut Number) {
         if coeffs_are_equal {
             match &last_nonzero_coeff {
                 None => last_nonzero_coeff = Some(coeff.clone()),
-                Some(seen_coeff) => if seen_coeff != coeff {
-                    coeffs_are_equal = false;
+                Some(seen_coeff) => {
+                    if seen_coeff != coeff {
+                        coeffs_are_equal = false;
+                    }
                 }
             }
         }
@@ -73,11 +73,11 @@ pub fn try_reduce(z: &mut Number) {
 
         // don't need to reduce exp=0 since it would just reduce to exp=0
         for exp in 1..new_order {
-            match z.coeffs.get(&(gcd*exp)) {
+            match z.coeffs.get(&(gcd * exp)) {
                 None => (), // there is no term to rewrite
                 Some(coeff) => {
                     z.coeffs.insert(exp, coeff.clone());
-                    z.coeffs.remove(&(gcd*exp));
+                    z.coeffs.remove(&(gcd * exp));
                 }
             }
         }
@@ -105,7 +105,9 @@ pub fn try_reduce(z: &mut Number) {
     if num_nonzero_terms == phi_n && coeffs_are_equal && is_squarefree {
         z.order = 1;
         z.coeffs.clear();
-        let new_coeff = last_nonzero_coeff.unwrap().mul(Z::from(i64::pow(-1, num_primes.try_into().unwrap())));
+        let new_coeff = last_nonzero_coeff
+            .unwrap()
+            .mul(Z::from(i64::pow(-1, num_primes.try_into().unwrap())));
         z.coeffs.insert(0, new_coeff);
         return;
     }

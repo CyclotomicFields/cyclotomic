@@ -1,9 +1,9 @@
 // Utilities for computing with Galois groups of field extensions over Q
 // Probably only Abelian ones, i.e. cyclotomic fields.
 
-use crate::fields::sparse::{Number};
-use crate::fields::CyclotomicFieldElement;
+use crate::fields::sparse::Number;
 use crate::fields::util::*;
+use crate::fields::CyclotomicFieldElement;
 
 pub fn apply_automorphism(z: &Number, i: i64) -> Number {
     let mut result = Number::zero_order(z.order);

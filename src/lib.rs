@@ -6,12 +6,12 @@ extern crate quickcheck;
 #[macro_use(quickcheck)]
 extern crate quickcheck_macros;
 
-mod primes;
-mod prime_counter;
-mod divisors;
-mod prime_factors;
 mod coprime_counter;
+mod divisors;
 mod polynomial;
+mod prime_counter;
+mod prime_factors;
+mod primes;
 
 /// Implementations of field operations in cyclotomic fields.
 ///
@@ -30,4 +30,3 @@ pub mod fields;
 /// Implementations of vector and matrix algorithms, designed to work with
 /// matrix rings over a cyclotomic field.
 pub mod linear_algebra;
-

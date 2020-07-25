@@ -1,5 +1,5 @@
-use std::ops::Neg;
 use crate::polynomial::polynomial::Polynomial;
+use std::ops::Neg;
 
 impl Polynomial {
     pub fn neg(&self) -> Polynomial {

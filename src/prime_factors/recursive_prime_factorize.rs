@@ -1,17 +1,17 @@
 extern crate num;
 
-use std::ops::Div;
-use num::BigInt;
 use crate::divisors::divisors::Divisors;
 use crate::divisors::library_divisors::LibraryDivisors;
 use crate::prime_factors::prime_factorize::PrimeFactorize;
+use num::BigInt;
+use std::ops::Div;
 
-use self::num::{One};
+use self::num::One;
 
 type Z = num::bigint::BigInt;
 
 pub struct RecursivePrimeFactorize<D: Divisors> {
-    divisors_strategy: D
+    divisors_strategy: D,
 }
 
 impl<D: Divisors> RecursivePrimeFactorize<D> {
@@ -55,8 +55,14 @@ mod recursive_prime_factorize_tests {
         assert_eq!(factorizer.prime_factors(&Z::from(3)), vec_z(vec![3]));
         assert_eq!(factorizer.prime_factors(&Z::from(4)), vec_z(vec![2, 2]));
         assert_eq!(factorizer.prime_factors(&Z::from(12)), vec_z(vec![2, 2, 3]));
-        assert_eq!(factorizer.prime_factors(&Z::from(130)), vec_z(vec![2, 5, 13]));
-        assert_eq!(factorizer.prime_factors(&Z::from(1300)), vec_z(vec![2, 2, 5, 5, 13]));
+        assert_eq!(
+            factorizer.prime_factors(&Z::from(130)),
+            vec_z(vec![2, 5, 13])
+        );
+        assert_eq!(
+            factorizer.prime_factors(&Z::from(1300)),
+            vec_z(vec![2, 2, 5, 5, 13])
+        );
         assert_eq!(factorizer.prime_factors(&Z::from(67)), vec_z(vec![67]));
     }
 

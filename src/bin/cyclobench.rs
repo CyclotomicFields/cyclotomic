@@ -15,9 +15,8 @@ use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use std::collections::HashMap;
 use std::fs::File;
+use std::io::Result;
 use std::io::Write;
-use std::io::{Result};
-
 
 use std::time::Instant;
 use test::black_box;

@@ -1,6 +1,6 @@
-use crate::primes::primes::Primes;
-use crate::prime_counter::prime_counter::PrimeCounter;
 use crate::prime_counter::legendre::Legendre;
+use crate::prime_counter::prime_counter::PrimeCounter;
+use crate::primes::primes::Primes;
 
 type R = f64;
 type ZPlus = u64;
@@ -19,7 +19,10 @@ impl<'a> PrimeCounter for Lehmer<'a> {
 
 impl<'a> Lehmer<'a> {
     pub fn new(primes: &Primes) -> Lehmer {
-        Lehmer { primes, legendre: Legendre::new(primes) }
+        Lehmer {
+            primes,
+            legendre: Legendre::new(primes),
+        }
     }
 
     fn pi_prime(&self, x: R, relevant_primes: &Primes) -> ZPlus {
@@ -47,22 +50,32 @@ impl<'a> Lehmer<'a> {
             let square_root_primes = relevant_primes.range(0, square_root_x as ZPlus).unwrap();
             if let Some(fourth_root_primes) = relevant_primes.range(0, fourth_root_x as ZPlus) {
                 let legendre_sum = self.legendre.legendre_sum(x, fourth_root_primes.to_vec());
-                let constant_term = ((((b + a) as R - 2.0) * ((b - a) as R + 1.0)) / 2.0).floor() as Z;
-                let one_prime_pi_sum = relevant_primes.range(fourth_root_x as ZPlus, square_root_x as ZPlus).unwrap().to_vec()
+                let constant_term =
+                    ((((b + a) as R - 2.0) * ((b - a) as R + 1.0)) / 2.0).floor() as Z;
+                let one_prime_pi_sum = relevant_primes
+                    .range(fourth_root_x as ZPlus, square_root_x as ZPlus)
+                    .unwrap()
+                    .to_vec()
                     .iter()
                     .map(|&p| self.pi_prime(x / p as R, &square_root_primes))
                     .sum::<ZPlus>();
                 let two_prime_pi_sum = ((a + 1)..(c + 1))
-                    .map(|i| (i..(1 + relevant_primes.pi((x / relevant_primes.nth(i as usize).unwrap() as R).sqrt())))
-                        .map(|j| {
-                            let p_i = relevant_primes.nth(i as usize).unwrap();
-                            let p_j = relevant_primes.nth(j as usize).unwrap();
-                            self.pi_prime(x / (p_i * p_j) as R, &square_root_primes) - (j as ZPlus - 1)
-                        })
-                        .sum::<ZPlus>())
+                    .map(|i| {
+                        (i..(1 + relevant_primes
+                            .pi((x / relevant_primes.nth(i as usize).unwrap() as R).sqrt())))
+                            .map(|j| {
+                                let p_i = relevant_primes.nth(i as usize).unwrap();
+                                let p_j = relevant_primes.nth(j as usize).unwrap();
+                                self.pi_prime(x / (p_i * p_j) as R, &square_root_primes)
+                                    - (j as ZPlus - 1)
+                            })
+                            .sum::<ZPlus>()
+                    })
                     .sum::<ZPlus>();
 
-                return (legendre_sum + constant_term - one_prime_pi_sum as Z - two_prime_pi_sum as Z) as ZPlus;
+                return (legendre_sum + constant_term
+                    - one_prime_pi_sum as Z
+                    - two_prime_pi_sum as Z) as ZPlus;
             } else {
                 panic!("Not enough in-memory primes to compute pi({})", x);
             }
@@ -80,7 +93,11 @@ mod lehmer_tests {
 
     #[test]
     fn test_lehmer_fast() {
-        let primes = Primes::new(vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199]);
+        let primes = Primes::new(vec![
+            2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83,
+            89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179,
+            181, 191, 193, 197, 199,
+        ]);
         let strategy: Lehmer = Lehmer::new(&primes);
         assert_eq!(strategy.pi(1.0_f64), 0);
         assert_eq!(strategy.pi(2.0_f64), 1);

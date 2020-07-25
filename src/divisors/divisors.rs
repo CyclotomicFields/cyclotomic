@@ -1,7 +1,5 @@
 extern crate num;
 
-
-
 type Z = num::bigint::BigInt;
 
 pub trait Divisors {

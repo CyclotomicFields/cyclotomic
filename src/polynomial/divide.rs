@@ -48,10 +48,16 @@ impl Polynomial {
         } else if divisor.neg().is_one() {
             return (self.neg(), Polynomial::zero());
         } else if self.degree() == 0 && divisor.degree() == 0 {
-            let rational_number = self.leading_term_coefficient().div(divisor.leading_term_coefficient());
+            let rational_number = self
+                .leading_term_coefficient()
+                .div(divisor.leading_term_coefficient());
             return (Polynomial::new(vec![rational_number]), Polynomial::zero());
         } else if divisor.degree() == 0 {
-            let divided_coefficients = self.coefficients.iter().map(|c| c.div(&divisor.coefficients[0])).collect();
+            let divided_coefficients = self
+                .coefficients
+                .iter()
+                .map(|c| c.div(&divisor.coefficients[0]))
+                .collect();
             return (Polynomial::new(divided_coefficients), Polynomial::zero());
         }
         assert!(self.degree() > 0);
@@ -60,11 +66,16 @@ impl Polynomial {
 
         while current_polynomial.degree() >= divisor.degree() {
             let current_term_degree = current_polynomial.degree() - divisor.degree();
-            let current_term_coefficient = current_polynomial.leading_term_coefficient().div(divisor.leading_term_coefficient());
+            let current_term_coefficient = current_polynomial
+                .leading_term_coefficient()
+                .div(divisor.leading_term_coefficient());
             quotient_accumulator[current_term_degree] = current_term_coefficient.clone();
             let mut subtraction_coefficients = vec![Q::zero(); current_term_degree];
-            subtraction_coefficients.extend(divisor.coefficients.iter().map(|c| Q::from(c.clone())));
-            subtraction_coefficients.iter_mut().for_each(|c| c.mul_assign(current_term_coefficient.clone()));
+            subtraction_coefficients
+                .extend(divisor.coefficients.iter().map(|c| Q::from(c.clone())));
+            subtraction_coefficients
+                .iter_mut()
+                .for_each(|c| c.mul_assign(current_term_coefficient.clone()));
             current_polynomial = current_polynomial - Polynomial::new(subtraction_coefficients);
         }
 
@@ -83,50 +94,63 @@ impl Div<&Self> for Polynomial {
 
 #[cfg(test)]
 mod polynomial_tests {
-    use num::{One, Zero};
     use super::*;
+    use num::{One, Zero};
 
     #[test]
     fn test_long_division() {
         // t^2 + 6 / -6t - 1 == -(1/6)t + (1/36) remainder (217/36)
-        assert_eq!(Polynomial::from(vec![6, 0, 1])
-                       .div(&Polynomial::from(vec![-1, -6])),
-                   (Polynomial::from_small_fractions(vec![1, -1], vec![36, 6]),
-                    Polynomial::from_small_fractions(vec![217], vec![36])));
+        assert_eq!(
+            Polynomial::from(vec![6, 0, 1]).div(&Polynomial::from(vec![-1, -6])),
+            (
+                Polynomial::from_small_fractions(vec![1, -1], vec![36, 6]),
+                Polynomial::from_small_fractions(vec![217], vec![36])
+            )
+        );
 
         // 14 / 6 == 7 / 3 remainder 0
-        assert_eq!(Polynomial::from(vec![14])
-                       .div(&Polynomial::from(vec![6])),
-                   (Polynomial::from_small_fractions(vec![7], vec![3]), Polynomial::zero()));
+        assert_eq!(
+            Polynomial::from(vec![14]).div(&Polynomial::from(vec![6])),
+            (
+                Polynomial::from_small_fractions(vec![7], vec![3]),
+                Polynomial::zero()
+            )
+        );
 
         // t^2 - 1 / 1 == t^2 - 1 remainder 0
-        assert_eq!(Polynomial::from(vec![-1, 0, 1])
-                       .div(&Polynomial::from(vec![1])),
-                   (Polynomial::from(vec![-1, 0, 1]), Polynomial::zero()));
+        assert_eq!(
+            Polynomial::from(vec![-1, 0, 1]).div(&Polynomial::from(vec![1])),
+            (Polynomial::from(vec![-1, 0, 1]), Polynomial::zero())
+        );
 
         // t + 2 / -1 == -t - 2 remainder 0
-        assert_eq!(Polynomial::from(vec![2, 1])
-                       .div(&Polynomial::from(vec![-1])),
-                   (Polynomial::from(vec![-2, -1]), Polynomial::zero()));
+        assert_eq!(
+            Polynomial::from(vec![2, 1]).div(&Polynomial::from(vec![-1])),
+            (Polynomial::from(vec![-2, -1]), Polynomial::zero())
+        );
 
         // t^2 - 3t - 10 / t + 2 == t - 5 remainder 0
-        assert_eq!(Polynomial::from(vec![-10, -3, 1])
-                       .div(&Polynomial::from(vec![2, 1])),
-                   (Polynomial::from(vec![-5, 1]), Polynomial::zero()));
+        assert_eq!(
+            Polynomial::from(vec![-10, -3, 1]).div(&Polynomial::from(vec![2, 1])),
+            (Polynomial::from(vec![-5, 1]), Polynomial::zero())
+        );
 
         // t^2 + 2t - 7 / t - 2 == t + 4 remainder 1
-        assert_eq!(Polynomial::from(vec![-7, 2, 1])
-                       .div(&Polynomial::from(vec![-2, 1])),
-                   (Polynomial::from(vec![4, 1]), Polynomial::one()));
+        assert_eq!(
+            Polynomial::from(vec![-7, 2, 1]).div(&Polynomial::from(vec![-2, 1])),
+            (Polynomial::from(vec![4, 1]), Polynomial::one())
+        );
 
         // 2t^3 - 7t^2 + 4 / t^2 - 1 == 2t - 7 remainder 2t - 3
-        assert_eq!(Polynomial::from(vec![4, 0, -7, 2])
-                       .div(&Polynomial::from(vec![-1, 0, 1])),
-                   (Polynomial::from(vec![-7, 2]), Polynomial::from(vec![-3, 2])));
+        assert_eq!(
+            Polynomial::from(vec![4, 0, -7, 2]).div(&Polynomial::from(vec![-1, 0, 1])),
+            (Polynomial::from(vec![-7, 2]), Polynomial::from(vec![-3, 2]))
+        );
 
         // t + 2 / 1 == t + 2 remainder 0
-        assert_eq!(Polynomial::from(vec![2, 1])
-                       .div(&Polynomial::one()),
-                   (Polynomial::from(vec![2, 1]), Polynomial::zero()));
+        assert_eq!(
+            Polynomial::from(vec![2, 1]).div(&Polynomial::one()),
+            (Polynomial::from(vec![2, 1]), Polynomial::zero())
+        );
     }
 }

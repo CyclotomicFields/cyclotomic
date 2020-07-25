@@ -1,8 +1,6 @@
 use crate::fields::dense::Number;
 use crate::fields::{AdditiveGroupElement, CyclotomicFieldElement, Q, Z};
 
-
-
 impl AdditiveGroupElement for Number {
     /// Simplest possible - term wise addition using hashing.
     ///

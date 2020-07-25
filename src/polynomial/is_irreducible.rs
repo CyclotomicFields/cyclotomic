@@ -1,16 +1,17 @@
-use crate::prime_factors::prime_factorize::PrimeFactorize;
-use crate::polynomial::polynomial::{Q, Polynomial, Z};
 use crate::divisors::divisors::Divisors;
+use crate::polynomial::polynomial::{Polynomial, Q, Z};
+use crate::prime_factors::prime_factorize::PrimeFactorize;
 use crate::primes::primes::Primes;
-use num::{Zero, One};
 use num::integer::lcm;
+use num::{One, Zero};
 
 impl Polynomial {
-    pub fn is_irreducible_over_q(&self,
-                                 divisors_strategy: &impl Divisors,
-                                 prime_factorizer: &impl PrimeFactorize,
-                                 primes: &Primes) -> Option<bool>
-    {
+    pub fn is_irreducible_over_q(
+        &self,
+        divisors_strategy: &impl Divisors,
+        prime_factorizer: &impl PrimeFactorize,
+        primes: &Primes,
+    ) -> Option<bool> {
         /*
         If the degree is one, then it is irreducible, because it cannot factor
         into polynomials of lower degree.
@@ -53,12 +54,16 @@ impl Polynomial {
         through the polynomial, then if any value is zero, then clearly the
         polynomial is reducible over the rationals.
         */
-        let mut numerators = divisors_strategy.divisors(&integer_polynomial.constant_term_coefficient().to_integer());
+        let mut numerators = divisors_strategy
+            .divisors(&integer_polynomial.constant_term_coefficient().to_integer());
         numerators.push(Z::from(-1));
-        let denominators = divisors_strategy.divisors(&integer_polynomial.leading_term_coefficient().to_integer());
-        if numerators.iter().any(|n| denominators.iter().any(|d| {
-            return self.substitute(Q::new(n.clone(), d.clone())).is_zero();
-        })) {
+        let denominators =
+            divisors_strategy.divisors(&integer_polynomial.leading_term_coefficient().to_integer());
+        if numerators.iter().any(|n| {
+            denominators.iter().any(|d| {
+                return self.substitute(Q::new(n.clone(), d.clone())).is_zero();
+            })
+        }) {
             return Some(false);
         }
 
@@ -75,7 +80,10 @@ impl Polynomial {
         /*
         See if we can determine irreducibility using Eisenstein's criterion.
         */
-        if Polynomial::is_irreducible_by_eisenstein_criterion(&integer_polynomial.try_integer_coefficients(), prime_factorizer) {
+        if Polynomial::is_irreducible_by_eisenstein_criterion(
+            &integer_polynomial.try_integer_coefficients(),
+            prime_factorizer,
+        ) {
             return Some(true);
         }
 
@@ -93,7 +101,8 @@ impl Polynomial {
         Todo: It may be computationally faster to use the rational roots theorem
               to fail fast for reducible polynomials.
         */
-        let leading_coefficient_prime_factors = prime_factorizer.prime_factors(&integer_polynomial.leading_term_coefficient().to_integer());
+        let leading_coefficient_prime_factors = prime_factorizer
+            .prime_factors(&integer_polynomial.leading_term_coefficient().to_integer());
         let mut primes_vec = primes.to_vec().clone();
         primes_vec.retain(|&q| {
             let q_z_ref = &Z::from(q);
@@ -111,7 +120,10 @@ impl Polynomial {
                 let c_mod_q = c.clone() % Z::from(q);
                 *c = c_mod_q;
             }
-            if Polynomial::is_irreducible_by_eisenstein_criterion(&coefficients_mod_q, prime_factorizer) {
+            if Polynomial::is_irreducible_by_eisenstein_criterion(
+                &coefficients_mod_q,
+                prime_factorizer,
+            ) {
                 return Some(true);
             }
         }
@@ -120,7 +132,10 @@ impl Polynomial {
         return None;
     }
 
-    fn is_irreducible_by_eisenstein_criterion(coefficients: &Vec<Z>, prime_factorizer: &impl PrimeFactorize) -> bool {
+    fn is_irreducible_by_eisenstein_criterion(
+        coefficients: &Vec<Z>,
+        prime_factorizer: &impl PrimeFactorize,
+    ) -> bool {
         /*
         Eisenstein's Criterion
 
@@ -138,7 +153,8 @@ impl Polynomial {
         let mut non_leading_non_zero_coefficients = coefficients.clone();
         non_leading_non_zero_coefficients.remove(coefficients.len() - 1);
         non_leading_non_zero_coefficients.retain(|f| !f.is_zero());
-        let mut common_prime_factors = prime_factorizer.prime_factors(&non_leading_non_zero_coefficients[0]);
+        let mut common_prime_factors =
+            prime_factorizer.prime_factors(&non_leading_non_zero_coefficients[0]);
         for c in non_leading_non_zero_coefficients {
             let prime_factors = prime_factorizer.prime_factors(&c);
             common_prime_factors.retain(|p| prime_factors.contains(p))
@@ -147,7 +163,8 @@ impl Polynomial {
             for q in common_prime_factors {
                 let q_ref = &q;
                 if !(leading_coefficient % q_ref).is_zero()
-                    && !(constant_term % &(q_ref * q_ref)).is_zero() {
+                    && !(constant_term % &(q_ref * q_ref)).is_zero()
+                {
                     return true;
                 }
             }
@@ -161,7 +178,11 @@ impl Polynomial {
             lcm_accumulator = lcm(lcm_accumulator, c.denom().clone());
         }
         let lcm = lcm_accumulator;
-        let integer_coefficients: Vec<Z> = self.coefficients.iter().map(|c| (c * &lcm).to_integer()).collect();
+        let integer_coefficients: Vec<Z> = self
+            .coefficients
+            .iter()
+            .map(|c| (c * &lcm).to_integer())
+            .collect();
         Polynomial::from(integer_coefficients)
     }
 
@@ -177,18 +198,26 @@ mod polynomial_tests {
     use crate::prime_factors::recursive_prime_factorize::RecursivePrimeFactorize;
 
     fn check_irreducibility(p: Polynomial) -> Option<bool> {
-        p.is_irreducible_over_q(&LibraryDivisors::new(),
-                                &RecursivePrimeFactorize::default(),
-                                &Primes::new(vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29]))
+        p.is_irreducible_over_q(
+            &LibraryDivisors::new(),
+            &RecursivePrimeFactorize::default(),
+            &Primes::new(vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29]),
+        )
     }
 
     #[test]
     fn test_irreducibility_check_edge_cases() {
         // t + 1
-        assert_eq!(check_irreducibility(Polynomial::from(vec![1, 1])), Some(true));
+        assert_eq!(
+            check_irreducibility(Polynomial::from(vec![1, 1])),
+            Some(true)
+        );
 
         // t^5
-        assert_eq!(check_irreducibility(Polynomial::from(vec![0, 0, 0, 0, 0, 1])), Some(false));
+        assert_eq!(
+            check_irreducibility(Polynomial::from(vec![0, 0, 0, 0, 0, 1])),
+            Some(false)
+        );
 
         // 10
         assert_eq!(check_irreducibility(Polynomial::from(vec![10])), Some(true));
@@ -197,39 +226,66 @@ mod polynomial_tests {
     #[test]
     fn test_irreducibility_check_rational_roots_theorem() {
         // (t - 3)(t - 2)
-        assert_eq!(check_irreducibility(Polynomial::from(vec![6, -5, 1])), Some(false));
+        assert_eq!(
+            check_irreducibility(Polynomial::from(vec![6, -5, 1])),
+            Some(false)
+        );
 
         // (t + 1/2)(t^2 - 5)
-        assert_eq!(check_irreducibility(Polynomial::from(vec![-5, -10, 1, 2])), Some(false));
+        assert_eq!(
+            check_irreducibility(Polynomial::from(vec![-5, -10, 1, 2])),
+            Some(false)
+        );
 
         // 2t^2 + t + 1
-        assert_eq!(check_irreducibility(Polynomial::from(vec![1, 1, 2])), Some(true));
+        assert_eq!(
+            check_irreducibility(Polynomial::from(vec![1, 1, 2])),
+            Some(true)
+        );
 
         // t^3 + 2t^2 - 4
-        assert_eq!(check_irreducibility(Polynomial::from(vec![1, 1, 2])), Some(true));
+        assert_eq!(
+            check_irreducibility(Polynomial::from(vec![1, 1, 2])),
+            Some(true)
+        );
 
         // 4t^3 + t^2 - t + 3
-        assert_eq!(check_irreducibility(Polynomial::from(vec![3, -1, 1, 4])), Some(true));
+        assert_eq!(
+            check_irreducibility(Polynomial::from(vec![3, -1, 1, 4])),
+            Some(true)
+        );
 
         // 3t^3 + 4t^2 - 6t + 18
-        assert_eq!(check_irreducibility(Polynomial::from(vec![18, -6, 4, 3])), Some(true));
+        assert_eq!(
+            check_irreducibility(Polynomial::from(vec![18, -6, 4, 3])),
+            Some(true)
+        );
     }
 
     #[test]
     fn test_irreducibility_check_eisenstein_criterion() {
         // t^4 - 3t + 6
-        assert_eq!(check_irreducibility(Polynomial::from(vec![6, -3, 0, 0, 1])), Some(true));
+        assert_eq!(
+            check_irreducibility(Polynomial::from(vec![6, -3, 0, 0, 1])),
+            Some(true)
+        );
     }
 
     #[test]
     fn test_irreducibility_check_taking_mod_p() {
         // 2t^4 + 3t^2 + 3t + 18
-        assert_eq!(check_irreducibility(Polynomial::from(vec![18, 3, 3, 0, 2])), Some(true));
+        assert_eq!(
+            check_irreducibility(Polynomial::from(vec![18, 3, 3, 0, 2])),
+            Some(true)
+        );
     }
 
     #[test]
     fn test_irreducibility_no_result() {
         // t^4 + 5t^2 + 4
-        assert_eq!(check_irreducibility(Polynomial::from(vec![4, 0, 5, 0, 1])), None);
+        assert_eq!(
+            check_irreducibility(Polynomial::from(vec![4, 0, 5, 0, 1])),
+            None
+        );
     }
 }

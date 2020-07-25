@@ -4,15 +4,15 @@ use self::combinations::Combinations;
 
 use std::ops::Div;
 
-use crate::primes::primes::Primes;
 use crate::prime_counter::prime_counter::PrimeCounter;
+use crate::primes::primes::Primes;
 
 type R = f64;
 type ZPlus = u64;
 type Z = i64;
 
 pub struct Legendre<'a> {
-    primes: &'a Primes
+    primes: &'a Primes,
 }
 
 impl<'a> PrimeCounter for Legendre<'a> {
@@ -56,7 +56,9 @@ impl<'a> Legendre<'a> {
                 integers below x (= -1 + x) equals the number of primes
                 (= pi(x), the result) plus the number of composite numbers.
                 */
-                return (self.legendre_sum(x, primes_vec) + self.pi_prime(x.sqrt().floor(), &primes) as Z - 1) as ZPlus;
+                return (self.legendre_sum(x, primes_vec)
+                    + self.pi_prime(x.sqrt().floor(), &primes) as Z
+                    - 1) as ZPlus;
             } else {
                 panic!("Not enough in-memory primes to compute pi({})", x);
             }
@@ -108,7 +110,11 @@ impl<'a> Legendre<'a> {
         */
         #[inline]
         fn composite_term_sign(number_of_primes_in_term_denominator: usize) -> Z {
-            return if number_of_primes_in_term_denominator % 2 == 0 { -1 } else { 1 };
+            return if number_of_primes_in_term_denominator % 2 == 0 {
+                -1
+            } else {
+                1
+            };
         }
 
         /*
@@ -133,9 +139,10 @@ impl<'a> Legendre<'a> {
         let mut legendre_sum = x_z;
         for i in 1..relevant_primes.len() {
             let sign = composite_term_sign(i);
-            legendre_sum -= sign * Combinations::new(relevant_primes.clone(), i)
-                .map(|prime_product_group| composite_numbers_term(x_z, &prime_product_group))
-                .sum::<Z>();
+            legendre_sum -= sign
+                * Combinations::new(relevant_primes.clone(), i)
+                    .map(|prime_product_group| composite_numbers_term(x_z, &prime_product_group))
+                    .sum::<Z>();
         }
         let sign = composite_term_sign(relevant_primes.len());
         legendre_sum -= sign * composite_numbers_term(x_z, &relevant_primes);
@@ -152,7 +159,12 @@ impl<'a> Legendre<'a> {
         if let Some(primes) = self.primes.first_n(a) {
             return self.legendre_sum(x, primes.to_vec());
         } else {
-            panic!("Couldn't evaluate phi({}, {}) using {} primes", x, a, self.primes.len())
+            panic!(
+                "Couldn't evaluate phi({}, {}) using {} primes",
+                x,
+                a,
+                self.primes.len()
+            )
         }
     }
 }
@@ -165,7 +177,9 @@ mod legendre_tests {
 
     #[test]
     fn test_legendre_fast() {
-        let primes = Primes::new(vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67]);
+        let primes = Primes::new(vec![
+            2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67,
+        ]);
         let strategy: Legendre = Legendre::new(&primes);
         assert_eq!(strategy.pi(1.0_f64), 0);
         assert_eq!(strategy.pi(2.0_f64), 1);
@@ -184,14 +198,20 @@ mod legendre_tests {
 
     #[test]
     fn test_legendre_slow() {
-        let primes = Primes::new(vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101]);
+        let primes = Primes::new(vec![
+            2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83,
+            89, 97, 101,
+        ]);
         let strategy: Legendre = Legendre::new(&primes);
         assert_eq!(strategy.pi(5000.0_f64), 669);
     }
 
     #[test]
     fn test_legendre_sum() {
-        let primes = Primes::new(vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101]);
+        let primes = Primes::new(vec![
+            2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83,
+            89, 97, 101,
+        ]);
         let strategy: Legendre = Legendre::new(&primes);
         let no_primes = vec![];
         let seven_primes = vec![2, 3, 5, 7, 11, 13, 17];
@@ -204,7 +224,10 @@ mod legendre_tests {
 
     #[test]
     fn test_legendre_sum_phi() {
-        let primes = Primes::new(vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101]);
+        let primes = Primes::new(vec![
+            2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83,
+            89, 97, 101,
+        ]);
         let strategy: Legendre = Legendre::new(&primes);
         assert_eq!(strategy.legendre_sum_phi(100000.0, 7), 18053);
     }

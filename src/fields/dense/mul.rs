@@ -1,9 +1,8 @@
-use crate::fields::{MultiplicativeGroupElement, CyclotomicFieldElement};
-use crate::fields::dense::*;
-use galois::apply_automorphism;
 use super::num::Zero;
+use crate::fields::dense::*;
+use crate::fields::{CyclotomicFieldElement, MultiplicativeGroupElement};
 use basis::{convert_to_base, try_reduce};
-
+use galois::apply_automorphism;
 
 impl MultiplicativeGroupElement for Number {
     /// Multiplies term by term, not bothering to do anything interesting.
