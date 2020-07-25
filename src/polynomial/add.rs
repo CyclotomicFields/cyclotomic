@@ -2,8 +2,8 @@ use std::ops::{Add, AddAssign};
 
 use num::{Zero, zero};
 
-use crate::polynomial::polynomial::{Polynomial, Z, Q};
-use std::cmp::max;
+use crate::polynomial::polynomial::{Polynomial, Q};
+
 
 impl Polynomial {
     fn add_mut(&mut self, rhs: Self) {

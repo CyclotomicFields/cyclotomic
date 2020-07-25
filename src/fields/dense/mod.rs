@@ -2,24 +2,21 @@ extern crate num;
 extern crate rustc_hash;
 
 use self::num::{One, Zero};
-use crate::fields::dense::basis::try_reduce;
-use crate::fields::{AdditiveGroupElement, MultiplicativeGroupElement};
-use crate::fields::{CyclotomicFieldElement, FieldElement, Q, Z};
 use crate::fields::util::*;
+use crate::fields::MultiplicativeGroupElement;
+use crate::fields::{CyclotomicFieldElement, FieldElement, Q, Z};
 use basis::convert_to_base;
 use num::traits::Inv;
 use quickcheck::{Arbitrary, Gen};
 use rand::Rng;
-use std::convert::TryInto;
 use std::fmt;
-use std::hash::BuildHasherDefault;
-use std::hash::Hasher;
-use std::intrinsics::transmute;
 use std::ops::{AddAssign, Mul, SubAssign};
 use std::vec::Vec;
 
 #[macro_use]
 use crate::fields::*;
+
+#[macro_use]
 use std::collections::HashSet;
 
 pub mod add;
@@ -64,11 +61,12 @@ impl Number {
     pub fn increase_order_to(z: &mut Self, new_order: i64) {
         let mut new_coeffs = Vec::with_capacity(new_order as usize);
         // not the most cache-friendly. TODO: improve?
-        for new_exp in 0..new_order {
+        for _new_exp in 0..new_order {
             new_coeffs.push(Q::zero());
         }
         for old_exp in 0..z.order {
-            new_coeffs[(new_order * old_exp / z.order) as usize] = z.coeffs[old_exp as usize].clone();
+            new_coeffs[(new_order * old_exp / z.order) as usize] =
+                z.coeffs[old_exp as usize].clone();
         }
         z.order = new_order;
         z.coeffs = new_coeffs;
@@ -85,7 +83,12 @@ impl Number {
 }
 
 fn get_same_coeff(z: &Number) -> Option<Q> {
-    let nonzero_coeffs: HashSet<Q> = z.coeffs.clone().into_iter().filter(|q| !q.is_zero()).collect();
+    let nonzero_coeffs: HashSet<Q> = z
+        .coeffs
+        .clone()
+        .into_iter()
+        .filter(|q| !q.is_zero())
+        .collect();
 
     if nonzero_coeffs.len() == 0 {
         // all coeffs are zero
@@ -115,14 +118,13 @@ pub fn is_zero(z: &Number) -> bool {
     true
 }
 
-
 impl FieldElement for Number {
     fn eq(&mut self, other: &mut Self) -> bool {
         let mut za = self.clone();
         let mut zb = other.clone();
         Number::match_orders(&mut za, &mut zb);
-        let mut z1 = convert_to_base(&za);
-        let mut z2 = convert_to_base(&zb);
+        let z1 = convert_to_base(&za);
+        let z2 = convert_to_base(&zb);
 
         for i in 0..z1.order {
             if z1.coeffs[i as usize] != z2.coeffs[i as usize] {

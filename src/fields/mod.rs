@@ -1,6 +1,3 @@
-use num::{One, Zero};
-use quickcheck::Arbitrary;
-
 pub type Z = num::BigInt;
 pub type Q = num::rational::BigRational;
 
@@ -136,4 +133,3 @@ pub mod dense;
 
 /// Common utilities
 pub mod util;
-

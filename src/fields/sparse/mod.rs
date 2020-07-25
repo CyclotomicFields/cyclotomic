@@ -2,24 +2,19 @@ extern crate num;
 extern crate rustc_hash;
 
 use self::num::{One, Zero};
-use crate::fields::sparse::basis::try_reduce;
-use crate::fields::{AdditiveGroupElement, MultiplicativeGroupElement};
+
+use crate::fields::util::*;
+use crate::fields::MultiplicativeGroupElement;
 use crate::fields::{CyclotomicFieldElement, FieldElement, Q, Z};
 use basis::convert_to_base;
 use num::traits::Inv;
 use quickcheck::{Arbitrary, Gen};
 use rand::Rng;
 use rustc_hash::FxHashMap;
-use std::collections::HashMap;
 use std::collections::HashSet;
-use std::convert::TryInto;
 use std::fmt;
-use std::hash::BuildHasherDefault;
-use std::hash::Hasher;
-use std::intrinsics::transmute;
 use std::ops::{AddAssign, Mul, SubAssign};
 use std::vec::Vec;
-use crate::fields::util::*;
 
 #[macro_use]
 use crate::fields::*;
@@ -86,7 +81,7 @@ impl Number {
 }
 
 fn get_same_coeff(z: &Number) -> Option<Q> {
-    let coeffs = z.coeffs.clone().into_iter().map(|(exp, coeff)| coeff);
+    let coeffs = z.coeffs.clone().into_iter().map(|(_exp, coeff)| coeff);
     let nonzero_coeffs: HashSet<Q> = coeffs.filter(|q| *q != Q::zero()).collect();
 
     if nonzero_coeffs.len() == 0 {
@@ -134,8 +129,8 @@ impl FieldElement for Number {
         let mut za = self.clone();
         let mut zb = other.clone();
         Number::match_orders(&mut za, &mut zb);
-        let mut z1 = convert_to_base(&za);
-        let mut z2 = convert_to_base(&zb);
+        let z1 = convert_to_base(&za);
+        let z2 = convert_to_base(&zb);
 
         // Now that we've matched the orders, z1 and z2 are expressed as
         // elements in the same field so are the same iff each nonzero term is

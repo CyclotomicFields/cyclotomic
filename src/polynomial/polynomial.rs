@@ -1,5 +1,5 @@
-use num::{One, Zero};
-use std::ops::Mul;
+use num::{One};
+
 
 pub type Z = num::bigint::BigInt;
 pub type Q = num::rational::BigRational;

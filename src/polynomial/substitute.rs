@@ -1,5 +1,4 @@
 use std::ops::Mul;
-
 use num::Zero;
 
 use crate::polynomial::polynomial::{Polynomial, Q, Z};

@@ -1,12 +1,12 @@
 extern crate num;
 
 use std::ops::Div;
-
+use num::BigInt;
 use crate::divisors::divisors::Divisors;
 use crate::divisors::library_divisors::LibraryDivisors;
 use crate::prime_factors::prime_factorize::PrimeFactorize;
 
-use self::num::{BigInt, BigRational, ToPrimitive, Zero, One};
+use self::num::{One};
 
 type Z = num::bigint::BigInt;
 

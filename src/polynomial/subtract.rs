@@ -1,4 +1,4 @@
-use std::ops::{Add, Neg, Sub, AddAssign, SubAssign};
+use std::ops::{Neg, Sub, AddAssign, SubAssign};
 
 use crate::polynomial::polynomial::Polynomial;
 

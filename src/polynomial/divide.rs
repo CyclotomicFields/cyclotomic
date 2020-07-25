@@ -1,8 +1,8 @@
 use std::ops::{Div, MulAssign};
 
-use num::{Integer, One, Zero};
+use num::{One, Zero};
 
-use crate::polynomial::polynomial::{Polynomial, Q, Z};
+use crate::polynomial::polynomial::{Polynomial, Q};
 
 impl Polynomial {
     pub fn div(&self, divisor: &Self) -> (Polynomial, Polynomial) {

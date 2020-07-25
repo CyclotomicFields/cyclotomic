@@ -1,4 +1,4 @@
-use crate::polynomial::polynomial::{Polynomial, Z, Q};
+use crate::polynomial::polynomial::{Polynomial, Q};
 use std::fmt::{Display, Formatter};
 use std::fmt;
 use num::{Zero, One, ToPrimitive, Signed};

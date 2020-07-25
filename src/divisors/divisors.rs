@@ -1,6 +1,6 @@
 extern crate num;
 
-use self::num::{BigInt};
+
 
 type Z = num::bigint::BigInt;
 

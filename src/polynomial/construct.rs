@@ -1,7 +1,7 @@
-use std::ops::Mul;
 
-use ::num::integer::lcm;
-use num::{One, Zero};
+
+
+use num::{Zero};
 
 use crate::polynomial::polynomial::{Polynomial, Q, Z};
 

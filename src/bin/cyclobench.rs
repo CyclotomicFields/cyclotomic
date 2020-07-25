@@ -6,19 +6,19 @@ extern crate test;
 
 use antic::safe::*;
 use clap::Clap;
-use cyclotomic::fields::sparse::{print_gap, random_cyclotomic, Number};
+use cyclotomic::fields::sparse::{print_gap, Number};
 use cyclotomic::fields::AdditiveGroupElement;
 use cyclotomic::fields::MultiplicativeGroupElement;
 use cyclotomic::fields::{Q, Z};
-use quickcheck::Gen;
+
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
-use std::io::{Read, Result};
-use std::iter::FromIterator;
-use std::thread;
+use std::io::{Result};
+
+
 use std::time::Instant;
 use test::black_box;
 
@@ -219,7 +219,7 @@ fn main() {
     };
 
     // cut it up into chunks for each thread
-    let mut chunks: Vec<Vec<GenericCyclotomic>> = test_data
+    let chunks: Vec<Vec<GenericCyclotomic>> = test_data
         .chunks(test_data.len() / opts.threads)
         .map(|chunk| chunk.to_vec())
         .collect();

@@ -4,11 +4,11 @@
 
 use super::num::Zero;
 use crate::fields::dense::*;
-use crate::fields::*;
-use std::collections::HashSet;
+
+
 use std::convert::TryInto;
 use std::ops::Mul;
-use crate::fields::util::*;
+
 
 // Tries to reduce to a possibly smaller cyclotomic field
 pub fn try_reduce(z: &mut Number) {
@@ -95,7 +95,7 @@ pub fn try_reduce(z: &mut Number) {
     let is_squarefree = n_div_powers.into_iter().all(|(_, power)| *power < 2);
     let num_primes = n_div_powers
         .into_iter()
-        .filter(|(factor, power)| *power > 0)
+        .filter(|(_factor, power)| *power > 0)
         .count();
 
     // if this is the case, it's rational

@@ -57,7 +57,7 @@ impl<PF: PrimeFactorize> CoprimeCounter for HybridCoprimeCounter<PF> {
         } else if n.is_one() {
             Z::one()
         } else if n.is_even() {
-            let n_over_two = (n.div(&Z::from(2)));
+            let n_over_two = n.div(&Z::from(2));
             if n_over_two.is_even() {
                 2 * self.phi(&n_over_two)
             } else {

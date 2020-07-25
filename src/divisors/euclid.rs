@@ -1,10 +1,10 @@
 extern crate num;
 
 use self::num::{BigInt, BigRational, Zero, ToPrimitive, One, Integer, Signed};
-use std::ops::{Div, Rem, Sub};
+use std::ops::{Div, Sub};
 use crate::polynomial::polynomial::Polynomial;
-use std::cmp::max;
-use std::borrow::Borrow;
+
+
 
 type Z = num::bigint::BigInt;
 

@@ -1,15 +1,15 @@
-use crate::fields::{MultiplicativeGroupElement, CyclotomicFieldElement, Q};
+use crate::fields::{MultiplicativeGroupElement, CyclotomicFieldElement};
 use crate::fields::sparse::*;
 use galois::apply_automorphism;
 use super::num::Zero;
 use crate::fields::sparse::basis::{convert_to_base, try_reduce};
-use crate::fields::util::*;
+
 
 impl MultiplicativeGroupElement for Number {
     /// Multiplies term by term, not bothering to do anything interesting.
     fn mul(&mut self, rhs: &mut Self) -> &mut Self {
-        let mut z1 = self;
-        let mut z2 = rhs;
+        let z1 = self;
+        let z2 = rhs;
         Self::match_orders(z1, z2);
 
         let mut result = Number::zero_order(z1.order.clone());

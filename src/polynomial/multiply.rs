@@ -1,7 +1,7 @@
 use std::ops::{Mul, MulAssign};
-use num::{One, one, Zero, zero};
+use num::{One, one, Zero};
 
-use crate::polynomial::polynomial::{Polynomial, Z, Q};
+use crate::polynomial::polynomial::{Polynomial, Q};
 use std::cmp::max;
 
 impl Polynomial {
@@ -58,11 +58,11 @@ impl Polynomial {
 
         let mut a0_plus_a1: Vec<Q> = vec![Q::zero(); m + 1];
         for i in 0..m + 1 {
-            a0_plus_a1[i] = (a0.get(i).unwrap_or(&Q::zero()) + a1.get(i).unwrap_or(&Q::zero()))
+            a0_plus_a1[i] = a0.get(i).unwrap_or(&Q::zero()) + a1.get(i).unwrap_or(&Q::zero())
         }
         let mut b0_plus_b1: Vec<Q> = vec![Q::zero(); m + 1];
         for i in 0..m + 1 {
-            b0_plus_b1[i] = (b0.get(i).unwrap_or(&Q::zero()) + b1.get(i).unwrap_or(&Q::zero()))
+            b0_plus_b1[i] = b0.get(i).unwrap_or(&Q::zero()) + b1.get(i).unwrap_or(&Q::zero())
         }
         /*
         Splits up the multiplication over n coefficients into the sum of 3

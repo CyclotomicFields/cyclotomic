@@ -2,7 +2,7 @@ extern crate num;
 extern crate divisors;
 
 use self::divisors::get_divisors;
-use self::num::{BigInt, BigRational, Zero, ToPrimitive};
+use self::num::{Zero, ToPrimitive, BigInt};
 use crate::divisors::divisors::Divisors;
 
 type Z = num::bigint::BigInt;

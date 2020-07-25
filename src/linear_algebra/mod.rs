@@ -56,7 +56,7 @@ where
 {
     fn dot_product(&self, other: &mut Self) -> T {
         let v1 = &self.0;
-        let mut v2 = &mut other.0;
+        let v2 = &mut other.0;
         let mut result = T::zero_order(1);
 
         assert_eq!(v1.len(), v2.len());
