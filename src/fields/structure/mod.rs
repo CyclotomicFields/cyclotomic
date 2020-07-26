@@ -3,6 +3,8 @@ use crate::fields::dense::*;
 use crate::fields::util::*;
 use crate::fields::*;
 use num::Zero;
+use quickcheck::{Arbitrary, Gen};
+use rand::Rng;
 
 /// This doesn't really fit the same interface as the rest of the fields module,
 /// since we don't just have elements on their own, we have structs representing
@@ -53,9 +55,30 @@ fn make_structure_constants(order: i64, basis: &Vec<i64>) -> Vec<Vec<Vec<Q>>> {
 }
 
 fn zumbroich_basis(order: i64) -> Vec<i64> {
-    vec![]
+    let n_div_powers = factorise(order);
+
+    let is_in_basis = |i| {
+        for (p, power) in &n_div_powers {
+            // the maximal power of p that divides n
+            let q: i64 = p.pow(*power as u32);
+
+            // i is in this set (mod q) iff it is not a basis element
+            let start_bad = if *p == 2 { q / 2 } else { -(q / p - 1) / 2 };
+            let end_bad = if *p == 2 { q - 1 } else { (q / p - 1) / 2 };
+
+            for bad_exp in start_bad..end_bad + 1 {
+                if math_mod(&i, &q) == math_mod(&bad_exp, &q) {
+                    return false;
+                }
+            }
+        }
+        true
+    };
+
+    (0..order).filter(|i| is_in_basis(*i)).collect()
 }
 
+// TODO: replace with rob's better version
 fn factorise(order: i64) -> Vec<(i64, i64)> {
     let n_divisors: Vec<i64> = divisors::get_divisors(order as u64)
         .into_iter()
@@ -82,5 +105,29 @@ impl CyclotomicField {
             phi_n: phi(order),
             factors: factorise(order),
         }
+    }
+}
+
+#[derive(Clone, Debug)]
+struct SmallOrder(i64);
+
+impl Arbitrary for SmallOrder {
+    fn arbitrary<G>(g: &mut G) -> Self
+    where
+        G: Gen,
+    {
+        let small_int = g.gen_range(2, 30);
+        SmallOrder(small_int)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[quickcheck]
+    fn zumbroich_basis_has_phi_n_elems(small_order: SmallOrder) -> bool {
+        let field = CyclotomicField::new(small_order.0);
+        field.basis.len() == phi(small_order.0) as usize
     }
 }
