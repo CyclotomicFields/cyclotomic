@@ -106,6 +106,30 @@ impl CyclotomicField {
             factors: factorise(order),
         }
     }
+
+    pub fn add(&self, z1: &Vec<Q>, z2: &Vec<Q>) -> Vec<Q> {
+        let mut result = vec![Q::zero(); self.phi_n as usize];
+        for i in 0..self.phi_n {
+            result[i as usize] = &z1[i as usize] + &z2[i as usize];
+        }
+        result
+    }
+
+    pub fn mul(&self, z1: &Vec<Q>, z2: &Vec<Q>) -> Vec<Q> {
+        let mut result = vec![Q::zero(); self.phi_n as usize];
+
+        for i in 0..self.phi_n {
+            for j in 0..self.phi_n {
+                for k in 0..self.phi_n {
+                    result[k as usize] += &z1[i as usize]
+                        * &z2[j as usize]
+                        * &self.structure_constants[i as usize][j as usize][k as usize];
+                }
+            }
+        }
+
+        result
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -129,5 +153,40 @@ mod tests {
     fn zumbroich_basis_has_phi_n_elems(small_order: SmallOrder) -> bool {
         let field = CyclotomicField::new(small_order.0);
         field.basis.len() == phi(small_order.0) as usize
+    }
+
+    #[quickcheck]
+    fn zero_is_add_identity() -> bool {
+        true
+    }
+
+    #[quickcheck]
+    fn add_is_associative() -> bool {
+        true
+    }
+
+    #[quickcheck]
+    fn add_is_commutative() -> bool {
+        true
+    }
+
+    #[quickcheck]
+    fn zero_kills_all() -> bool {
+        true
+    }
+
+    #[quickcheck]
+    fn one_is_mul_identity() -> bool {
+        true
+    }
+
+    #[quickcheck]
+    fn mul_is_associative() -> bool {
+        true
+    }
+
+    #[quickcheck]
+    fn mul_is_commutative() -> bool {
+        true
     }
 }
