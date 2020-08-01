@@ -31,16 +31,16 @@ pub struct CyclotomicField {
 
     zero: Vec<Q>,
 
-    one: Vec<Q>
+    one: Vec<Q>,
 }
 
 fn write_dense_in_basis(dense: &mut Number, basis: &Vec<i64>) -> Vec<Q> {
     let phi_n = phi(dense.coeffs.len() as i64);
     let mut result = vec![Q::zero(); phi_n as usize];
-    convert_to_base(dense);
+    let dense_base = convert_to_base(dense);
 
     for i in 0..phi_n {
-        result[i as usize] = dense.coeffs[basis[i as usize] as usize].clone();
+        result[i as usize] = dense_base.coeffs[basis[i as usize] as usize].clone();
     }
 
     result
@@ -75,13 +75,17 @@ fn zumbroich_basis(order: i64) -> Vec<i64> {
             // the maximal power of p that divides n
             let q: i64 = p.pow(*power as u32);
 
-            // i is in this set (mod q) iff it is not a basis element
-            let start_bad = if *p == 2 { q / 2 } else { -(q / p - 1) / 2 };
-            let end_bad = if *p == 2 { q - 1 } else { (q / p - 1) / 2 };
-
-            for bad_exp in start_bad..end_bad + 1 {
-                if math_mod(&i, &q) == math_mod(&bad_exp, &q) {
-                    return false;
+            if *p == 2 {
+                for bad_exp in (q / 2)..q - 1 + 1 {
+                    if math_mod(&i, &q) == math_mod(&((order / q) * bad_exp), &q) {
+                        return false;
+                    }
+                }
+            } else {
+                for bad_exp in -(q / *p - 1) / 2..(q / *p - 1) / 2 + 1 {
+                    if math_mod(&i, &q) == math_mod(&((order / q) * bad_exp), &q) {
+                        return false;
+                    }
                 }
             }
         }
@@ -106,6 +110,17 @@ fn factorise(order: i64) -> Vec<(i64, i64)> {
     }
 
     n_div_powers
+}
+
+fn print_rat_vec(v: &Vec<Q>) -> String {
+    let mut result = "[".to_string();
+
+    for q in v {
+        result += q.to_string().as_str();
+        result += ",";
+    }
+
+    result + "]"
 }
 
 impl CyclotomicField {
@@ -145,6 +160,24 @@ impl CyclotomicField {
 
         result
     }
+
+    pub fn print(&self, z: &Vec<Q>) -> String {
+        let mut str_list: Vec<String> = vec![];
+        for i in 0..self.phi_n {
+            let exp = self.basis[i as usize];
+            let coeff = z[i as usize].clone();
+            if !coeff.is_zero() {
+                str_list.push(String::from(
+                    format!("{} * E({})^{}", coeff, self.order, exp).as_str(),
+                ))
+            }
+        }
+        "(".to_string() + &str_list.join(" + ") + ")"
+    }
+
+    pub fn e(&self, k: i64) -> Vec<Q> {
+        write_dense_in_basis(&mut Number::e(self.order, k), &self.basis)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -155,7 +188,7 @@ impl Arbitrary for SmallOrder {
     where
         G: Gen,
     {
-        let small_int = g.gen_range(2, 30);
+        let small_int = g.gen_range(2, 20);
         SmallOrder(small_int)
     }
 }
@@ -164,9 +197,13 @@ fn random_cyc(field: &CyclotomicField) -> Vec<Q> {
     let mut rng = rand::thread_rng();
     let mut result = vec![];
     for _ in 0..field.phi_n {
-        let numerator = rng.gen_range(0, 10);
-        let denominator = rng.gen_range(1, 10);
-        result.push(Q::new(Z::from(numerator), Z::from(denominator)));
+        if rng.gen_range(0, 2) == 1 {
+            result.push(Q::zero())
+        } else {
+            let numerator = rng.gen_range(0, 10);
+            let denominator = rng.gen_range(1, 10);
+            result.push(Q::new(Z::from(numerator), Z::from(denominator)));
+        }
     }
     result
 }
@@ -177,10 +214,63 @@ mod tests {
 
     // TODO: inverses? never heard of em
 
+    #[test]
+    fn constants_are_correct() {
+        let order = 4;
+        let field = CyclotomicField::new(order);
+        for i in 0..field.phi_n {
+            for j in 0..field.phi_n {
+                let e_i = field.e(field.basis[i as usize]);
+                let e_j = field.e(field.basis[j as usize]);
+                let prod = field.mul(&e_i, &e_j);
+                println!("---");
+                println!("order is {}", order);
+                println!(
+                    "e_i := {};\ne_j := {};\nprod := {};\n",
+                    field.print(&e_i),
+                    field.print(&e_j),
+                    field.print(&prod)
+                );
+            }
+        }
+    }
+
     #[quickcheck]
     fn zumbroich_basis_has_phi_n_elems(small_order: SmallOrder) -> bool {
         let field = CyclotomicField::new(small_order.0);
         field.basis.len() == phi(small_order.0) as usize
+    }
+
+    #[test]
+    fn zumbroich_basis_is_correct() {
+        assert_eq!(zumbroich_basis(2), vec![0]);
+        assert_eq!(zumbroich_basis(3), vec![1, 2]);
+        assert_eq!(zumbroich_basis(4), vec![0, 1]);
+        assert_eq!(zumbroich_basis(5), vec![1, 2, 3, 4]);
+        assert_eq!(zumbroich_basis(6), vec![2, 4]);
+        assert_eq!(zumbroich_basis(7), vec![1, 2, 3, 4, 5, 6]);
+        assert_eq!(zumbroich_basis(8), vec![0, 1, 2, 3]);
+        assert_eq!(zumbroich_basis(9), vec![2, 3, 4, 5, 6, 7]);
+        assert_eq!(zumbroich_basis(10), vec![2, 4, 6, 8]);
+        assert_eq!(zumbroich_basis(11), vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+        assert_eq!(zumbroich_basis(12), vec![4, 7, 8, 11]);
+        assert_eq!(
+            zumbroich_basis(13),
+            vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        );
+        assert_eq!(zumbroich_basis(14), vec![2, 4, 6, 8, 10, 12]);
+        assert_eq!(zumbroich_basis(15), vec![1, 2, 4, 7, 8, 11, 13, 14]);
+        assert_eq!(zumbroich_basis(16), vec![0, 1, 2, 3, 4, 5, 6, 7]);
+        assert_eq!(
+            zumbroich_basis(17),
+            vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+        );
+        assert_eq!(zumbroich_basis(18), vec![4, 6, 8, 10, 12, 14]);
+        assert_eq!(
+            zumbroich_basis(19),
+            vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
+        );
+        assert_eq!(zumbroich_basis(20), vec![1, 4, 8, 9, 12, 13, 16, 17]);
     }
 
     #[quickcheck]
@@ -227,7 +317,9 @@ mod tests {
         let z1 = random_cyc(&field);
         let z2 = random_cyc(&field);
         let z3 = random_cyc(&field);
-        field.mul(&field.mul(&z1, &z2), &z3) == field.mul(&z1, &field.mul(&z2, &z3))
+        let left = field.mul(&field.mul(&z1, &z2), &z3);
+        let right = field.mul(&z1, &field.mul(&z2, &z3));
+        left == right
     }
 
     #[quickcheck]
@@ -236,5 +328,16 @@ mod tests {
         let z1 = random_cyc(&field);
         let z2 = random_cyc(&field);
         field.mul(&z1, &z2) == field.mul(&z2, &z1)
+    }
+
+    #[quickcheck]
+    fn mul_distributes_over_add(small_order: SmallOrder) -> bool {
+        let field = CyclotomicField::new(small_order.0);
+        let z1 = random_cyc(&field);
+        let z2 = random_cyc(&field);
+        let z3 = random_cyc(&field);
+        let left = field.mul(&z1, &field.add(&z2, &z3));
+        let right = field.add(&field.mul(&z1, &z2), &field.mul(&z1, &z3));
+        left == right
     }
 }
