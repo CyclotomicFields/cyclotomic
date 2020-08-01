@@ -28,6 +28,22 @@ pub struct CyclotomicField {
     /// Let n = \prod_i p_i^{n_i} be a prime factorisation of n. Then factors[i]
     /// = (p_i, n_i).
     factors: Vec<(i64, i64)>,
+
+    zero: Vec<Q>,
+
+    one: Vec<Q>
+}
+
+fn write_dense_in_basis(dense: &mut Number, basis: &Vec<i64>) -> Vec<Q> {
+    let phi_n = phi(dense.coeffs.len() as i64);
+    let mut result = vec![Q::zero(); phi_n as usize];
+    convert_to_base(dense);
+
+    for i in 0..phi_n {
+        result[i as usize] = dense.coeffs[basis[i as usize] as usize].clone();
+    }
+
+    result
 }
 
 /// The structure constants c_ijk are such that (if b_i is the ith basis element)
@@ -44,10 +60,7 @@ fn make_structure_constants(order: i64, basis: &Vec<i64>) -> Vec<Vec<Vec<Q>>> {
             let b_i = Number::e(order, basis[i]);
             let b_j = Number::e(order, basis[j]);
             let mut product: Number = b_i.clone().mul(&mut b_j.clone()).clone();
-            product = convert_to_base(&mut product);
-            for k in 0..phi_n {
-                structure_constants[i][j][k] = product.coeffs[basis[k] as usize].clone();
-            }
+            structure_constants[i][j] = write_dense_in_basis(&mut product, basis);
         }
     }
 
@@ -101,9 +114,11 @@ impl CyclotomicField {
         CyclotomicField {
             order: order,
             structure_constants: make_structure_constants(order, &basis),
-            basis: basis,
+            basis: basis.clone(),
             phi_n: phi(order),
             factors: factorise(order),
+            zero: write_dense_in_basis(&mut Number::zero_order(order), &basis.clone()),
+            one: write_dense_in_basis(&mut Number::one_order(order), &basis.clone()),
         }
     }
 
@@ -145,9 +160,22 @@ impl Arbitrary for SmallOrder {
     }
 }
 
+fn random_cyc(field: &CyclotomicField) -> Vec<Q> {
+    let mut rng = rand::thread_rng();
+    let mut result = vec![];
+    for _ in 0..field.phi_n {
+        let numerator = rng.gen_range(0, 10);
+        let denominator = rng.gen_range(1, 10);
+        result.push(Q::new(Z::from(numerator), Z::from(denominator)));
+    }
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // TODO: inverses? never heard of em
 
     #[quickcheck]
     fn zumbroich_basis_has_phi_n_elems(small_order: SmallOrder) -> bool {
@@ -156,37 +184,57 @@ mod tests {
     }
 
     #[quickcheck]
-    fn zero_is_add_identity() -> bool {
-        true
+    fn zero_is_add_identity(small_order: SmallOrder) -> bool {
+        let field = CyclotomicField::new(small_order.0);
+        let z1 = random_cyc(&field);
+        field.add(&z1, &field.zero) == z1
     }
 
     #[quickcheck]
-    fn add_is_associative() -> bool {
-        true
+    fn add_is_associative(small_order: SmallOrder) -> bool {
+        let field = CyclotomicField::new(small_order.0);
+        let z1 = random_cyc(&field);
+        let z2 = random_cyc(&field);
+        let z3 = random_cyc(&field);
+        field.add(&field.add(&z1, &z2), &z3) == field.add(&z1, &field.add(&z2, &z3))
     }
 
     #[quickcheck]
-    fn add_is_commutative() -> bool {
-        true
+    fn add_is_commutative(small_order: SmallOrder) -> bool {
+        let field = CyclotomicField::new(small_order.0);
+        let z1 = random_cyc(&field);
+        let z2 = random_cyc(&field);
+        field.add(&z1, &z2) == field.add(&z2, &z1)
     }
 
     #[quickcheck]
-    fn zero_kills_all() -> bool {
-        true
+    fn zero_kills_all(small_order: SmallOrder) -> bool {
+        let field = CyclotomicField::new(small_order.0);
+        let z1 = random_cyc(&field);
+        field.mul(&field.zero, &z1) == field.zero
     }
 
     #[quickcheck]
-    fn one_is_mul_identity() -> bool {
-        true
+    fn one_is_mul_identity(small_order: SmallOrder) -> bool {
+        let field = CyclotomicField::new(small_order.0);
+        let z1 = random_cyc(&field);
+        field.mul(&z1, &field.one) == z1
     }
 
     #[quickcheck]
-    fn mul_is_associative() -> bool {
-        true
+    fn mul_is_associative(small_order: SmallOrder) -> bool {
+        let field = CyclotomicField::new(small_order.0);
+        let z1 = random_cyc(&field);
+        let z2 = random_cyc(&field);
+        let z3 = random_cyc(&field);
+        field.mul(&field.mul(&z1, &z2), &z3) == field.mul(&z1, &field.mul(&z2, &z3))
     }
 
     #[quickcheck]
-    fn mul_is_commutative() -> bool {
-        true
+    fn mul_is_commutative(small_order: SmallOrder) -> bool {
+        let field = CyclotomicField::new(small_order.0);
+        let z1 = random_cyc(&field);
+        let z2 = random_cyc(&field);
+        field.mul(&z1, &z2) == field.mul(&z2, &z1)
     }
 }

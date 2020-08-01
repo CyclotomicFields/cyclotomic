@@ -55,7 +55,6 @@ impl MultiplicativeGroupElement for Number {
         // The full product:
         let mut q_cyc = convert_to_base(z.clone().mul(&mut x.clone()));
         try_reduce(&mut q_cyc);
-        println!("q_cyc = {:?}", q_cyc);
 
         assert_eq!(q_cyc.order, 1);
         let q_rat = q_cyc.coeffs[0].clone();

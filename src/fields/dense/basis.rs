@@ -167,7 +167,6 @@ pub fn convert_to_base(z: &Number) -> Number {
             // then we still check the full range of a we need to check.
             for a in -bad_exp / q - 1..=((n - 1 - bad_exp) / q + 1) {
                 let i: i64 = bad_exp + a * q;
-                println!("i = {}", i);
                 // if there isn't even a term for i, no need to convert it
                 let coeff = result.coeffs[(math_mod(&i, &n)) as usize].clone();
 
