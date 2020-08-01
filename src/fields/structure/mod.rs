@@ -20,7 +20,7 @@ pub struct CyclotomicField {
 
     /// The basis we are using for the field is: { \zeta_n^{basis[i]} : 0 \leq
     /// i \leq \phi(n) }
-    basis: Vec<i64>,
+    pub basis: Vec<i64>,
 
     /// \phi(n)
     phi_n: i64,
@@ -34,7 +34,7 @@ pub struct CyclotomicField {
     one: Vec<Q>,
 }
 
-fn write_dense_in_basis(dense: &mut Number, basis: &Vec<i64>) -> Vec<Q> {
+pub fn write_dense_in_basis(dense: &mut Number, basis: &Vec<i64>) -> Vec<Q> {
     let phi_n = phi(dense.coeffs.len() as i64);
     let mut result = vec![Q::zero(); phi_n as usize];
     let dense_base = convert_to_base(dense);
