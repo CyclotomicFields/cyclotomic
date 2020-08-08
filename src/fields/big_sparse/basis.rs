@@ -178,7 +178,7 @@ pub fn convert_to_base(z: &Number) -> Number {
             let div: Exponent = (&q / p).into();
             let minus1: Exponent = (div - Exponent::from(1)).into();
             let neg: Exponent = (-minus1).into();
-            (neg/Exponent::from(2)).into()
+            (neg / Exponent::from(2)).into()
         };
         let end_bad: Exponent = if *p == 2 {
             &q - Exponent::from(1)
@@ -196,7 +196,8 @@ pub fn convert_to_base(z: &Number) -> Number {
             // The -1 and +1 are so that even if the division isn't perfect,
             // then we still check the full range of a we need to check.
             let start_check = (-&bad_exp).into(): Exponent / &q - Exponent::from(1);
-            let end_check = (((n - Exponent::from(1)).into(): Exponent - &bad_exp) / &q + Exponent::from(1));
+            let end_check =
+                (((n - Exponent::from(1)).into(): Exponent - &bad_exp) / &q + Exponent::from(1));
             let mut a = start_check;
             while a <= end_check {
                 let i = (&bad_exp + &a * &q).into();
@@ -205,9 +206,13 @@ pub fn convert_to_base(z: &Number) -> Number {
                     let maybe_coeff = result.coeffs.get(&i);
 
                     match maybe_coeff {
-                        None => continue,
+                        None => {
+                            a += 1;
+                            continue;
+                        }
                         Some(rational) => {
                             if *rational == 0 {
+                                a += 1;
                                 continue;
                             }
                         }
