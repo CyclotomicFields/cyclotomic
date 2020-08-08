@@ -57,6 +57,9 @@ See [below for some benchmarks against antic](#benchmarks).
 
 ## Quick start
 
+TODO: you also need to have the antic and flint libraries installed,
+add some instructions for that.
+
 ### Use cyclotomic in a Rust program
 
 To install the latest release, install
