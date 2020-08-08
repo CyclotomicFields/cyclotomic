@@ -130,6 +130,9 @@ macro_rules! field_axiom_tests {
 /// Sparse implementation using hash maps.
 pub mod sparse;
 
+/// Sparse hash map implementation supporting arbitrarily sized exponents.
+pub mod big_sparse;
+
 /// Dense representation using a vector of coefficients.
 pub mod dense;
 
