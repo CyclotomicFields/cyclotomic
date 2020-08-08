@@ -1,18 +1,26 @@
-To run the benchmarks, make sure you have compiled anticbench and
-installed GAP. (TODO: document how to do that)
+To run the benchmarks, make sure you have compiled cyclobench and
+installed GAP.
 
-Then run:
+Then run (for example):
 
-    $ ./run_bench.sh 100000
+    $ ./run_bench.sh 100000 20 200 10
 
-To generate the benchmark data by runnning 100,000 dot products using
-each of: the antic library, the cyclotomic library, and the GAP
-system.
+To generate the benchmark data by runnning 100,000 dot products for
+each implementation, starting with a field order of 20, up to 200,
+with a step of 10. So we'll run a benchmark for each order in 20, 30,
+..., 200.
 
 To plot the graphs, you can use:
 
    $ cd results
-   $ ../plot.py -x 0 "\$n\$" -y 1 "time taken (ms)" -f "Antic 0.2.1" antic -f "cyclotomic 0.1.0" cyclotomic -f "GAP 4.11.0" gap
+   $ ../plot.py -x 0 "\$n\$" -y 1 "time taken (ms)" \
+   -f "Antic 0.2.1" antic \
+   -f "cyclotomic sparse 0.1.0" sparse \
+   -f "cyclotomic dense 0.1.0" dense \
+   -f "cyclotomic structure 0.1.0" structure \
+   -f "GAP 4.11.0" gap
 
 which specifies the x and y axes, the filenames with the data, and the
 legend labels to use for the data coming from each file.
+
+This should generate a PNG file and tex file with the results graphed.
