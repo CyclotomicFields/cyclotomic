@@ -168,17 +168,17 @@ fn into_sparse_number(f: &GenericCyclotomic) -> sparse::Number {
     let mut coeffs = cyclotomic::fields::sparse::ExpCoeffMap::default();
 
     for (exp, (num, denom)) in &f.exp_coeffs {
-        coeffs.insert(*exp, Q::new(Z::from(*num), Z::from(*denom)));
+        coeffs.insert(*exp, Q::from((*num, *denom)));
     }
 
     sparse::Number::new(f.order, &coeffs)
 }
 
 fn into_dense_number(f: &GenericCyclotomic) -> dense::Number {
-    let mut coeffs = vec![Q::zero(); f.order as usize];
+    let mut coeffs = vec![Q::from(0); f.order as usize];
 
     for (exp, (num, denom)) in &f.exp_coeffs {
-        coeffs[*exp as usize] = Q::new(Z::from(*num), Z::from(*denom));
+        coeffs[*exp as usize] = Q::from((*num, *denom));
     }
 
     dense::Number::new(f.order, &coeffs)

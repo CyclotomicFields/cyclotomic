@@ -19,7 +19,7 @@ pub fn try_reduce(z: &mut Number) {
     for exp in 0..z.order {
         let coeff = z.coeffs[exp as usize].clone();
         // this term doesn't really appear
-        if coeff.is_zero() {
+        if coeff == 0 {
             continue;
         }
 
@@ -170,12 +170,12 @@ pub fn convert_to_base(z: &Number) -> Number {
                 // if there isn't even a term for i, no need to convert it
                 let coeff = result.coeffs[(math_mod(&i, &n)) as usize].clone();
 
-                if coeff.is_zero() {
+                if coeff == 0 {
                     continue;
                 }
 
                 // if we got here, i has a nonzero term so must be rewritten
-                result.coeffs[math_mod(&i, &n) as usize].set_zero();
+                result.coeffs[math_mod(&i, &n) as usize] = Q::from(0);
                 for k in 1..*p {
                     let new_exp = math_mod(&(k * n / p + i), &n);
                     add_single(&mut result.coeffs, new_exp, &coeff, Sign::Minus);

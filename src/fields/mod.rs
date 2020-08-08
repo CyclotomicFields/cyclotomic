@@ -1,5 +1,7 @@
-pub type Z = num::BigInt;
-pub type Q = num::rational::BigRational;
+extern crate rug;
+
+pub type Z = rug::Integer;
+pub type Q = rug::Rational;
 
 pub trait AdditiveGroupElement {
     /// Adds z to self in place, so self = self + z

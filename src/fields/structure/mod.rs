@@ -36,7 +36,7 @@ pub struct CyclotomicField {
 
 pub fn write_dense_in_basis(dense: &mut Number, basis: &Vec<i64>) -> Vec<Q> {
     let phi_n = phi(dense.coeffs.len() as i64);
-    let mut result = vec![Q::zero(); phi_n as usize];
+    let mut result = vec![Q::from(0); phi_n as usize];
     let dense_base = convert_to_base(dense);
 
     for i in 0..phi_n {
@@ -53,7 +53,7 @@ fn make_structure_constants(order: i64, basis: &Vec<i64>) -> Vec<Vec<Vec<Q>>> {
 
     // We have to store n^3 space, but maybe if I vectorise this properly it'll
     // be fine?
-    let mut structure_constants = vec![vec![vec![Q::zero(); phi_n]; phi_n]; phi_n];
+    let mut structure_constants = vec![vec![vec![Q::from(0); phi_n]; phi_n]; phi_n];
 
     for i in 0..phi_n {
         for j in 0..phi_n {
@@ -138,22 +138,24 @@ impl CyclotomicField {
     }
 
     pub fn add(&self, z1: &Vec<Q>, z2: &Vec<Q>) -> Vec<Q> {
-        let mut result = vec![Q::zero(); self.phi_n as usize];
+        let mut result = vec![Q::from(0); self.phi_n as usize];
         for i in 0..self.phi_n {
-            result[i as usize] = &z1[i as usize] + &z2[i as usize];
+            result[i as usize] = (&z1[i as usize] + &z2[i as usize]).into();
         }
         result
     }
 
     pub fn mul(&self, z1: &Vec<Q>, z2: &Vec<Q>) -> Vec<Q> {
-        let mut result = vec![Q::zero(); self.phi_n as usize];
+        let mut result = vec![Q::from(0); self.phi_n as usize];
 
         for i in 0..self.phi_n {
             for j in 0..self.phi_n {
                 for k in 0..self.phi_n {
-                    result[k as usize] += &z1[i as usize]
-                        * &z2[j as usize]
-                        * &self.structure_constants[i as usize][j as usize][k as usize];
+                    let prod1: Q = (&z1[i as usize] * &z2[j as usize]).into();
+                    let prod2: Q = (&prod1
+                        * &self.structure_constants[i as usize][j as usize][k as usize])
+                        .into();
+                    result[k as usize] += prod2;
                 }
             }
         }
@@ -166,7 +168,7 @@ impl CyclotomicField {
         for i in 0..self.phi_n {
             let exp = self.basis[i as usize];
             let coeff = z[i as usize].clone();
-            if !coeff.is_zero() {
+            if coeff != 0 {
                 str_list.push(String::from(
                     format!("{} * E({})^{}", coeff, self.order, exp).as_str(),
                 ))
@@ -198,11 +200,11 @@ fn random_cyc(field: &CyclotomicField) -> Vec<Q> {
     let mut result = vec![];
     for _ in 0..field.phi_n {
         if rng.gen_range(0, 2) == 1 {
-            result.push(Q::zero())
+            result.push(Q::from(0))
         } else {
             let numerator = rng.gen_range(0, 10);
             let denominator = rng.gen_range(1, 10);
-            result.push(Q::new(Z::from(numerator), Z::from(denominator)));
+            result.push(Q::from((numerator, denominator)));
         }
     }
     result

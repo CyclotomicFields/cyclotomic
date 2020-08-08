@@ -203,7 +203,7 @@ pub mod primes_test {
         assert_eq!(*primes.range(0, 5).unwrap().to_vec(), vec![2, 3, 5]);
         assert_eq!(*primes.range(3, 5).unwrap().to_vec(), vec![5]);
         assert_eq!(*primes.range(7, 13).unwrap().to_vec(), vec![11, 13]);
-        assert_eq!(*primes.range(2, 2).unwrap().to_vec(), vec![]);
+        assert_eq!(*primes.range(2, 2).unwrap().to_vec(), vec![] as Vec<u64>);
         assert_eq!(primes.range(0, 15), None);
         assert_eq!(primes.range(15, 20), None);
         assert_eq!(primes.range(10, 20), None);

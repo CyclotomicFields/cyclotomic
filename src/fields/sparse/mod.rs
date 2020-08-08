@@ -36,9 +36,9 @@ pub struct Number {
 pub fn print_gap(z: &Number) -> String {
     let mut str_list: Vec<String> = vec![];
     for exp in 0..z.order {
-        let zero = Q::zero().clone();
+        let zero = Q::from(0).clone();
         let coeff = z.coeffs.get(&exp).unwrap_or(&zero);
-        if !coeff.is_zero() {
+        if *coeff != 0 {
             str_list.push(String::from(
                 format!("{} * E({})^{}", coeff, z.order, exp).as_str(),
             ))
@@ -82,11 +82,11 @@ impl Number {
 
 fn get_same_coeff(z: &Number) -> Option<Q> {
     let coeffs = z.coeffs.clone().into_iter().map(|(_exp, coeff)| coeff);
-    let nonzero_coeffs: HashSet<Q> = coeffs.filter(|q| *q != Q::zero()).collect();
+    let nonzero_coeffs: HashSet<Q> = coeffs.filter(|q| *q != 0).collect();
 
     if nonzero_coeffs.len() == 0 {
         // all coeffs are zero
-        Some(Q::zero())
+        Some(Q::from(0))
     } else if nonzero_coeffs.len() == 1 {
         Some(nonzero_coeffs.iter().last().unwrap().clone())
     } else {
@@ -117,7 +117,7 @@ fn add_single(coeffs: &mut ExpCoeffMap, exp: i64, coeff: &Q, sign: Sign) {
 
 pub fn is_zero(z: &Number) -> bool {
     for (_, coeff) in &z.coeffs {
-        if !coeff.is_zero() {
+        if *coeff != 0 {
             return false;
         }
     }
@@ -139,7 +139,7 @@ impl FieldElement for Number {
             for (exp_left, coeff_left) in &left.coeffs {
                 match right.coeffs.get(&exp_left) {
                     None => {
-                        if coeff_left != &Q::zero() {
+                        if *coeff_left != 0 {
                             return true;
                         }
                     }
@@ -161,7 +161,7 @@ impl CyclotomicFieldElement for Number {
     fn e(n: i64, k: i64) -> Self {
         Number::new(
             n,
-            &[(k, Q::from_integer(Z::one()))].iter().cloned().collect(),
+            &[(k, Q::from(1))].iter().cloned().collect(),
         )
     }
 
@@ -181,7 +181,7 @@ impl CyclotomicFieldElement for Number {
     fn one_order(n: i64) -> Number {
         let mut coeffs = ExpCoeffMap::default();
         for i in 1..n {
-            coeffs.insert(i, -Q::one());
+            coeffs.insert(i, Q::from(-1));
         }
         Number::new(n, &coeffs)
     }
@@ -193,7 +193,7 @@ where
 {
     let p: i64 = g.gen_range(1, 10);
     let q: i64 = g.gen_range(1, 10);
-    Q::new(Z::from(p), Z::from(q))
+    Q::from((p, q))
 }
 
 pub fn random_cyclotomic<G>(g: &mut G, min_order: i64, max_order: i64) -> Number

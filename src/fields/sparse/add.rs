@@ -27,7 +27,7 @@ impl AdditiveGroupElement for Number {
     }
 
     fn add_invert(&mut self) -> &mut Self {
-        let minus_one = Q::new(Z::from(-1), Z::from(1));
+        let minus_one = Q::from(-1);
         self.scalar_mul(&minus_one)
     }
 }

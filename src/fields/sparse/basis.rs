@@ -18,7 +18,7 @@ pub fn try_reduce(z: &mut Number) {
 
     for (exp, coeff) in &z.coeffs {
         // this term doesn't really appear
-        if coeff.is_zero() {
+        if *coeff == 0 {
             continue;
         }
 
@@ -142,7 +142,7 @@ pub fn convert_to_base(z: &Number) -> Number {
     let mut result = z.clone();
 
     for (exp, coeff) in &z.coeffs {
-        if coeff.is_zero() {
+        if *coeff == 0 {
             result.coeffs.remove(exp);
         }
     }
@@ -183,7 +183,7 @@ pub fn convert_to_base(z: &Number) -> Number {
                     match maybe_coeff {
                         None => continue,
                         Some(rational) => {
-                            if rational.is_zero() {
+                            if *rational == 0 {
                                 continue;
                             }
                         }

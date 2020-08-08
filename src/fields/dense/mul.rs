@@ -19,7 +19,7 @@ impl MultiplicativeGroupElement for Number {
         for i in 0..z1.order {
             for j in 0..z2.order {
                 let new_exp = (i + j) % z1.order;
-                let new_coeff = &z1.coeffs[i as usize] * &z2.coeffs[j as usize];
+                let new_coeff = (&z1.coeffs[i as usize] * &z2.coeffs[j as usize]).into();
                 add_single(&mut result.coeffs, new_exp, &new_coeff, Sign::Plus);
             }
         }
@@ -60,11 +60,11 @@ impl MultiplicativeGroupElement for Number {
         let q_rat = q_cyc.coeffs[0].clone();
         println!("q_rat = {:?}", q_rat);
 
-        if q_rat.is_zero() {
+        if q_rat == 0 {
             panic!("can't invert zero!");
         }
 
-        let z_inv = x.scalar_mul(&q_rat.inv());
+        let z_inv = x.scalar_mul(&q_rat.recip());
         *self = z_inv.clone();
         self
     }

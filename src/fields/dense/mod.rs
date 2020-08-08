@@ -35,7 +35,7 @@ pub fn print_gap(z: &Number) -> String {
     let mut str_list: Vec<String> = vec![];
     for exp in 0..z.order {
         let coeff = &z.coeffs[exp as usize];
-        if !coeff.is_zero() {
+        if *coeff != 0 {
             str_list.push(String::from(
                 format!("{} * E({})^{}", coeff, z.order, exp).as_str(),
             ))
@@ -62,7 +62,7 @@ impl Number {
         let mut new_coeffs = Vec::with_capacity(new_order as usize);
         // not the most cache-friendly. TODO: improve?
         for _new_exp in 0..new_order {
-            new_coeffs.push(Q::zero());
+            new_coeffs.push(Q::from(0));
         }
         for old_exp in 0..z.order {
             new_coeffs[(new_order * old_exp / z.order) as usize] =
@@ -87,12 +87,12 @@ fn get_same_coeff(z: &Number) -> Option<Q> {
         .coeffs
         .clone()
         .into_iter()
-        .filter(|q| !q.is_zero())
+        .filter(|q| *q != 0)
         .collect();
 
     if nonzero_coeffs.len() == 0 {
         // all coeffs are zero
-        Some(Q::zero())
+        Some(Q::from(0))
     } else if nonzero_coeffs.len() == 1 {
         Some(nonzero_coeffs.iter().last().unwrap().clone())
     } else {
@@ -111,7 +111,7 @@ fn add_single(coeffs: &mut Vec<Q>, exp: i64, coeff: &Q, sign: Sign) {
 
 pub fn is_zero(z: &Number) -> bool {
     for coeff in &z.coeffs {
-        if !coeff.is_zero() {
+        if *coeff != 0 {
             return false;
         }
     }
@@ -137,8 +137,8 @@ impl FieldElement for Number {
 
 impl CyclotomicFieldElement for Number {
     fn e(n: i64, k: i64) -> Self {
-        let mut coeffs = vec![Q::zero(); n as usize];
-        coeffs[k as usize] = Q::from_integer(Z::one());
+        let mut coeffs = vec![Q::from(0); n as usize];
+        coeffs[k as usize] = Q::from(1);
         Number::new(n, &coeffs)
     }
 
@@ -150,12 +150,12 @@ impl CyclotomicFieldElement for Number {
     }
 
     fn zero_order(n: i64) -> Number {
-        Number::new(n, &vec![Q::zero(); n as usize])
+        Number::new(n, &vec![Q::from(0); n as usize])
     }
 
     fn one_order(n: i64) -> Number {
-        let mut coeffs = vec![Q::zero(); n as usize];
-        coeffs[0] = Q::one();
+        let mut coeffs = vec![Q::from(0); n as usize];
+        coeffs[0] = Q::from(1);
         Number::new(n, &coeffs)
     }
 }
@@ -166,7 +166,7 @@ where
 {
     let p: i64 = g.gen_range(1, 10);
     let q: i64 = g.gen_range(1, 10);
-    Q::new(Z::from(p), Z::from(q))
+    Q::from((p, q))
 }
 
 pub fn random_cyclotomic<G>(g: &mut G, min_order: i64, max_order: i64) -> Number
