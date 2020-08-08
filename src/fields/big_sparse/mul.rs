@@ -12,8 +12,7 @@ impl MultiplicativeGroupElement for Number {
         let z2 = rhs;
         Self::match_orders(z1, z2);
 
-        // TODO: support bigint
-        let mut result = Number::zero_order((&z1.order).try_into().unwrap());
+        let mut result = Number::zero_order(z1.order.clone());
 
         // This order is almost certainly not optimal. But you know, whatever.
         // TODO: make it gooder
@@ -47,8 +46,7 @@ impl MultiplicativeGroupElement for Number {
 
         // This is the product except for the term for $t = \id_L$.
 
-        // TODO: real bigint
-        let mut x = Number::one_order(n.try_into().unwrap());
+        let mut x = Number::one_order(n.clone());
 
         let mut i = Z::from(2);
         while &i != n {

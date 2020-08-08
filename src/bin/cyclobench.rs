@@ -25,14 +25,16 @@ use std::io::Write;
 use cyclotomic::fields::structure::write_dense_in_basis;
 use num::Zero;
 use rand::seq::IteratorRandom;
+use rug::rand::RandState;
 use std::cmp::min;
+use std::convert::TryInto;
 use std::time::Instant;
 use test::black_box;
 
 #[derive(Clap)]
 #[clap(version = "1.0")]
 struct Opts {
-    #[clap(short, long, help = "file to output GAP benchmark code to")]
+    #[clap(short, long, about = "file to output GAP benchmark code to")]
     gap_out: Option<String>,
 
     #[clap(short, long, default_value = "120000")]
@@ -50,24 +52,19 @@ struct Opts {
     #[clap(
         short,
         long,
-        default_value = "cyclotomic",
-        help = "cyclotomic or antic"
+        default_value = "sparse",
+        about = "sparse, dense, big_sparse, or antic"
     )]
     implementation: String,
 
     #[clap(long, default_value = "5")]
     terms: usize,
 
-    #[clap(
-        short,
-        long,
-        default_value = "100",
-        help = "maximum absolute value of integer to use as numerator or denominator in rationals"
-    )]
-    q_maximum_integer: usize,
-
-    #[clap(short, long, help = "make this fraction of the terms be nonzero")]
+    #[clap(short, long, about = "make this fraction of the terms be nonzero")]
     density: Option<f64>,
+
+    #[clap(short, long, about = "only works with big_sparse")]
+    big_order: Option<String>,
 }
 
 // Kind of like the stuff in cyclotomic::polynomial, but just for test
@@ -75,8 +72,8 @@ struct Opts {
 #[derive(Clone)]
 struct GenericCyclotomic {
     // (exp, (numerator, denominator))
-    exp_coeffs: HashMap<i64, (i64, u64)>,
-    order: i64,
+    exp_coeffs: HashMap<Z, (i64, u64)>,
+    order: Z,
 }
 
 // Writes a gap source file with a function f you can run that will
@@ -133,33 +130,35 @@ fn write_gap_cycs_flat(nums: &Vec<sparse::Number>, filename: String) -> Result<(
 
 fn random_generic_cyclotomic<G>(
     gen: &mut G,
-    degree: usize,
+    degree: Z,
     density: Option<f64>,
     terms: usize,
 ) -> GenericCyclotomic
 where
     G: rand::RngCore,
 {
+    let mut rand = RandState::new();
     let rational_bounds = (1, 10);
     let mut result = GenericCyclotomic {
         exp_coeffs: HashMap::default(),
-        order: degree as i64,
+        order: degree.clone(),
     };
 
     let num_terms: usize = if let Some(f) = density {
-        (f * degree as f64) as usize
+        (f * degree.to_f64()) as usize
     } else {
-        min(terms, degree)
+        terms
     };
 
-    let exps = (0..degree).into_iter().choose_multiple(gen, num_terms);
+    let mut exps = vec![];
+    for _ in 0..num_terms {
+        exps.push(Z::from(degree.random_below_ref(&mut rand)));
+    }
 
     for exponent in exps {
         let numerator: i64 = gen.gen_range(rational_bounds.0, rational_bounds.1) as i64;
         let denominator: u64 = gen.gen_range(rational_bounds.0, rational_bounds.1) as u64;
-        result
-            .exp_coeffs
-            .insert(exponent as i64, (numerator, denominator));
+        result.exp_coeffs.insert(exponent, (numerator, denominator));
     }
 
     result
@@ -168,7 +167,7 @@ where
 fn random_generic_cyclotomics<G>(
     n: usize,
     gen: &mut G,
-    degree: usize,
+    degree: Z,
     density: Option<f64>,
     num_terms: usize,
 ) -> Vec<GenericCyclotomic>
@@ -177,7 +176,7 @@ where
 {
     (0..n)
         .into_iter()
-        .map(|_| random_generic_cyclotomic(gen, degree, density, num_terms))
+        .map(|_| random_generic_cyclotomic(gen, degree.clone(), density, num_terms))
         .collect()
 }
 
@@ -185,30 +184,30 @@ fn into_sparse_number(f: &GenericCyclotomic) -> sparse::Number {
     let mut coeffs = cyclotomic::fields::sparse::ExpCoeffMap::default();
 
     for (exp, (num, denom)) in &f.exp_coeffs {
-        coeffs.insert(*exp, Q::from((*num, *denom)));
+        coeffs.insert(exp.to_i64().unwrap(), Q::from((*num, *denom)));
     }
 
-    sparse::Number::new(f.order, &coeffs)
+    sparse::Number::new(f.order.to_i64().unwrap(), &coeffs)
 }
 
 fn into_big_sparse_number(f: &GenericCyclotomic) -> big_sparse::Number {
     let mut coeffs = cyclotomic::fields::big_sparse::ExpCoeffMap::default();
 
     for (exp, (num, denom)) in &f.exp_coeffs {
-        coeffs.insert(Z::from(*exp), Q::from((*num, *denom)));
+        coeffs.insert(exp.clone(), Q::from((*num, *denom)));
     }
 
-    big_sparse::Number::new(&Z::from(f.order), &coeffs)
+    big_sparse::Number::new(&Z::from(&f.order), &coeffs)
 }
 
 fn into_dense_number(f: &GenericCyclotomic) -> dense::Number {
-    let mut coeffs = vec![Q::from(0); f.order as usize];
+    let mut coeffs = vec![Q::from(0); f.order.to_usize().unwrap()];
 
     for (exp, (num, denom)) in &f.exp_coeffs {
-        coeffs[*exp as usize] = Q::from((*num, *denom));
+        coeffs[exp.to_usize().unwrap()] = Q::from((*num, *denom));
     }
 
-    dense::Number::new(f.order, &coeffs)
+    dense::Number::new(f.order.to_i64().unwrap(), &coeffs)
 }
 
 fn into_structure_number(field: &structure::CyclotomicField, f: &GenericCyclotomic) -> Vec<Q> {
@@ -225,7 +224,7 @@ fn into_antic(
         let mut term = antic::safe::NumberFieldElement::new(field);
         let mut pol = antic::safe::RationalPolynomial::new();
         let mut coeff = antic::safe::Rational::new(*numerator, *denominator);
-        pol.set_coeff(*exp, &mut coeff);
+        pol.set_coeff(exp.to_i64().unwrap(), &mut coeff);
         term.set_to_poly(&mut pol, field);
         let mut sum = antic::safe::NumberFieldElement::new(field);
         sum.set_to_sum_of(&mut num, &mut term, field);
@@ -236,6 +235,12 @@ fn into_antic(
 
 fn main() {
     let opts: Opts = Opts::parse();
+
+    if opts.big_order.is_some() && opts.implementation != "big_sparse".to_owned() {
+        eprintln!("you must use big_sparse with big_order!");
+        return;
+    }
+
     eprintln!(
         "implementation = {}\nnum_tests = {}\nthreads = {}\nlower bound order = {}\nhigher bound order = {}",
         opts.implementation, opts.num_tests, opts.threads, opts.lower_bound_order, opts.upper_bound_order
@@ -253,7 +258,11 @@ fn main() {
     let test_data: Vec<GenericCyclotomic> = random_generic_cyclotomics(
         opts.num_tests * num_per_test,
         gen,
-        opts.lower_bound_order,
+        if let Some(big_order) = &opts.big_order {
+            big_order.parse::<Z>().unwrap()
+        } else {
+            Z::from(opts.lower_bound_order)
+        },
         opts.density,
         opts.terms,
     );
@@ -262,12 +271,6 @@ fn main() {
     let chunks: Vec<Vec<GenericCyclotomic>> = test_data
         .chunks(test_data.len() / opts.threads)
         .map(|chunk| chunk.to_vec())
-        .collect();
-
-    let sparse_nums: Vec<Vec<sparse::Number>> = chunks
-        .clone()
-        .into_iter()
-        .map(|chunk| chunk.into_iter().map(|f| into_sparse_number(&f)).collect())
         .collect();
 
     let big_sparse_nums: Vec<Vec<big_sparse::Number>> = chunks
@@ -279,6 +282,24 @@ fn main() {
                 .map(|f| into_big_sparse_number(&f))
                 .collect()
         })
+        .collect();
+
+    // if we're using big_order, we have to just run the benchmark for big_sparse,
+    // none of the implementations support big numbers
+    if opts.implementation == "big_sparse".to_owned() && opts.big_order.is_some() {
+        eprintln!("running big order benchmark, only for big_sparse");
+        eprintln!("big order = {}", opts.big_order.clone().unwrap().parse::<Z>().unwrap());
+        let start = Instant::now();
+        number_bench(&opts, &big_sparse_nums);
+        eprintln!("time elapsed (ms):");
+        println!("{}", start.elapsed().as_millis());
+        return;
+    }
+
+    let sparse_nums: Vec<Vec<sparse::Number>> = chunks
+        .clone()
+        .into_iter()
+        .map(|chunk| chunk.into_iter().map(|f| into_sparse_number(&f)).collect())
         .collect();
 
     let dense_nums: Vec<Vec<dense::Number>> = chunks

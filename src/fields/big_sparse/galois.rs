@@ -8,8 +8,7 @@ use crate::fields::big_sparse::Exponent;
 use std::convert::TryInto;
 
 pub fn apply_automorphism(z: &Number, i: &Exponent) -> Number {
-    // TODO: really support bigints
-    let mut result = Number::zero_order((&z.order).try_into().unwrap());
+    let mut result = Number::zero_order(z.order.clone());
 
     for (exp, coeff) in z.coeffs.clone() {
         result.coeffs.insert(math_mod_big(&(&exp * i).into(), &z.order), coeff);
