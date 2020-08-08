@@ -26,6 +26,8 @@ use cyclotomic::fields::structure::write_dense_in_basis;
 use num::Zero;
 use std::time::Instant;
 use test::black_box;
+use std::cmp::min;
+use rand::seq::IteratorRandom;
 
 #[derive(Clap)]
 #[clap(version = "1.0")]
@@ -64,8 +66,8 @@ struct Opts {
     )]
     q_maximum_integer: usize,
 
-    #[clap(long, help = "use static test data")]
-    static_test_data: bool,
+    #[clap(short, long, help = "make this fraction of the terms be nonzero")]
+    density: Option<f64>
 }
 
 // Kind of like the stuff in cyclotomic::polynomial, but just for test
@@ -129,7 +131,7 @@ fn write_gap_cycs_flat(nums: &Vec<sparse::Number>, filename: String) -> Result<(
     Ok(())
 }
 
-fn random_generic_cyclotomic<G>(gen: &mut G, degree: usize, num_terms: usize) -> GenericCyclotomic
+fn random_generic_cyclotomic<G>(gen: &mut G, degree: usize, density: Option<f64>, terms: usize) -> GenericCyclotomic
 where
     G: rand::RngCore,
 {
@@ -139,7 +141,15 @@ where
         order: degree as i64,
     };
 
-    for _ in 0..num_terms {
+    let num_terms: usize = if let Some(f) = density {
+        (f * degree as f64) as usize
+    } else {
+        min(terms, degree)
+    };
+
+    let exps = (0..degree).into_iter().choose_multiple(gen, num_terms);
+
+    for exponent in exps {
         let numerator: i64 = gen.gen_range(rational_bounds.0, rational_bounds.1) as i64;
         let denominator: u64 = gen.gen_range(rational_bounds.0, rational_bounds.1) as u64;
         let exponent: i64 = gen.gen_range(0, degree) as i64;
@@ -153,14 +163,15 @@ fn random_generic_cyclotomics<G>(
     n: usize,
     gen: &mut G,
     degree: usize,
-    num_terms: usize,
+    density: Option<f64>,
+    num_terms: usize
 ) -> Vec<GenericCyclotomic>
 where
     G: rand::RngCore,
 {
     (0..n)
         .into_iter()
-        .map(|_| random_generic_cyclotomic(gen, degree, num_terms))
+        .map(|_| random_generic_cyclotomic(gen, degree, density, num_terms))
         .collect()
 }
 
@@ -223,20 +234,13 @@ fn main() {
     let num_per_test = 6;
 
     eprintln!("generating test data");
-    let random_test_data: Vec<GenericCyclotomic> = random_generic_cyclotomics(
+    let test_data: Vec<GenericCyclotomic> = random_generic_cyclotomics(
         opts.num_tests * num_per_test,
         gen,
         opts.lower_bound_order,
-        opts.terms,
+        opts.density,
+        opts.terms
     );
-    eprintln!("reading static test data");
-    let static_test_data: Vec<GenericCyclotomic> = include!("test_data_expressions");
-
-    let test_data = if opts.static_test_data {
-        static_test_data
-    } else {
-        random_test_data
-    };
 
     // cut it up into chunks for each thread
     let chunks: Vec<Vec<GenericCyclotomic>> = test_data
