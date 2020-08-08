@@ -157,7 +157,7 @@ impl FieldElement for Number {
     }
 }
 
-impl CyclotomicFieldElement for Number {
+impl CyclotomicFieldElement<i64> for Number {
     fn e(n: i64, k: i64) -> Self {
         Number::new(
             n,

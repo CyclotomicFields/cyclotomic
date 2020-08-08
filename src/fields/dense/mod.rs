@@ -135,7 +135,7 @@ impl FieldElement for Number {
     }
 }
 
-impl CyclotomicFieldElement for Number {
+impl CyclotomicFieldElement<i64> for Number {
     fn e(n: i64, k: i64) -> Self {
         let mut coeffs = vec![Q::from(0); n as usize];
         coeffs[k as usize] = Q::from(1);

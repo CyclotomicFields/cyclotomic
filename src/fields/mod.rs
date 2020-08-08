@@ -1,7 +1,10 @@
 extern crate rug;
+extern crate num_traits;
 
 pub type Z = rug::Integer;
 pub type Q = rug::Rational;
+
+use num::Integer;
 
 pub trait AdditiveGroupElement {
     /// Adds z to self in place, so self = self + z
@@ -26,19 +29,20 @@ pub trait FieldElement: AdditiveGroupElement + MultiplicativeGroupElement {
 }
 
 /// Provides convenience functions specific to cyclotomic fields.
-pub trait CyclotomicFieldElement: FieldElement + Clone {
+pub trait CyclotomicFieldElement<Exponent>: FieldElement + Clone
+{
     /// Returns $\zeta_n$^k.
-    fn e(n: i64, k: i64) -> Self;
+    fn e(n: Exponent, k: Exponent) -> Self;
 
     /// Multiplies in-place by scalar. Recall that $\mathbb{Q}(\zeta_n)$ is a
     /// $\mathbb{Q}$-vector space.
     fn scalar_mul(&mut self, scalar: &Q) -> &mut Self;
 
     /// Gives zero expressed as an element of $\mathbb{Q}(\zeta_n)$
-    fn zero_order(n: i64) -> Self;
+    fn zero_order(n: Exponent) -> Self;
 
     /// Gives one expressed as an element of $\mathbb{Q}(\zeta_n)$
-    fn one_order(n: i64) -> Self;
+    fn one_order(n: Exponent) -> Self;
 }
 
 #[macro_export]

@@ -160,11 +160,11 @@ impl FieldElement for Number {
     }
 }
 
-impl CyclotomicFieldElement for Number {
-    fn e(n: i64, k: i64) -> Self {
+impl CyclotomicFieldElement<Z> for Number {
+    fn e(n: Z, k: Z) -> Self {
         Number::new(
-            &Exponent::from(n),
-            &[(k.into(), Q::from(1))].iter().cloned().collect(),
+            &n,
+            &[(k, Q::from(1))].iter().cloned().collect(),
         )
     }
 
@@ -177,14 +177,16 @@ impl CyclotomicFieldElement for Number {
         self
     }
 
-    fn zero_order(n: i64) -> Number {
-        Number::new(&n.into(), &ExpCoeffMap::default())
+    fn zero_order(n: Z) -> Number {
+        Number::new(&n, &ExpCoeffMap::default())
     }
 
-    fn one_order(n: i64) -> Number {
+    fn one_order(n: Z) -> Number {
         let mut coeffs = ExpCoeffMap::default();
-        for i in 1..n {
-            coeffs.insert(i.into(), Q::from(-1));
+        let mut i = Z::from(1);
+        while &i != &n {
+            coeffs.insert(i.clone(), Q::from(-1));
+            i += 1;
         }
         Number::new(&n.into(), &coeffs)
     }
@@ -205,7 +207,7 @@ where
 {
     let order = g.gen_range(min_order, max_order);
     let num_terms: u64 = g.gen_range(1, 5);
-    let mut result = Number::zero_order(order.clone());
+    let mut result = Number::zero_order(Z::from(order.clone()));
 
     for _ in 1..=num_terms {
         let exp: i64 = g.gen_range(1, order);
@@ -225,4 +227,4 @@ impl Arbitrary for Number {
     }
 }
 
-//field_axiom_tests!(Number);
+field_axiom_tests!(Number);

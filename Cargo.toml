@@ -22,6 +22,7 @@ rustc-hash = "1.1.0"
 clap = "3.0.0-beta.1"
 antic = "0.1"
 rug = "1.10.0"
+num-traits = "0.2.12"
 
 [[bin]]
 name = "cyclobench"
