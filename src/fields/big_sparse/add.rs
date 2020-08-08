@@ -21,7 +21,7 @@ impl AdditiveGroupElement for Number {
             };
         }
 
-        let result = Number::new(z1.order, &coeffs);
+        let result = Number::new(&z1.order, &coeffs);
         *z1 = result;
         z1
     }
