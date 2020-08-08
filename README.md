@@ -36,6 +36,9 @@ See [below for some benchmarks against antic](#benchmarks).
 
 ## TODO
 
+* Get rid of all the copy and paste, make some abstractions that
+  actually make sense.
+
 * C FFI interface for calling our Rust code from other languages
 
 * Sparse representations:
