@@ -10,8 +10,7 @@ use basis::convert_to_base;
 use num::traits::Inv;
 use quickcheck::{Arbitrary, Gen};
 use rand::Rng;
-use rustc_hash::FxHashMap;
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 use std::fmt;
 use std::ops::{AddAssign, Mul, SubAssign};
 use std::vec::Vec;
@@ -25,7 +24,7 @@ pub mod galois;
 pub mod mul;
 
 pub type Exponent = Z;
-pub type ExpCoeffMap = FxHashMap<Exponent, Q>;
+pub type ExpCoeffMap = HashMap<Exponent, Q>;
 
 /// Represents a polynomial in the `order`th root of unity.
 #[derive(Clone)]

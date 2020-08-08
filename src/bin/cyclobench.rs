@@ -7,9 +7,9 @@ extern crate test;
 use antic::safe::*;
 use clap::Clap;
 
-use cyclotomic::fields::dense;
 use cyclotomic::fields::sparse;
 use cyclotomic::fields::structure;
+use cyclotomic::fields::{big_sparse, dense, FieldElement};
 
 use cyclotomic::fields::AdditiveGroupElement;
 use cyclotomic::fields::MultiplicativeGroupElement;
@@ -24,10 +24,10 @@ use std::io::Write;
 
 use cyclotomic::fields::structure::write_dense_in_basis;
 use num::Zero;
+use rand::seq::IteratorRandom;
+use std::cmp::min;
 use std::time::Instant;
 use test::black_box;
-use std::cmp::min;
-use rand::seq::IteratorRandom;
 
 #[derive(Clap)]
 #[clap(version = "1.0")]
@@ -67,7 +67,7 @@ struct Opts {
     q_maximum_integer: usize,
 
     #[clap(short, long, help = "make this fraction of the terms be nonzero")]
-    density: Option<f64>
+    density: Option<f64>,
 }
 
 // Kind of like the stuff in cyclotomic::polynomial, but just for test
@@ -131,7 +131,12 @@ fn write_gap_cycs_flat(nums: &Vec<sparse::Number>, filename: String) -> Result<(
     Ok(())
 }
 
-fn random_generic_cyclotomic<G>(gen: &mut G, degree: usize, density: Option<f64>, terms: usize) -> GenericCyclotomic
+fn random_generic_cyclotomic<G>(
+    gen: &mut G,
+    degree: usize,
+    density: Option<f64>,
+    terms: usize,
+) -> GenericCyclotomic
 where
     G: rand::RngCore,
 {
@@ -152,8 +157,9 @@ where
     for exponent in exps {
         let numerator: i64 = gen.gen_range(rational_bounds.0, rational_bounds.1) as i64;
         let denominator: u64 = gen.gen_range(rational_bounds.0, rational_bounds.1) as u64;
-        let exponent: i64 = gen.gen_range(0, degree) as i64;
-        result.exp_coeffs.insert(exponent, (numerator, denominator));
+        result
+            .exp_coeffs
+            .insert(exponent as i64, (numerator, denominator));
     }
 
     result
@@ -164,7 +170,7 @@ fn random_generic_cyclotomics<G>(
     gen: &mut G,
     degree: usize,
     density: Option<f64>,
-    num_terms: usize
+    num_terms: usize,
 ) -> Vec<GenericCyclotomic>
 where
     G: rand::RngCore,
@@ -183,6 +189,16 @@ fn into_sparse_number(f: &GenericCyclotomic) -> sparse::Number {
     }
 
     sparse::Number::new(f.order, &coeffs)
+}
+
+fn into_big_sparse_number(f: &GenericCyclotomic) -> big_sparse::Number {
+    let mut coeffs = cyclotomic::fields::big_sparse::ExpCoeffMap::default();
+
+    for (exp, (num, denom)) in &f.exp_coeffs {
+        coeffs.insert(Z::from(*exp), Q::from((*num, *denom)));
+    }
+
+    big_sparse::Number::new(&Z::from(f.order), &coeffs)
 }
 
 fn into_dense_number(f: &GenericCyclotomic) -> dense::Number {
@@ -239,7 +255,7 @@ fn main() {
         gen,
         opts.lower_bound_order,
         opts.density,
-        opts.terms
+        opts.terms,
     );
 
     // cut it up into chunks for each thread
@@ -252,6 +268,17 @@ fn main() {
         .clone()
         .into_iter()
         .map(|chunk| chunk.into_iter().map(|f| into_sparse_number(&f)).collect())
+        .collect();
+
+    let big_sparse_nums: Vec<Vec<big_sparse::Number>> = chunks
+        .clone()
+        .into_iter()
+        .map(|chunk| {
+            chunk
+                .into_iter()
+                .map(|f| into_big_sparse_number(&f))
+                .collect()
+        })
         .collect();
 
     let dense_nums: Vec<Vec<dense::Number>> = chunks
@@ -309,9 +336,11 @@ fn main() {
     let start = Instant::now();
 
     if opts.implementation.as_str() == "sparse" {
-        sparse_number_bench(&opts, &sparse_nums);
+        number_bench(&opts, &sparse_nums);
     } else if opts.implementation.as_str() == "dense" {
-        dense_number_bench(&opts, &dense_nums);
+        number_bench(&opts, &dense_nums);
+    } else if opts.implementation.as_str() == "big_sparse" {
+        number_bench(&opts, &big_sparse_nums);
     } else if opts.implementation.as_str() == "structure" {
         structure_number_bench(&opts, &structure_field, &structure_nums);
     } else if opts.implementation.as_str() == "antic" {
@@ -324,7 +353,10 @@ fn main() {
     println!("{}", start.elapsed().as_millis());
 }
 
-fn sparse_number_bench(opts: &Opts, nums: &Vec<Vec<sparse::Number>>) {
+fn number_bench<T>(opts: &Opts, nums: &Vec<Vec<T>>)
+where
+    T: FieldElement + Clone,
+{
     for i in 0..opts.threads {
         let num_chunk = &nums[i];
         for j in 0..opts.num_tests / opts.threads {
@@ -341,7 +373,11 @@ fn sparse_number_bench(opts: &Opts, nums: &Vec<Vec<sparse::Number>>) {
     }
 }
 
-fn dense_number_bench(opts: &Opts, nums: &Vec<Vec<dense::Number>>) {
+fn structure_number_bench(
+    opts: &Opts,
+    field: &structure::CyclotomicField,
+    nums: &Vec<Vec<Vec<Q>>>,
+) {
     for i in 0..opts.threads {
         let num_chunk = &nums[i];
         for j in 0..opts.num_tests / opts.threads {
@@ -353,24 +389,10 @@ fn dense_number_bench(opts: &Opts, nums: &Vec<Vec<dense::Number>>) {
             let c = &mut num_chunk[6 * j + 5].clone();
 
             // black_box means don't optimise this away into a no-op
-            black_box(x.mul(y).add(z.mul(a)).add(b.mul(c)));
-        }
-    }
-}
-
-fn structure_number_bench(opts: &Opts, field: &structure::CyclotomicField, nums: &Vec<Vec<Vec<Q>>>) {
-    for i in 0..opts.threads {
-        let num_chunk = &nums[i];
-        for j in 0..opts.num_tests / opts.threads {
-            let x = &mut num_chunk[6 * j].clone();
-            let y = &mut num_chunk[6 * j + 1].clone();
-            let z = &mut num_chunk[6 * j + 2].clone();
-            let a = &mut num_chunk[6 * j + 3].clone();
-            let b = &mut num_chunk[6 * j + 4].clone();
-            let c = &mut num_chunk[6 * j + 5].clone();
-
-            // black_box means don't optimise this away into a no-op
-            black_box(field.add(&field.mul(x, y), &field.add(&field.mul(z, a), &field.mul(b, c))));
+            black_box(field.add(
+                &field.mul(x, y),
+                &field.add(&field.mul(z, a), &field.mul(b, c)),
+            ));
         }
     }
 }
