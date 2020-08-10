@@ -2,6 +2,7 @@
 
 antic_version=0.2.2
 
+sudo apt update
 sudo apt install -y libgmp-dev libmpfr-dev libflint-dev
 mkdir build
 cd build
