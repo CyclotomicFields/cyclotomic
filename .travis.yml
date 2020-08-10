@@ -12,10 +12,10 @@ cache: cargo
 
 # need to specify script for documentation build
 script:
-  - cargo build --verbose
-  - cargo test --verbose
+  - ./ci-build.sh
+  - cargo build --verbose --release
+  - cargo test --verbose --release
   - cargo doc --verbose --no-deps --document-private-items
-  # Create an index.html in the generated documentation folder
   - echo '<!DOCTYPE html><html lang="en"><meta http-equiv=refresh content=0;url=cyclotomic/index.html></html>' > target/doc/index.html
 
 # deploy documentation to github pages
