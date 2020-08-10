@@ -1,29 +1,8 @@
-language: rust
+language: ruby
 
-# only nightly due to use of #[feature(test)]
-rust:
-  - nightly
+services:
+  - docker
 
-jobs:
-  fast_finish: true
-
-# cache dependencies for faster build
-cache: cargo
-
-# need to specify script for documentation build
 script:
-  - ./ci-build.sh
-  - cargo build --verbose --release
-  - cargo test --verbose --release
-  - cargo doc --verbose --no-deps --document-private-items
-  - echo '<!DOCTYPE html><html lang="en"><meta http-equiv=refresh content=0;url=cyclotomic/index.html></html>' > target/doc/index.html
-
-# deploy documentation to github pages
-deploy:
-  provider: pages
-  skip_cleanup: true
-  github_token: $GITHUB_TOKEN
-  verbose: true
-  local_dir: target/doc
-  on:
-    branch: master
+  - docker pull kaashif1/cyclotomic:latest
+  - docker run --rm -it -v $(pwd):/cyclotomic kaashif1/cyclotomic:latest /bin/sh -c "cd /cyclotomic && cargo +nightly test --release && cargo +nightly build --release"
