@@ -11,7 +11,7 @@ repository = "https://github.com/CyclotomicFields/cyclotomic"
 readme = "README.md"
 
 [dependencies]
-num = "0.2.1"
+num = "0.2.1" # TODO: remove this, it's slow
 combinations = "0.1.0"
 quickcheck = "0.9"
 quickcheck_macros = "0.9"
@@ -23,6 +23,7 @@ clap = "3.0.0-beta.1"
 antic = "0.1"
 rug = "1.10.0"
 num-traits = "0.2.12"
+sexp = "1.1.4"
 
 [[bin]]
 name = "cyclobench"

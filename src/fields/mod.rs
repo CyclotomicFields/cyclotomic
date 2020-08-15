@@ -45,7 +45,7 @@ pub trait CyclotomicFieldElement<Exponent>: FieldElement + Clone
 
 /// Possible data structure for a CyclotomicFieldElement, useful as a common
 /// interchange format for different concrete CyclotomicFieldElement types.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GenericCyclotomic {
     // (exp, (numerator, denominator))
     pub exp_coeffs: HashMap<Z, (i64, u64)>,

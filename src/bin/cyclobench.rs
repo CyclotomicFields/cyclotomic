@@ -21,8 +21,8 @@ use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::Result;
 use std::io::Write;
+use std::io::{BufRead, Result};
 
 use cyclotomic::fields::structure::write_dense_in_basis;
 use num::Zero;
@@ -30,6 +30,8 @@ use rand::seq::IteratorRandom;
 use rug::rand::RandState;
 use std::cmp::min;
 use std::convert::TryInto;
+use std::io;
+use std::process::{Command, Stdio};
 use std::time::Instant;
 use test::black_box;
 
@@ -392,8 +394,106 @@ fn random(top_level: &TopLevel, opts: &RandomOpts) {
     println!("{}", start.elapsed().as_millis());
 }
 
+fn sexp2i64(sexp: &sexp::Sexp) -> i64 {
+    if let sexp::Sexp::Atom(sexp::Atom::I(order)) = sexp {
+        *order
+    } else {
+        panic!("couldn't parse integer")
+    }
+}
+
+fn sexp2z(sexp: &sexp::Sexp) -> Z {
+    Z::from(sexp2i64(sexp))
+}
+
+fn sexp2list(sexp: &sexp::Sexp) -> Vec<sexp::Sexp> {
+    if let sexp::Sexp::List(sexps) = sexp {
+        sexps.clone()
+    } else {
+        panic!("couldn't parse list")
+    }
+}
+
+fn sexp2string(sexp: &sexp::Sexp) -> String {
+    if let sexp::Sexp::Atom(sexp::Atom::S(string)) = sexp {
+        string.clone()
+    } else {
+        panic!("couldn't parse string")
+    }
+}
+
+fn parse_order(sexp: &sexp::Sexp) -> Z {
+    let sexps = sexp2list(sexp);
+    assert_eq!(sexp2string(&sexps[0]), "order".to_owned());
+    sexp2z(&sexps[1])
+}
+
+fn parse_exponent(sexp: &sexp::Sexp) -> Z {
+    let sexps = sexp2list(sexp);
+    assert_eq!(sexp2string(&sexps[0]), "exponent".to_owned());
+    sexp2z(&sexps[1])
+}
+
+fn parse_rational(sexp: &sexp::Sexp) -> (i64, u64) {
+    let sexps = sexp2list(sexp);
+    assert_eq!(sexp2string(&sexps[0]), "rational".to_owned());
+    let numerator = sexp2i64(&sexps[1]);
+    let denominator = sexp2i64(&sexps[2]);
+    (numerator, denominator as u64)
+}
+
+fn parse_coeffs(sexp: &sexp::Sexp) -> HashMap<Z, (i64, u64)> {
+    let sexps = sexp2list(sexp);
+    assert_eq!(sexp2string(&sexps[0]), "coeffs".to_owned());
+
+    let mut result = HashMap::new();
+
+    for i in 1..sexps.len() {
+        let coeff_sexps = sexp2list(&sexps[i]);
+        assert_eq!(sexp2string(&coeff_sexps[0]), "coeff".to_string());
+        let exponent = parse_exponent(&coeff_sexps[1]);
+        let (numerator, denominator) = parse_rational(&coeff_sexps[2]);
+        result.insert(exponent, (numerator, denominator));
+    }
+
+    result
+}
+
+fn sexp2cyclotomic(sexp: String) -> GenericCyclotomic {
+    let sexp = sexp::parse(sexp.as_str()).unwrap();
+    let sexps = sexp2list(&sexp);
+    assert_eq!(sexps.len(), 3);
+    assert_eq!(sexp2string(&sexps[0]), "cyclotomic".to_string());
+    let order = parse_order(&sexps[1]);
+    let coeffs = parse_coeffs(&sexps[2]);
+    GenericCyclotomic {
+        order: order,
+        exp_coeffs: coeffs,
+    }
+}
+
+fn gap2sexp(gap_cyc: String) -> String {
+    let mut child = Command::new("gap2sexp")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let stdin = child.stdin.as_mut().unwrap();
+    stdin.write_all(gap_cyc.as_bytes());
+    let output = child.wait_with_output().unwrap();
+    String::from_utf8(output.stdout).unwrap()
+}
+
 fn stdin(top_level: &TopLevel, opts: &StdinOpts) {
-    eprintln!("not implemented")
+    let stdin = io::stdin();
+    let lines = stdin.lock().lines();
+    let sexps: Vec<String> = lines
+        .into_iter()
+        .map(|line| gap2sexp(line.unwrap()))
+        .collect();
+    for sexp in sexps {
+        println!("{:?}", sexp2cyclotomic(sexp));
+    }
 }
 
 fn main() {
