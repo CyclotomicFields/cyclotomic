@@ -28,4 +28,3 @@ mod primes;
 /// done in-place, varies for each implementation.
 #[macro_use]
 pub mod fields;
-

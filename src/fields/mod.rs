@@ -1,10 +1,8 @@
-extern crate rug;
-extern crate num_traits;
-
 pub type Z = rug::Integer;
 pub type Q = rug::Rational;
 
 use num::Integer;
+use std::collections::HashMap;
 
 pub trait AdditiveGroupElement {
     /// Adds z to self in place, so self = self + z
@@ -43,6 +41,15 @@ pub trait CyclotomicFieldElement<Exponent>: FieldElement + Clone
 
     /// Gives one expressed as an element of $\mathbb{Q}(\zeta_n)$
     fn one_order(n: Exponent) -> Self;
+}
+
+/// Possible data structure for a CyclotomicFieldElement, useful as a common
+/// interchange format for different concrete CyclotomicFieldElement types.
+#[derive(Clone)]
+pub struct GenericCyclotomic {
+    // (exp, (numerator, denominator))
+    pub exp_coeffs: HashMap<Z, (i64, u64)>,
+    pub order: Z,
 }
 
 #[macro_export]

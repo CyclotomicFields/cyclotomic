@@ -5,7 +5,7 @@
 use super::num::Zero;
 use crate::fields::big_sparse::*;
 
-use crate::fields::rug::ops::Pow;
+use rug::ops::Pow;
 use crate::fields::util::{count_powers_big, math_mod_big, phi_big};
 use std::convert::TryInto;
 use std::ops::Mul;
