@@ -7,6 +7,8 @@ extern crate test;
 use antic::safe::*;
 use clap::Clap;
 
+use cyclotomic::fields::GenericCyclotomic;
+
 use cyclotomic::fields::sparse;
 use cyclotomic::fields::structure;
 use cyclotomic::fields::{big_sparse, dense, FieldElement};
@@ -33,7 +35,36 @@ use test::black_box;
 
 #[derive(Clap)]
 #[clap(version = "1.0")]
-struct Opts {
+struct TopLevel {
+    #[clap(
+        short,
+        long,
+        default_value = "sparse",
+        about = "sparse, dense, big_sparse, or antic"
+    )]
+    implementation: String,
+
+    #[clap(subcommand)]
+    subcmd: SubCommand,
+}
+
+#[derive(Clap)]
+enum SubCommand {
+    #[clap(version = "1.0", about = "Generate random test data to benchmark")]
+    Random(RandomOpts),
+
+    #[clap(
+        version = "1.0",
+        about = "Read cyclotomic s-expressions to evaluate from stdin"
+    )]
+    Stdin(StdinOpts),
+}
+
+#[derive(Clap)]
+struct StdinOpts {}
+
+#[derive(Clap)]
+struct RandomOpts {
     #[clap(short, long, about = "file to output GAP benchmark code to")]
     gap_out: Option<String>,
 
@@ -49,14 +80,6 @@ struct Opts {
     #[clap(short, long, default_value = "100")]
     upper_bound_order: usize,
 
-    #[clap(
-        short,
-        long,
-        default_value = "sparse",
-        about = "sparse, dense, big_sparse, or antic"
-    )]
-    implementation: String,
-
     #[clap(long, default_value = "5")]
     terms: usize,
 
@@ -65,15 +88,6 @@ struct Opts {
 
     #[clap(short, long, about = "only works with big_sparse")]
     big_order: Option<String>,
-}
-
-// Kind of like the stuff in cyclotomic::polynomial, but just for test
-// data, completely unoptimized, and unsuitable for general use.
-#[derive(Clone)]
-struct GenericCyclotomic {
-    // (exp, (numerator, denominator))
-    exp_coeffs: HashMap<Z, (i64, u64)>,
-    order: Z,
 }
 
 // Writes a gap source file with a function f you can run that will
@@ -180,6 +194,8 @@ where
         .collect()
 }
 
+// TODO: clearly there's some way to use the Into trait, do it
+
 fn into_sparse_number(f: &GenericCyclotomic) -> sparse::Number {
     let mut coeffs = cyclotomic::fields::sparse::ExpCoeffMap::default();
 
@@ -233,17 +249,15 @@ fn into_antic(
     num
 }
 
-fn main() {
-    let opts: Opts = Opts::parse();
-
-    if opts.big_order.is_some() && opts.implementation != "big_sparse".to_owned() {
+fn random(top_level: &TopLevel, opts: &RandomOpts) {
+    if opts.big_order.is_some() && top_level.implementation != "big_sparse".to_owned() {
         eprintln!("you must use big_sparse with big_order!");
         return;
     }
 
     eprintln!(
         "implementation = {}\nnum_tests = {}\nthreads = {}\nlower bound order = {}\nhigher bound order = {}",
-        opts.implementation, opts.num_tests, opts.threads, opts.lower_bound_order, opts.upper_bound_order
+        top_level.implementation, opts.num_tests, opts.threads, opts.lower_bound_order, opts.upper_bound_order
     );
 
     let gen = &mut ChaCha20Rng::seed_from_u64(12345);
@@ -286,9 +300,12 @@ fn main() {
 
     // if we're using big_order, we have to just run the benchmark for big_sparse,
     // none of the implementations support big numbers
-    if opts.implementation == "big_sparse".to_owned() && opts.big_order.is_some() {
+    if top_level.implementation == "big_sparse".to_owned() && opts.big_order.is_some() {
         eprintln!("running big order benchmark, only for big_sparse");
-        eprintln!("big order = {}", opts.big_order.clone().unwrap().parse::<Z>().unwrap());
+        eprintln!(
+            "big order = {}",
+            opts.big_order.clone().unwrap().parse::<Z>().unwrap()
+        );
         let start = Instant::now();
         number_bench(&opts, &big_sparse_nums);
         eprintln!("time elapsed (ms):");
@@ -356,25 +373,39 @@ fn main() {
     eprintln!("starting benchmark");
     let start = Instant::now();
 
-    if opts.implementation.as_str() == "sparse" {
+    // TODO: clearly should be an enum
+    if top_level.implementation.as_str() == "sparse" {
         number_bench(&opts, &sparse_nums);
-    } else if opts.implementation.as_str() == "dense" {
+    } else if top_level.implementation.as_str() == "dense" {
         number_bench(&opts, &dense_nums);
-    } else if opts.implementation.as_str() == "big_sparse" {
+    } else if top_level.implementation.as_str() == "big_sparse" {
         number_bench(&opts, &big_sparse_nums);
-    } else if opts.implementation.as_str() == "structure" {
+    } else if top_level.implementation.as_str() == "structure" {
         structure_number_bench(&opts, &structure_field, &structure_nums);
-    } else if opts.implementation.as_str() == "antic" {
+    } else if top_level.implementation.as_str() == "antic" {
         antic_bench(&opts, &mut cyclotomic_field_n, &antic_nums);
     } else {
-        panic!("bad implementation {}", opts.implementation);
+        panic!("bad implementation {}", top_level.implementation);
     }
 
     eprintln!("time elapsed (ms):");
     println!("{}", start.elapsed().as_millis());
 }
 
-fn number_bench<T>(opts: &Opts, nums: &Vec<Vec<T>>)
+fn stdin(top_level: &TopLevel, opts: &StdinOpts) {
+    eprintln!("not implemented")
+}
+
+fn main() {
+    let top_level: TopLevel = TopLevel::parse();
+
+    match &top_level.subcmd {
+        SubCommand::Random(random_opts) => random(&top_level, &random_opts),
+        SubCommand::Stdin(stdin_opts) => stdin(&top_level, &stdin_opts),
+    }
+}
+
+fn number_bench<T>(opts: &RandomOpts, nums: &Vec<Vec<T>>)
 where
     T: FieldElement + Clone,
 {
@@ -395,7 +426,7 @@ where
 }
 
 fn structure_number_bench(
-    opts: &Opts,
+    opts: &RandomOpts,
     field: &structure::CyclotomicField,
     nums: &Vec<Vec<Vec<Q>>>,
 ) {
@@ -419,7 +450,7 @@ fn structure_number_bench(
 }
 
 fn antic_bench(
-    opts: &Opts,
+    opts: &RandomOpts,
     mut cyclotomic_field_n: &mut NumberField,
     antic_nums: &Vec<Vec<NumberFieldElement>>,
 ) {
