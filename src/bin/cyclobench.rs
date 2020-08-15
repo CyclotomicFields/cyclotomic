@@ -570,7 +570,6 @@ fn stdin(top_level: &TopLevel, opts: &StdinOpts) {
             matrices.push(sexp2matrix(&sexp).unwrap());
         }
         assert_eq!(matrices.len() % opts.chunk_size, 0);
-        eprintln!("TODO");
     } else {
         panic!("bad element type {}!", opts.element_type);
     }

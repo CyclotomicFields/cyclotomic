@@ -8,6 +8,7 @@ pub trait AdditiveGroupElement {
     /// Adds z to self in place, so self = self + z
     fn add(&mut self, z: &mut Self) -> &mut Self;
 
+    /// Negates z in in place
     fn add_invert(&mut self) -> &mut Self;
 }
 
@@ -28,6 +29,7 @@ pub trait FieldElement: AdditiveGroupElement + MultiplicativeGroupElement {
 
 /// Provides convenience functions specific to cyclotomic fields.
 pub trait CyclotomicFieldElement<Exponent>: FieldElement + Clone
+    where Exponent: From<i64>
 {
     /// Returns $\zeta_n$^k.
     fn e(n: Exponent, k: Exponent) -> Self;
@@ -154,3 +156,6 @@ pub mod structure;
 
 /// Common utilities
 pub mod util;
+
+/// Matrix and vector operations.
+pub mod linear_algebra;
