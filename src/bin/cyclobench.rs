@@ -7,7 +7,7 @@ extern crate test;
 use antic::safe::*;
 use clap::Clap;
 
-use cyclotomic::fields::GenericCyclotomic;
+use cyclotomic::fields::{GenericCyclotomic, CyclotomicFieldElement};
 
 use cyclotomic::fields::sparse;
 use cyclotomic::fields::structure;
@@ -57,13 +57,31 @@ enum SubCommand {
 
     #[clap(
         version = "1.0",
-        about = "Read cyclotomic s-expressions to evaluate from stdin"
+        about = "Read GAP cyclotomic expressions to evaluate from stdin"
     )]
     Stdin(StdinOpts),
 }
 
 #[derive(Clap)]
-struct StdinOpts {}
+struct StdinOpts {
+    #[clap(short, long, about = "type of each element being input")]
+    element_type: String,
+
+    #[clap(
+        short,
+        long,
+        about = "computation to run on list of inputs",
+        default_value = "sumofproducts"
+    )]
+    mode: String,
+
+    #[clap(
+        short,
+        long,
+        about = "if mode is X of Y, this is the size of chunk to run Y on"
+    )]
+    chunk_size: usize,
+}
 
 #[derive(Clap)]
 struct RandomOpts {
@@ -124,23 +142,6 @@ fn write_gap_cycs(nums: &Vec<sparse::Number>, filename: String) -> Result<()> {
     }
     file.write_all(b"end;;\n")?;
     file.write_all(b"start_time := NanosecondsSinceEpoch();; f();; end_time := NanosecondsSinceEpoch();; Int((end_time-start_time)/1000000);")?;
-    Ok(())
-}
-
-fn write_gap_cycs_flat(nums: &Vec<sparse::Number>, filename: String) -> Result<()> {
-    eprintln!("writing GAP expressions to {}", filename);
-
-    let mut file = File::create(filename).unwrap();
-
-    file.write_all(b"SetCyclotomicsLimit(2^32-1);;\n")?;
-    file.write_all(b"cycs := [\n")?;
-
-    for i in 0..nums.len() - 1 {
-        let z = &nums[i];
-        write!(&mut file, "{},\n", sparse::print_gap(z))?;
-    }
-    write!(&mut file, "{}\n", sparse::print_gap(&nums[nums.len() - 1]))?;
-    file.write_all(b"];;\n")?;
     Ok(())
 }
 
@@ -363,13 +364,6 @@ fn random(top_level: &TopLevel, opts: &RandomOpts) {
             Ok(()) => (),
             Err(e) => eprintln!("error writing gap file: {}", e),
         };
-        match write_gap_cycs_flat(
-            &sparse_nums.clone().into_iter().flatten().collect(),
-            "flat_".to_owned() + gap_out.as_str(),
-        ) {
-            Ok(()) => (),
-            Err(e) => eprintln!("error writing flat gap file: {}", e),
-        };
     }
 
     eprintln!("starting benchmark");
@@ -394,82 +388,105 @@ fn random(top_level: &TopLevel, opts: &RandomOpts) {
     println!("{}", start.elapsed().as_millis());
 }
 
-fn sexp2i64(sexp: &sexp::Sexp) -> i64 {
+fn sexp2i64(sexp: &sexp::Sexp) -> Option<i64> {
     if let sexp::Sexp::Atom(sexp::Atom::I(order)) = sexp {
-        *order
+        Some(*order)
     } else {
-        panic!("couldn't parse integer")
+        None
     }
 }
 
-fn sexp2z(sexp: &sexp::Sexp) -> Z {
-    Z::from(sexp2i64(sexp))
+fn sexp2z(sexp: &sexp::Sexp) -> Option<Z> {
+    Some(Z::from(sexp2i64(sexp)?))
 }
 
-fn sexp2list(sexp: &sexp::Sexp) -> Vec<sexp::Sexp> {
+fn sexp2list(sexp: &sexp::Sexp) -> Option<Vec<sexp::Sexp>> {
     if let sexp::Sexp::List(sexps) = sexp {
-        sexps.clone()
+        Some(sexps.clone())
     } else {
-        panic!("couldn't parse list")
+        None
     }
 }
 
-fn sexp2string(sexp: &sexp::Sexp) -> String {
+fn sexp2string(sexp: &sexp::Sexp) -> Option<String> {
     if let sexp::Sexp::Atom(sexp::Atom::S(string)) = sexp {
-        string.clone()
+        Some(string.clone())
     } else {
-        panic!("couldn't parse string")
+        None
     }
 }
 
-fn parse_order(sexp: &sexp::Sexp) -> Z {
-    let sexps = sexp2list(sexp);
-    assert_eq!(sexp2string(&sexps[0]), "order".to_owned());
+macro_rules! assert_eq_return {
+    ($expr1:expr, $expr2:expr) => {
+        if $expr1 != $expr2 {
+            return None;
+        }
+    };
+}
+
+fn parse_order(sexp: &sexp::Sexp) -> Option<Z> {
+    let sexps = sexp2list(sexp)?;
+    assert_eq_return!(sexp2string(&sexps[0])?, "order".to_owned());
     sexp2z(&sexps[1])
 }
 
-fn parse_exponent(sexp: &sexp::Sexp) -> Z {
-    let sexps = sexp2list(sexp);
-    assert_eq!(sexp2string(&sexps[0]), "exponent".to_owned());
+fn parse_exponent(sexp: &sexp::Sexp) -> Option<Z> {
+    let sexps = sexp2list(sexp)?;
+    assert_eq_return!(sexp2string(&sexps[0])?, "exponent".to_owned());
     sexp2z(&sexps[1])
 }
 
-fn parse_rational(sexp: &sexp::Sexp) -> (i64, u64) {
-    let sexps = sexp2list(sexp);
-    assert_eq!(sexp2string(&sexps[0]), "rational".to_owned());
-    let numerator = sexp2i64(&sexps[1]);
-    let denominator = sexp2i64(&sexps[2]);
-    (numerator, denominator as u64)
+fn parse_rational(sexp: &sexp::Sexp) -> Option<(i64, u64)> {
+    let sexps = sexp2list(sexp)?;
+    assert_eq_return!(sexp2string(&sexps[0])?, "rational".to_owned());
+    let numerator = sexp2i64(&sexps[1])?;
+    let denominator = sexp2i64(&sexps[2])?;
+    Some((numerator, denominator as u64))
 }
 
-fn parse_coeffs(sexp: &sexp::Sexp) -> HashMap<Z, (i64, u64)> {
-    let sexps = sexp2list(sexp);
-    assert_eq!(sexp2string(&sexps[0]), "coeffs".to_owned());
+fn parse_coeffs(sexp: &sexp::Sexp) -> Option<HashMap<Z, (i64, u64)>> {
+    let sexps = sexp2list(sexp)?;
+    assert_eq_return!(sexp2string(&sexps[0])?, "coeffs".to_owned());
 
     let mut result = HashMap::new();
 
     for i in 1..sexps.len() {
-        let coeff_sexps = sexp2list(&sexps[i]);
-        assert_eq!(sexp2string(&coeff_sexps[0]), "coeff".to_string());
-        let exponent = parse_exponent(&coeff_sexps[1]);
-        let (numerator, denominator) = parse_rational(&coeff_sexps[2]);
+        let coeff_sexps = sexp2list(&sexps[i])?;
+        assert_eq_return!(sexp2string(&coeff_sexps[0])?, "coeff".to_string());
+        let exponent = parse_exponent(&coeff_sexps[1])?;
+        let (numerator, denominator) = parse_rational(&coeff_sexps[2])?;
         result.insert(exponent, (numerator, denominator));
     }
 
-    result
+    Some(result)
 }
 
-fn sexp2cyclotomic(sexp: String) -> GenericCyclotomic {
-    let sexp = sexp::parse(sexp.as_str()).unwrap();
-    let sexps = sexp2list(&sexp);
-    assert_eq!(sexps.len(), 3);
-    assert_eq!(sexp2string(&sexps[0]), "cyclotomic".to_string());
-    let order = parse_order(&sexps[1]);
-    let coeffs = parse_coeffs(&sexps[2]);
-    GenericCyclotomic {
+fn sexp2cyclotomic(sexp: &sexp::Sexp) -> Option<GenericCyclotomic> {
+    let sexps = sexp2list(sexp)?;
+    assert_eq_return!(sexps.len(), 3);
+    assert_eq_return!(sexp2string(&sexps[0])?, "cyclotomic".to_string());
+    let order = parse_order(&sexps[1])?;
+    let coeffs = parse_coeffs(&sexps[2])?;
+    Some(GenericCyclotomic {
         order: order,
         exp_coeffs: coeffs,
+    })
+}
+
+fn sexp2matrix(sexp: &sexp::Sexp) -> Option<Vec<Vec<GenericCyclotomic>>> {
+    let mut matrix = vec![];
+    let row_list = sexp2list(sexp)?;
+    assert_eq_return!(sexp2string(&row_list[0])?, "list".to_string());
+    for i in 1..row_list.len() {
+        let mut row = vec![];
+        let cyc_list = sexp2list(&row_list[i])?;
+        assert_eq_return!(sexp2string(&cyc_list[0])?, "list".to_string());
+        for j in 1..cyc_list.len() {
+            row.push(sexp2cyclotomic(&cyc_list[j])?);
+        }
+        matrix.push(row);
     }
+    Some(matrix)
 }
 
 fn gap2sexp(gap_cyc: String) -> String {
@@ -484,6 +501,8 @@ fn gap2sexp(gap_cyc: String) -> String {
     String::from_utf8(output.stdout).unwrap()
 }
 
+// TODO: honestly this whole thing is horrific
+
 fn stdin(top_level: &TopLevel, opts: &StdinOpts) {
     let stdin = io::stdin();
     let lines = stdin.lock().lines();
@@ -491,8 +510,85 @@ fn stdin(top_level: &TopLevel, opts: &StdinOpts) {
         .into_iter()
         .map(|line| gap2sexp(line.unwrap()))
         .collect();
-    for sexp in sexps {
-        println!("{:?}", sexp2cyclotomic(sexp));
+
+    if opts.element_type == "scalar".to_owned() {
+        let mut scalars = vec![];
+        for str in sexps {
+            let sexp = sexp::parse(str.as_str()).unwrap();
+            scalars.push(sexp2cyclotomic(&sexp).unwrap());
+        }
+        assert_eq!(scalars.len() % opts.chunk_size, 0);
+        let num_chunks = scalars.len() / opts.chunk_size;
+        let chunks: Vec<Vec<GenericCyclotomic>> = scalars
+            .chunks(opts.chunk_size)
+            .map(|chunk| chunk.to_vec())
+            .collect();
+        let mut big_sparse_nums: Vec<Vec<big_sparse::Number>> = chunks
+            .clone()
+            .into_iter()
+            .map(|chunk| {
+                chunk
+                    .into_iter()
+                    .map(|f| into_big_sparse_number(&f))
+                    .collect()
+            })
+            .collect();
+
+        let mut sparse_nums: Vec<Vec<sparse::Number>> = chunks
+            .clone()
+            .into_iter()
+            .map(|chunk| chunk.into_iter().map(|f| into_sparse_number(&f)).collect())
+            .collect();
+
+        let mut dense_nums: Vec<Vec<dense::Number>> = chunks
+            .clone()
+            .into_iter()
+            .map(|chunk| chunk.into_iter().map(|f| into_dense_number(&f)).collect())
+            .collect();
+
+        eprintln!("starting benchmark");
+        let start = Instant::now();
+
+        // just supports sparse (TODO: others)
+        if top_level.implementation.as_str() == "sparse" {
+            black_box(stdin_scalar_bench(&opts, &mut sparse_nums));
+        } else if top_level.implementation.as_str() == "dense" {
+            black_box(stdin_scalar_bench(&opts, &mut dense_nums));
+        } else if top_level.implementation.as_str() == "big_sparse" {
+            black_box(stdin_scalar_bench(&opts, &mut big_sparse_nums));
+        } else {
+            panic!("unsupported implementation!")
+        }
+
+        let elapsed = start.elapsed().as_millis();
+        eprintln!("time elapsed (ms):");
+        println!("{}", elapsed);
+    } else if opts.element_type == "matrix".to_owned() {
+        let mut matrices = vec![];
+        for str in sexps {
+            let sexp = sexp::parse(str.as_str()).unwrap();
+            matrices.push(sexp2matrix(&sexp).unwrap());
+        }
+        assert_eq!(matrices.len() % opts.chunk_size, 0);
+        eprintln!("TODO");
+    } else {
+        panic!("bad element type {}!", opts.element_type);
+    }
+}
+
+fn stdin_scalar_bench<T, E>(opts: &StdinOpts, chunks: &mut Vec<Vec<T>>)
+    where
+        E: From<i64>,
+        T: CyclotomicFieldElement<E>,
+{
+    let mut result = T::zero_order(E::from(1));
+    for mut chunk in chunks {
+        let mut chunk_result = T::one_order(E::from(1));
+        for i in 0..chunk.len() {
+            let num = &mut chunk[i];
+            chunk_result.mul(num);
+        }
+        result.add(&mut chunk_result);
     }
 }
 
