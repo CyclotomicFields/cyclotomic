@@ -2,9 +2,9 @@ use crate::fields::{CyclotomicFieldElement, FieldElement};
 use std::marker::PhantomData;
 
 /// Terrible implementation of a matrix (not contiguous)
-struct Matrix<T, E> {
-    value: Vec<Vec<T>>,
-    exp: PhantomData<E>,
+pub struct Matrix<T, E> {
+    pub value: Vec<Vec<T>>,
+    pub exp: PhantomData<E>,
 }
 
 // TODO: more tests! or indeed any tests at all
@@ -14,6 +14,21 @@ where
     T: CyclotomicFieldElement<E>,
     E: From<i64>,
 {
+    pub fn zero_matrix(N: usize, M: usize) -> Self {
+        Matrix {
+            value: vec![vec![T::zero_order(E::from(1)); M]; N],
+            exp: PhantomData
+        }
+    }
+
+    // should this be called one_matrix for consistency? really makes you think
+    pub fn identity_matrix(N: usize) -> Self {
+        let mut result = Self::zero_matrix(N, N);
+        for i in 0..N {
+            result.value[i][i] = T::zero_order(E::from(1));
+        }
+        result
+    }
     fn assert_compatible(mA: &Self, mB: &Self) {
         let A = &mA.value;
         let B = &mB.value;
@@ -28,7 +43,7 @@ where
         }
     }
 
-    fn mul(mA: &mut Self, mB: &mut Self) -> Self {
+    pub fn mul(mA: &mut Self, mB: &mut Self) -> Self {
         Self::assert_compatible(mA, mB);
         let A = &mut mA.value;
         let B = &mut mB.value;
@@ -37,7 +52,7 @@ where
         let M = B.len();
         let L = B[0].len();
 
-        let mut result = vec![vec![T::zero_order(E::from(1)); M]; N];
+        let mut result = Self::zero_matrix(N, L);
 
         for i in 0..N {
             for j in 0..L {
@@ -45,7 +60,28 @@ where
                 for k in 0..M {
                     sum.add(&mut A[i][k].clone().mul(&mut B[k][j]));
                 }
-                result[i][j] = sum;
+                result.value[i][j] = sum;
+            }
+        }
+
+        result
+    }
+
+    pub fn add(mA: &mut Self, mB: &mut Self) -> Self {
+        // just assume they're compatible
+        // TODO: do something better
+
+        let A = &mut mA.value;
+        let B = &mut mB.value;
+
+        let N = A.len();
+        let M = A[0].len();
+
+        let mut result = A.clone();
+
+        for i in 0..N {
+            for j in 0..M {
+                result[i][j].add(&mut B[i][j]);
             }
         }
 

@@ -35,6 +35,9 @@ use std::process::{Command, Stdio};
 use std::time::Instant;
 use test::black_box;
 
+use cyclotomic::fields::linear_algebra::Matrix;
+use std::marker::PhantomData;
+
 #[derive(Clap)]
 #[clap(version = "1.0")]
 struct TopLevel {
@@ -388,6 +391,8 @@ fn random(top_level: &TopLevel, opts: &RandomOpts) {
     println!("{}", start.elapsed().as_millis());
 }
 
+// TODO: move all this parsing stuff into a different file
+
 fn sexp2i64(sexp: &sexp::Sexp) -> Option<i64> {
     if let sexp::Sexp::Atom(sexp::Atom::I(order)) = sexp {
         Some(*order)
@@ -518,7 +523,6 @@ fn stdin(top_level: &TopLevel, opts: &StdinOpts) {
             scalars.push(sexp2cyclotomic(&sexp).unwrap());
         }
         assert_eq!(scalars.len() % opts.chunk_size, 0);
-        let num_chunks = scalars.len() / opts.chunk_size;
         let chunks: Vec<Vec<GenericCyclotomic>> = scalars
             .chunks(opts.chunk_size)
             .map(|chunk| chunk.to_vec())
@@ -546,10 +550,9 @@ fn stdin(top_level: &TopLevel, opts: &StdinOpts) {
             .map(|chunk| chunk.into_iter().map(|f| into_dense_number(&f)).collect())
             .collect();
 
-        eprintln!("starting benchmark");
+        eprintln!("starting scalar benchmark");
         let start = Instant::now();
 
-        // just supports sparse (TODO: others)
         if top_level.implementation.as_str() == "sparse" {
             black_box(stdin_scalar_bench(&opts, &mut sparse_nums));
         } else if top_level.implementation.as_str() == "dense" {
@@ -570,6 +573,26 @@ fn stdin(top_level: &TopLevel, opts: &StdinOpts) {
             matrices.push(sexp2matrix(&sexp).unwrap());
         }
         assert_eq!(matrices.len() % opts.chunk_size, 0);
+        let mut sparse_matrices: Vec<Matrix<sparse::Number, i64>> = matrices.clone().into_iter().map(|matrix| {
+            Matrix {
+                value: matrix.into_iter().map(|row| {
+                    row.into_iter().map(|generic| {
+                        into_sparse_number(&generic)
+                    }).collect()
+                }).collect(),
+                exp: PhantomData,
+            }
+        }).collect();
+        eprintln!("starting matrix benchmark");
+        let start = Instant::now();
+        if top_level.implementation.as_str() == "sparse" {
+            black_box(stdin_matrix_bench(&opts, &mut sparse_matrices));
+        } else {
+            panic!("bad implementation! TODO: do the others?");
+        }
+        let elapsed = start.elapsed().as_millis();
+        eprintln!("time elapsed (ms):");
+        println!("{}", elapsed);
     } else {
         panic!("bad element type {}!", opts.element_type);
     }
@@ -584,10 +607,28 @@ fn stdin_scalar_bench<T, E>(opts: &StdinOpts, chunks: &mut Vec<Vec<T>>)
     for mut chunk in chunks {
         let mut chunk_result = T::one_order(E::from(1));
         for i in 0..chunk.len() {
-            let num = &mut chunk[i];
-            chunk_result.mul(num);
+            chunk_result.mul(&mut chunk[i]);
         }
         result.add(&mut chunk_result);
+    }
+}
+
+fn stdin_matrix_bench<T, E>(opts: &StdinOpts, matrices: &mut Vec<Matrix<T, E>>)
+    where
+        E: From<i64>,
+        T: CyclotomicFieldElement<E>,
+{
+    let N = matrices[0].value.len();
+    let mut result = Matrix::zero_matrix(N, N);
+
+    let num_chunks = matrices.len() / opts.chunk_size;
+
+    for i in 0..num_chunks {
+        let mut chunk_result = Matrix::identity_matrix(N);
+        for j in 0..opts.chunk_size {
+            chunk_result = Matrix::mul(&mut chunk_result, &mut matrices[opts.chunk_size*i + j]);
+        }
+        result = Matrix::add(&mut result, &mut chunk_result);
     }
 }
 
