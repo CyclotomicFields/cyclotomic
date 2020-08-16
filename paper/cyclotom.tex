@@ -1,0 +1,300 @@
+\documentclass{article}
+\usepackage[margin=1.2in]{geometry}
+\usepackage{parskip}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{hyperref}
+
+\title{Faster Inner Products in Character Spaces}
+\author{Kaashif Hymabaccus, Robert Moore}
+
+\newtheorem{prop}{Proposition}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+Currently this is just a place for me to collect some knowledge on
+cyclotomic field arithmetic.
+
+\subsection{Picking a basis}
+
+This section is basically taken from the GAP source file {\tt
+  cyclotom.c}.
+
+The GAP computer algebra system has an implementation of cyclotomic
+field arithmetic. Recall that the field $K_n = \mathbb{Q}(\zeta_n)$
+(where $\zeta_n$ is a primitive $n$th root of unity) has dimension
+$\varphi(n)$ when seen as a vector space over $\mathbb{Q}$. When
+choosing a representation of an element $z \in K_n$, we want this
+representation to be unique. This means we have to pick a basis for
+$K_n$. The natural one is
+$\{ \zeta_n^i : 0 \leq i \leq \varphi(n)-1 \}$. When computing
+products and inverses, this would mean we'd essentially be computing
+products and inverses in the field $\mathbb{Q}[x]/(\Phi_n(x))$, so
+we'd have to compute modulo the polynomial $\Phi_n(x)$.
+
+There is a choice of basis that's easier to work with. Define the
+basis $B_n$ to be the set of $\zeta_n^i$ such that all of the
+following are true:
+
+\begin{itemize}
+\item For every odd prime divisor $p$ of $n$,
+  $i \notin (n/q)*[-(q/p-1)/2..(q/p-1)/2]$ mod $q$ where $q$ is the
+  maximal power of $p$ dividing $n$. For example, if
+  $n = 18 = 2 \cdot 3^2$ and $p=3$, then $q=9$.
+
+\item $i \notin (n/q)*[q/2..q-1]$, where $q$ is the maximal power of 2
+  in $n$.
+\end{itemize}
+
+\begin{prop}
+$B_n$ is a basis for $K_n$.
+\end{prop}
+
+\begin{proof}
+The proof probably has two steps: show that there are $\varphi(n)$
+elements, then show that it generates $K_n$ by proving correct the
+algorithm to express any element as a linear combination of elements
+of $B_n$.
+
+There is also some kind of general proof in \cite{Breuer1997} and a
+lengthy and rigorous deduction of this. Our basis is a special case of
+the basis $\mathcal{B}_n$ defined there. Or maybe it's literally the
+same. Not sure, need to examine it closer.
+
+There is also apparently a paper due to Zumbroich about this, but it's
+in German so I can't read it.
+\end{proof}
+
+Give an example for some trivial $n$ and some nontrivial $n$. Prime
+and not prime. Squarefree and not squarefree maybe.
+
+Remark: $B_n$ is closed under complex conjugation for odd $n$ but this
+isn't possible for even $n$. (TODO: why? maybe a proposition there? or
+maybe it's obvious).
+
+\subsection{Rewriting polynomials}
+
+Maybe this should come first. You can rewrite any polynomial in
+$\zeta_n^i$ into a linear combination of the $B_n$.
+
+\begin{prop}
+  The algorithm for {\tt ConvertToBase} from {\tt cyclotom.c} is
+  correct. Here is the algorithm:
+
+  TODO: write out the algorithm in a more functional, easier to read
+  way (i.e. not 80s C lmao)
+\end{prop}
+
+\begin{proof}
+TODO: write a proof of correctness. Or just say ``it's clear''.
+\end{proof}
+
+\subsection{Reducing to a minimal subfield}
+
+Suppose we have $z \in K_n$. Then it's possible that $z \in K_m$ where
+$m \mid n$, where $m < n$. Reducing the numbers in the representation
+is nice.
+
+TODO: should we always go straight to the minimal representation?
+Maybe, maybe not.
+
+In fact, I'm pretty sure any kind of reduction at all is a waste of
+time, usually the field is fixed.
+
+\subsection{Complexity of arithmetic}
+
+What actually is the complexity of reduction into a minimal cyclotomic
+field?
+
+Quote the algorithms from the paper by Johnson \cite{Johnson1974},
+it's a good reference for ``basic'' polynomial arithmetic.
+
+Addition is probably linear in the number of terms (assuming no
+reductions required).
+
+Multiplication is probably linear in the size of each multiplicand. So
+quadratic overall probably. But there are usually some reductions
+needed.
+
+Equality linear assuming no reductions. But when do you do the
+reductions? Is it just before checking equality? When are those
+counted?
+
+\subsection{Parallelism}
+
+Is it embarassingly parallel? Improvements over GAP?
+
+\section{Representations}
+
+TODO: pick a better word that doesn't evoke representation theory.
+
+\subsection{GAP's hybrid representation}
+
+Not really hybrid. Sometimes it's all sparse, temporarily is all
+dense.
+
+GAP stores packed cyclotomics sparsely, as a list of exponents and
+coefficients. But when actually doing arithmetic, the arithmetic is
+done densely - on an array of size the order of the field, with the
+ith element of the array being the coefficient of $\zeta_n^i$.
+
+Put GAP's implementation here. Not the mathy stuff, just talk about
+how they use arrays, bags, globals, single-threaded etc.
+
+\subsection{Pure sparse representation}
+
+This is probably my ``sparse'' implementation. Advantages are that
+space usage doesn't depend linearly on the order. We can even operate
+on arbitrarily large orders. Space usage is linear in the number of
+nonzero terms only.
+
+Talk about the hash map implementation, cite it?
+
+\subsection{Dense vector representation}
+
+Probably just the array representations. Maybe some discussion of cool
+assembly hacks for multiplying numbers in a single instruction. Or
+maybe some cyclic array or list (maybe not linked list for cache
+reasons...) thing where certain multiplications can become cheap.
+
+These are only really viable for small orders.
+
+\section{Performance-enhancing heuristics}
+
+This is the real-world section, with real data from some applications.
+
+First application is my thesis thing where you \emph{don't} need
+equality.
+
+Second application should be one where you really need fast equality,
+to benefit from the homomorphism tricks.
+
+\subsection{Cheap homomorphisms}
+
+This is Rob's thing, he already implemented some polynomial algorithms
+(division, evaluation). If you're checking equality, then there is a
+high probability that your elements are not equal. In that case, you
+want to return as soon as possible. This doesn't mean anything for the
+asymptotic complexity but in practice, this speeds comparisons up.
+
+TODO: come up with some better names for the tricks.
+
+\subsubsection{Trick 1: Fast inequality}
+
+There is a ring homomorphism:
+
+$$\mathbb{Q}[x] \to \mathbb{Q}(\zeta_n) = K_n$$
+
+with kernel $(\Phi_n(x))$, given by $f(x) \mapsto f(\zeta_n)$, this is
+the evaluation map.
+
+TODO: check if this trick is any good in terms of
+performance. Comparing to GAP, we might just have to go to really
+large orders to make it seem like this is good.
+
+Implicitly, when we write down an element in $K_n$ as a polynomial,
+we're using this homomorphism, but we can use other evaluation maps
+too. We can evaluate polynomials at ``cheap'' points, like
+integers. If $f$ and $g$ differ in their evaluations at a point, then
+they are different in $\mathbb{Q}[x]$ and thus as elements of $K_n$.
+
+\subsubsection{Trick 2: Fast equality}
+
+The way to actually check equality in $K_n$ is generally to pick bases
+and so on, because it is generally computationally intractable to
+divide two polynomials by $\Phi_n(x)$ since we need to know $\Phi_n$
+and we need to divide - both slow.
+
+But dividing by $x^n - 1$ is cheap (TODO: I am pretty sure this is
+true, maybe some benchmarks). Recall the isomorphism (Chinese
+Remainder Theorem):
+
+$$\frac{\mathbb{Q}[x]}{(x^n-1)} \cong \prod_{d | n}\frac{\mathbb{Q}[x]}{(\Phi_d(x))}$$
+
+So if two elements are the same modulo $x^n-1$, then they're the same
+in \emph{all} of the fields $K_d$ for $d | n$, including $K_n$. And we
+never had to even know $\Phi_n$ to find this out!
+
+Of course, the converse isn't true. It's possible for two elements to
+be the same modulo $\Phi_{d_1}(x)$ and different modulo
+$\Phi_{d_2}(x)$, for $d_1, d_2 | n$. That said, I feel like most
+numbers don't have that many factors, so this is probably true some of
+the time.
+
+TODO: cherry pick the right benchmark so that this is true
+
+
+\subsection{Avoid converting to basis}
+
+This is key! The application (cite my thesis?) involves doing a lot of
+matrix arithmetic, maybe one inversion (compared to billions of other
+operations, takes zero time), then converting to floating point and
+putting the results into a semidefinite program solver.
+
+Notice anything? We never checked equality, so we never needed any
+cyclotomic to be in a unique form! We never used any property of the
+basis! This means we just need a spanning set and \emph{all} of the
+$\zeta_n^i$ will do nicely.
+
+\subsection{Everything is in the same field}
+
+We're working with a large set of cyclotomics, but they're all from
+the same field! There is no point in reducing since we already know
+which field we're in.
+
+\subsection{Optimisations for ``simple'' elements}
+
+Work this out as we go. Maybe it will become clear from machine code
+analysis. I mean prime order roots, small order roots, maybe orders
+with large powers of 2 as factors. Maybe make up some BS measure of
+``complexity'' for cyclotomic numbers.
+
+\subsection{Choosing reduction parameters}
+
+When should we reduce the order of an element? By how much? Should we
+try to reduce to square-free order fields and then stop? All the way?
+
+Some experiments are very necessary here.
+
+Just do some benchmarks? Some graphs of the speedup? Which algorithms
+are most cache-friendly and least susceptible to false sharing?
+
+\section{Benchmarks}
+
+Vague conclusions:
+
+GAP is trash for large order fields, runs out of memory fast.
+
+Ours works for arbitrarily sized fields, is faster than GAP as
+terms get sparser.
+
+In the real world use-case, ours is a lot better since we skip all of
+the unnecessary work GAP does.
+
+Magma et al, who knows? Those are closed source!
+
+\section{Conclusions and Future Work}
+
+Do it in a GPU lmao. Do machine learning to pick good parameters?
+Maybe that's not a buzzword in this case.
+
+Maybe apply it to some research problem and demonstrate that whichever
+method turns out to be the best is very good. Blow GAP out of the
+water.
+
+Other ideas: apply it to the semidefinite program with symmetries and
+some nice representations, groups etc from my Master's thesis so I can
+cite it.
+
+Also there are applications to representation theory? See the great
+paper by Hymabaccus et al \cite{Hymabaccus2020}.
+
+\bibliographystyle{unsrt}
+\bibliography{paper}
+
+\end{document}
