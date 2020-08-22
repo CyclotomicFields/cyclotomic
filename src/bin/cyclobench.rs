@@ -509,6 +509,7 @@ fn gap2sexp(gap_cyc: String) -> String {
 // TODO: honestly this whole thing is horrific
 
 fn stdin(top_level: &TopLevel, opts: &StdinOpts) {
+    eprintln!("reading test matrices");
     let stdin = io::stdin();
     let lines = stdin.lock().lines();
     let sexps: Vec<String> = lines

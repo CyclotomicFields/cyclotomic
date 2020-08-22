@@ -32,17 +32,17 @@ pub trait CyclotomicFieldElement<Exponent>: FieldElement + Clone
     where Exponent: From<i64>
 {
     /// Returns $\zeta_n$^k.
-    fn e(n: Exponent, k: Exponent) -> Self;
+    fn e(n: &Exponent, k: &Exponent) -> Self;
 
     /// Multiplies in-place by scalar. Recall that $\mathbb{Q}(\zeta_n)$ is a
     /// $\mathbb{Q}$-vector space.
     fn scalar_mul(&mut self, scalar: &Q) -> &mut Self;
 
     /// Gives zero expressed as an element of $\mathbb{Q}(\zeta_n)$
-    fn zero_order(n: Exponent) -> Self;
+    fn zero_order(n: &Exponent) -> Self;
 
     /// Gives one expressed as an element of $\mathbb{Q}(\zeta_n)$
-    fn one_order(n: Exponent) -> Self;
+    fn one_order(n: &Exponent) -> Self;
 }
 
 /// Possible data structure for a CyclotomicFieldElement, useful as a common
@@ -159,3 +159,7 @@ pub mod util;
 
 /// Matrix and vector operations.
 pub mod linear_algebra;
+
+/// Trait for types that can be used as an exponent. Used mainly for different
+/// big integer implementations, and machine-sized integers.
+pub mod exponent;

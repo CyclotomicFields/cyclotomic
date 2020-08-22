@@ -29,7 +29,8 @@ where
         }
         result
     }
-    fn assert_compatible(mA: &Self, mB: &Self) {
+
+    fn assert_mul_compatible(mA: &Self, mB: &Self) {
         let A = &mA.value;
         let B = &mB.value;
 
@@ -44,7 +45,7 @@ where
     }
 
     pub fn mul(mA: &mut Self, mB: &mut Self) -> Self {
-        Self::assert_compatible(mA, mB);
+        Self::assert_mul_compatible(mA, mB);
         let A = &mut mA.value;
         let B = &mut mB.value;
 
@@ -65,6 +66,15 @@ where
         }
 
         result
+    }
+
+    fn assert_add_compatible(mA: &Self, mB: &Self) {
+        assert!(mA.value.len() > 0);
+        assert_eq!(mA.value.len(), mB.value.len());
+
+        for i in 0..mA.value.len() {
+            assert_eq!(mA.value[i].len(), mB.value[i].len());
+        }
     }
 
     pub fn add(mA: &mut Self, mB: &mut Self) -> Self {
@@ -119,3 +129,5 @@ where
     // NOTE: the L2 norm might not be cyclotomic, so we can't
     // have a norm function without general number fields.
 }
+
+// TODO: tests!!!!

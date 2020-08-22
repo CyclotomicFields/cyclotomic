@@ -28,3 +28,8 @@ mod primes;
 /// done in-place, varies for each implementation.
 #[macro_use]
 pub mod fields;
+
+/// Implementations of algorithms from character theory. Mainly just various
+/// ways to do the standard character inner product quickly, read characters
+/// from standard input, etc.
+pub mod character;
