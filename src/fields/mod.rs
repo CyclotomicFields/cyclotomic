@@ -1,6 +1,7 @@
 pub type Z = rug::Integer;
 pub type Q = rug::Rational;
 
+use crate::fields::exponent::Exponent;
 use num::Integer;
 use std::collections::HashMap;
 
@@ -28,21 +29,22 @@ pub trait FieldElement: AdditiveGroupElement + MultiplicativeGroupElement {
 }
 
 /// Provides convenience functions specific to cyclotomic fields.
-pub trait CyclotomicFieldElement<Exponent>: FieldElement + Clone
-    where Exponent: From<i64>
+pub trait CyclotomicFieldElement<E>: FieldElement + Clone
+where
+    E: Exponent,
 {
     /// Returns $\zeta_n$^k.
-    fn e(n: &Exponent, k: &Exponent) -> Self;
+    fn e(n: &E, k: &E) -> Self;
 
     /// Multiplies in-place by scalar. Recall that $\mathbb{Q}(\zeta_n)$ is a
     /// $\mathbb{Q}$-vector space.
     fn scalar_mul(&mut self, scalar: &Q) -> &mut Self;
 
     /// Gives zero expressed as an element of $\mathbb{Q}(\zeta_n)$
-    fn zero_order(n: &Exponent) -> Self;
+    fn zero_order(n: &E) -> Self;
 
     /// Gives one expressed as an element of $\mathbb{Q}(\zeta_n)$
-    fn one_order(n: &Exponent) -> Self;
+    fn one_order(n: &E) -> Self;
 }
 
 /// Possible data structure for a CyclotomicFieldElement, useful as a common
@@ -140,11 +142,8 @@ macro_rules! field_axiom_tests {
     };
 }
 
-/// Sparse implementation using hash maps.
+/// Sparse hash map based implementation.
 pub mod sparse;
-
-/// Sparse hash map implementation supporting arbitrarily sized exponents.
-pub mod big_sparse;
 
 /// Dense representation using a vector of coefficients.
 pub mod dense;

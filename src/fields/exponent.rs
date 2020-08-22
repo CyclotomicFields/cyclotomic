@@ -1,10 +1,10 @@
 use crate::fields::Z;
 use std::ops::{Add, Mul, Sub, Div, Rem};
-use std::thread::current;
+use std::fmt::Display;
 
 /// Something suitable to be the i in e^i. Big or small signed ints, most likely,
 /// and some other useful numeric functions.
-pub trait Exponent: Clone + Add + Mul + Sub + Div + Rem + From<i64> + Eq {
+pub trait Exponent: Clone + Add + Mul + Sub + Div + Rem + From<i64> + Eq + Display {
     fn gcd(x: &Self, y: &Self) -> Self;
     fn lcm(x: &Self, y: &Self) -> Self;
 
@@ -61,8 +61,6 @@ impl Exponent for Z {
         x.gcd(y)
     }
 
-    // There is a real danger that the lcm doesn't fit into
-    // a fixed-size integer, but we ignore this.
     fn lcm(x: &Z, y: &Z) -> Z {
         x.lcm(y)
     }
@@ -74,7 +72,7 @@ impl Exponent for i64 {
     }
 
     // There is a real danger that the lcm doesn't fit into
-    // a fixed-size integer, but we ignore this.
+    // a fixed-size integer, but we ignore that.
     fn lcm(x: &i64, y: &i64) -> i64 {
         num::integer::lcm(x as u64, y as u64) as i64
     }

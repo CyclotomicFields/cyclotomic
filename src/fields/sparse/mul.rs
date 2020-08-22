@@ -3,6 +3,7 @@ use crate::fields::sparse::basis::{convert_to_base, try_reduce};
 use crate::fields::sparse::*;
 use crate::fields::{CyclotomicFieldElement, MultiplicativeGroupElement};
 use galois::apply_automorphism;
+use std::convert::TryInto;
 
 impl MultiplicativeGroupElement for Number {
     /// Multiplies term by term, not bothering to do anything interesting.
@@ -15,12 +16,12 @@ impl MultiplicativeGroupElement for Number {
 
         // This order is almost certainly not optimal. But you know, whatever.
         // TODO: make it gooder
-        result.order = z1.order;
+        result.order = z1.order.clone();
         for (exp1, coeff1) in &z1.coeffs {
             for (exp2, coeff2) in &z2.coeffs {
-                let new_exp = (exp1 + exp2) % z1.order.clone();
+                let new_exp = ((exp1 + exp2).into(): Exponent) % &z1.order;
                 let new_coeff: Q = (coeff1 * coeff2).into();
-                add_single(&mut result.coeffs, new_exp, &new_coeff, Sign::Plus);
+                add_single(&mut result.coeffs, &new_exp, &new_coeff, Sign::Plus);
             }
         }
 
@@ -37,19 +38,22 @@ impl MultiplicativeGroupElement for Number {
         let z = self.clone();
         // Let $L = \mathbb{Q}(\zeta_n), K = \mathbb{Q}$.
         // Then $L/K$ is a degree $\phi(n)$ extension.
-        let n = z.order;
+        let n = &z.order;
 
         // The Galois group $G = \text{Aut}(L/K)$ has order $\phi(n)$. The
         // elements are the automorphisms $\zeta_n \mapsto \zeta_n^i$ for all
         // $1 \leq i \leq n-1$ coprime to $n$.
 
         // This is the product except for the term for $t = \id_L$.
-        let mut x = Number::one_order(n);
 
-        for i in 2..n {
-            if are_coprime(i, n) {
-                x.mul(&mut apply_automorphism(&z, i));
+        let mut x = Number::one_order(n.clone());
+
+        let mut i = Z::from(2);
+        while &i != n {
+            if n.gcd_ref(&i).into(): Exponent == 1 {
+                x.mul(&mut apply_automorphism(&z, &i));
             }
+            i += 1;
         }
 
         // The full product:
@@ -58,7 +62,7 @@ impl MultiplicativeGroupElement for Number {
         println!("q_cyc = {:?}", q_cyc);
 
         assert_eq!(q_cyc.order, 1);
-        let q_rat = q_cyc.coeffs.get(&0).unwrap();
+        let q_rat = q_cyc.coeffs.get(&Exponent::from(0)).unwrap();
         println!("q_rat = {:?}", q_rat);
 
         if *q_rat == 0 {

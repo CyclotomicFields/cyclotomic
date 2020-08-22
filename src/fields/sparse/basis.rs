@@ -5,16 +5,18 @@
 use super::num::Zero;
 use crate::fields::sparse::*;
 
+use rug::ops::Pow;
+use crate::fields::util::{count_powers_big, math_mod_big, phi_big};
 use std::convert::TryInto;
 use std::ops::Mul;
 
 // Tries to reduce to a possibly smaller cyclotomic field
 pub fn try_reduce(z: &mut Number) {
-    let mut current_gcd: Option<u64> = None;
+    let mut current_gcd: Option<Exponent> = None;
     let mut saw_exp_zero = false;
-    let mut num_nonzero_terms = 0;
     let mut coeffs_are_equal = true;
     let mut last_nonzero_coeff: Option<Q> = None;
+    let mut num_nonzero_terms = Exponent::from(0);
 
     for (exp, coeff) in &z.coeffs {
         // this term doesn't really appear
@@ -42,20 +44,20 @@ pub fn try_reduce(z: &mut Number) {
         }
 
         match current_gcd {
-            None => current_gcd = Some(*exp as u64),
-            Some(gcd) => current_gcd = Some(num::integer::gcd(gcd, *exp as u64)),
+            None => current_gcd = Some(exp.clone()),
+            Some(gcd) => current_gcd = Some(gcd.gcd_ref(exp).into()),
         }
     }
 
     if current_gcd.is_none() {
         // if the current gcd was never set, then either 0 is the only exponent
         // or there are no exponents - rational in both cases.
-        z.order = 1;
+        z.order = Exponent::from(1);
 
         if saw_exp_zero {
-            let coeff = z.coeffs.get(&0).unwrap().clone();
+            let coeff = z.coeffs.get(&Exponent::from(0)).unwrap().clone();
             z.coeffs.clear();
-            z.coeffs.insert(0, coeff);
+            z.coeffs.insert(Exponent::from(0), coeff);
         } else {
             z.coeffs.clear();
         }
@@ -64,37 +66,42 @@ pub fn try_reduce(z: &mut Number) {
     }
 
     // otherwise gcd is Some and nonzero, so we can divide through
-    let gcd = current_gcd.unwrap() as i64;
+    let gcd = current_gcd.unwrap();
 
     // no point dividing through by 1
     if gcd != 1 {
-        let new_order = z.order / gcd;
-        z.order = new_order;
+        let new_order: Exponent = (&z.order / &gcd).into();
+        z.order = new_order.clone();
 
         // don't need to reduce exp=0 since it would just reduce to exp=0
-        for exp in 1..new_order {
-            match z.coeffs.get(&(gcd * exp)) {
+        let mut exp = Exponent::from(1);
+        while &exp != &new_order {
+            match z.coeffs.get(&(&gcd * &exp).into()) {
                 None => (), // there is no term to rewrite
                 Some(coeff) => {
-                    z.coeffs.insert(exp, coeff.clone());
-                    z.coeffs.remove(&(gcd * exp));
+                    z.coeffs.insert(exp.clone(), coeff.clone());
+                    z.coeffs.remove(&(&gcd * &exp).into());
                 }
             }
+            exp += 1;
         }
     }
 
     // now all exponents are coprime with the new order
-    let n = z.order;
-    let phi_n = phi(n);
-    let mut n_divisors: Vec<i64> = divisors::get_divisors(n as u64)
+    let n = &z.order;
+    let phi_n = phi_big(n);
+
+    // TODO: real bigint
+    let n64: u64 = n.try_into().unwrap();
+    let mut n_divisors: Vec<Exponent> = divisors::get_divisors(n64)
         .into_iter()
-        .map(|x| x as i64)
+        .map(|x| Exponent::from(x))
         .collect();
     if n_divisors.len() == 0 {
-        n_divisors.push(n);
+        n_divisors.push(n.clone());
     }
 
-    let n_div_powers = &count_powers(&n, &n_divisors);
+    let n_div_powers = &count_powers_big(&n, &n_divisors);
     let is_squarefree = n_div_powers.into_iter().all(|(_, power)| *power < 2);
     let num_primes = n_div_powers
         .into_iter()
@@ -103,12 +110,12 @@ pub fn try_reduce(z: &mut Number) {
 
     // if this is the case, it's rational
     if num_nonzero_terms == phi_n && coeffs_are_equal && is_squarefree {
-        z.order = 1;
+        z.order = Exponent::from(1);
         z.coeffs.clear();
         let new_coeff = last_nonzero_coeff
             .unwrap()
             .mul(Z::from(i64::pow(-1, num_primes.try_into().unwrap())));
-        z.coeffs.insert(0, new_coeff);
+        z.coeffs.insert(Exponent::from(0), new_coeff);
         return;
     }
 }
@@ -135,7 +142,7 @@ pub fn convert_to_base(z: &Number) -> Number {
     // Note: this is written for readability and is too functional for its
     // own good. The machine code generated might not be very good.
 
-    let n = z.order;
+    let n = &z.order;
 
     // currently z, will by the end still be equal to z but will be written in
     // the Zumbroich basis
@@ -147,43 +154,65 @@ pub fn convert_to_base(z: &Number) -> Number {
         }
     }
 
-    let n_divisors: Vec<i64> = divisors::get_divisors(n as u64)
+    // TODO: real bigint
+    let n64: u64 = n.try_into().unwrap();
+    let n_divisors: Vec<Exponent> = divisors::get_divisors(n64)
         .into_iter()
-        .map(|x| x as i64)
+        .map(|x| Exponent::from(x))
         .collect();
-    let mut n_div_powers = count_powers(&n, &n_divisors);
+    let mut n_div_powers = count_powers_big(&n, &n_divisors);
 
     // if it has no divisors smaller than itself, it's prime
     if n_div_powers.is_empty() {
-        n_div_powers.push((n, 1));
+        n_div_powers.push((n.clone(), 1));
     }
 
     for (p, power) in &n_div_powers {
         // the maximal power of p that divides n
-        let q: i64 = p.pow(*power as u32);
+        let q: Exponent = p.pow(*power).into();
 
         // i is in this set (mod q) iff it is not a basis element
-        let start_bad = if *p == 2 { q / 2 } else { -(q / p - 1) / 2 };
-        let end_bad = if *p == 2 { q - 1 } else { (q / p - 1) / 2 };
+        let start_bad: Exponent = if *p == 2 {
+            &q / Exponent::from(2)
+        } else {
+            let div: Exponent = (&q / p).into();
+            let minus1: Exponent = (div - Exponent::from(1)).into();
+            let neg: Exponent = (-minus1).into();
+            (neg / Exponent::from(2)).into()
+        };
+        let end_bad: Exponent = if *p == 2 {
+            &q - Exponent::from(1)
+        } else {
+            ((&q / p).into(): Exponent - 1) / 2
+        };
 
-        for bad_exp_raw in start_bad..=end_bad {
-            let bad_exp = math_mod(&(n / q * bad_exp_raw), &q);
+        let mut bad_exp_raw = start_bad;
+        while &bad_exp_raw <= &end_bad {
+            let bad_exp = math_mod_big(&((n / &q).into(): Exponent * &bad_exp_raw), &q);
             // We want to remove the i that are equal to bad_exp mod q.
             // These are exactly the i such that i = bad_exp + aq for some a.
             // We also need only check 0 <= i <= n-1, which means we only need
             // to check -bad_exp/q - 1 <= a <= (n-1-bad_exp)/q + 1.
             // The -1 and +1 are so that even if the division isn't perfect,
             // then we still check the full range of a we need to check.
-            for a in -bad_exp / q - 1..=((n - 1 - bad_exp) / q + 1) {
-                let i = bad_exp + a * q;
+            let start_check = (-&bad_exp).into(): Exponent / &q - Exponent::from(1);
+            let end_check =
+                (((n - Exponent::from(1)).into(): Exponent - &bad_exp) / &q + Exponent::from(1));
+            let mut a = start_check;
+            while a <= end_check {
+                let i = (&bad_exp + &a * &q).into();
                 // if there isn't even a term for i, no need to convert it
                 let coeff = {
                     let maybe_coeff = result.coeffs.get(&i);
 
                     match maybe_coeff {
-                        None => continue,
+                        None => {
+                            a += 1;
+                            continue;
+                        }
                         Some(rational) => {
                             if *rational == 0 {
+                                a += 1;
                                 continue;
                             }
                         }
@@ -193,11 +222,15 @@ pub fn convert_to_base(z: &Number) -> Number {
 
                 // if we got here, i has a nonzero term so must be rewritten
                 result.coeffs.remove(&i);
-                for k in 1..*p {
-                    let new_exp = math_mod(&(k * n / p + i), &n);
-                    add_single(&mut result.coeffs, new_exp, &coeff, Sign::Minus);
+                let mut k = Z::from(1);
+                while &k != p {
+                    let new_exp = math_mod_big(&((&k * n).into(): Exponent / p + &i), &n);
+                    add_single(&mut result.coeffs, &new_exp, &coeff, Sign::Minus);
+                    k += 1;
                 }
+                a += 1;
             }
+            bad_exp_raw += 1;
         }
     }
 

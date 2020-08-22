@@ -9,9 +9,8 @@ use clap::Clap;
 
 use cyclotomic::fields::{GenericCyclotomic, CyclotomicFieldElement};
 
-use cyclotomic::fields::sparse;
 use cyclotomic::fields::structure;
-use cyclotomic::fields::{big_sparse, dense, FieldElement};
+use cyclotomic::fields::{sparse, dense, FieldElement};
 
 use cyclotomic::fields::AdditiveGroupElement;
 use cyclotomic::fields::MultiplicativeGroupElement;
@@ -109,7 +108,7 @@ struct RandomOpts {
     #[clap(short, long, about = "make this fraction of the terms be nonzero")]
     density: Option<f64>,
 
-    #[clap(short, long, about = "only works with big_sparse")]
+    #[clap(short, long, about = "only works with sparse")]
     big_order: Option<String>,
 }
 
@@ -212,14 +211,14 @@ fn into_sparse_number(f: &GenericCyclotomic) -> sparse::Number {
     sparse::Number::new(f.order.to_i64().unwrap(), &coeffs)
 }
 
-fn into_big_sparse_number(f: &GenericCyclotomic) -> big_sparse::Number {
-    let mut coeffs = cyclotomic::fields::big_sparse::ExpCoeffMap::default();
+fn into_big_sparse_number(f: &GenericCyclotomic) -> sparse::Number {
+    let mut coeffs = cyclotomic::fields::sparse::ExpCoeffMap::default();
 
     for (exp, (num, denom)) in &f.exp_coeffs {
         coeffs.insert(exp.clone(), Q::from((*num, *denom)));
     }
 
-    big_sparse::Number::new(&Z::from(&f.order), &coeffs)
+    sparse::Number::new(&Z::from(&f.order), &coeffs)
 }
 
 fn into_dense_number(f: &GenericCyclotomic) -> dense::Number {
@@ -256,8 +255,8 @@ fn into_antic(
 }
 
 fn random(top_level: &TopLevel, opts: &RandomOpts) {
-    if opts.big_order.is_some() && top_level.implementation != "big_sparse".to_owned() {
-        eprintln!("you must use big_sparse with big_order!");
+    if opts.big_order.is_some() && top_level.implementation != "sparse".to_owned() {
+        eprintln!("you must use sparse with big_order!");
         return;
     }
 
@@ -293,7 +292,7 @@ fn random(top_level: &TopLevel, opts: &RandomOpts) {
         .map(|chunk| chunk.to_vec())
         .collect();
 
-    let big_sparse_nums: Vec<Vec<big_sparse::Number>> = chunks
+    let big_sparse_nums: Vec<Vec<sparse::Number>> = chunks
         .clone()
         .into_iter()
         .map(|chunk| {
@@ -304,10 +303,10 @@ fn random(top_level: &TopLevel, opts: &RandomOpts) {
         })
         .collect();
 
-    // if we're using big_order, we have to just run the benchmark for big_sparse,
+    // if we're using big_order, we have to just run the benchmark for sparse,
     // none of the implementations support big numbers
-    if top_level.implementation == "big_sparse".to_owned() && opts.big_order.is_some() {
-        eprintln!("running big order benchmark, only for big_sparse");
+    if top_level.implementation == "sparse".to_owned() && opts.big_order.is_some() {
+        eprintln!("running big order benchmark, only for sparse");
         eprintln!(
             "big order = {}",
             opts.big_order.clone().unwrap().parse::<Z>().unwrap()
@@ -377,7 +376,7 @@ fn random(top_level: &TopLevel, opts: &RandomOpts) {
         number_bench(&opts, &sparse_nums);
     } else if top_level.implementation.as_str() == "dense" {
         number_bench(&opts, &dense_nums);
-    } else if top_level.implementation.as_str() == "big_sparse" {
+    } else if top_level.implementation.as_str() == "sparse" {
         number_bench(&opts, &big_sparse_nums);
     } else if top_level.implementation.as_str() == "structure" {
         structure_number_bench(&opts, &structure_field, &structure_nums);
@@ -528,7 +527,7 @@ fn stdin(top_level: &TopLevel, opts: &StdinOpts) {
             .chunks(opts.chunk_size)
             .map(|chunk| chunk.to_vec())
             .collect();
-        let mut big_sparse_nums: Vec<Vec<big_sparse::Number>> = chunks
+        let mut big_sparse_nums: Vec<Vec<sparse::Number>> = chunks
             .clone()
             .into_iter()
             .map(|chunk| {
@@ -558,7 +557,7 @@ fn stdin(top_level: &TopLevel, opts: &StdinOpts) {
             black_box(stdin_scalar_bench(&opts, &mut sparse_nums));
         } else if top_level.implementation.as_str() == "dense" {
             black_box(stdin_scalar_bench(&opts, &mut dense_nums));
-        } else if top_level.implementation.as_str() == "big_sparse" {
+        } else if top_level.implementation.as_str() == "sparse" {
             black_box(stdin_scalar_bench(&opts, &mut big_sparse_nums));
         } else {
             panic!("unsupported implementation!")
