@@ -46,7 +46,7 @@ pub fn print_gap<E: Exponent>(z: &Number<E>) -> String {
                 format!("{} * E({})^{}", coeff, z.order, exp).as_str(),
             ))
         }
-        exp += 1;
+        exp = exp + E::from(1);
     }
     "(".to_string() + &str_list.join(" + ") + ")"
 }
@@ -68,7 +68,7 @@ impl<E> Number<E> where E: Exponent {
     pub fn increase_order_to(z: &mut Self, new_order: &E) {
         let mut new_coeffs = ExpCoeffMap::default();
         for (exp, coeff) in &z.coeffs {
-            new_coeffs.insert(new_order * exp.clone() / z.order.clone(), coeff.clone());
+            new_coeffs.insert(new_order.clone() * exp.clone() / z.order.clone(), coeff.clone());
         }
         z.order = new_order.clone();
         z.coeffs = new_coeffs;
@@ -78,7 +78,7 @@ impl<E> Number<E> where E: Exponent {
         if z1.order == z2.order {
             return;
         }
-        let new_order: E = z1.order.lcm_ref(&z2.order).into();
+        let new_order: E = Exponent::lcm(&z1.order, &z2.order);
         Number::<E>::increase_order_to(z1, &new_order);
         Number::<E>::increase_order_to(z2, &new_order);
     }
@@ -172,24 +172,24 @@ impl<E> CyclotomicFieldElement<E> for Number<E> where E: Exponent {
     fn scalar_mul(&mut self, scalar: &Q) -> &mut Self {
         let mut result = self.clone();
         for (_, coeff) in result.coeffs.iter_mut() {
-            *coeff *= scalar.into();
+            *coeff *= scalar;
         }
         *self = result;
         self
     }
 
-    fn zero_order(n: Z) -> Number<E> {
+    fn zero_order(n: &E) -> Number<E> {
         Number::<E>::new(&n, &ExpCoeffMap::<E>::default())
     }
 
-    fn one_order(n: Z) -> Number<E> {
+    fn one_order(n: &E) -> Number<E> {
         let mut coeffs = ExpCoeffMap::default();
-        let mut i = Z::from(1);
-        while &i != &n {
+        let mut i = E::from(1);
+        while i != *n {
             coeffs.insert(i.clone(), Q::from(-1));
-            i += 1;
+            i = i + E::from(1);
         }
-        Number::<E>::new(&n.into(), &coeffs)
+        Number::<E>::new(n, &coeffs)
     }
 }
 
@@ -209,7 +209,7 @@ where
 {
     let order = g.gen_range(min_order, max_order);
     let num_terms: u64 = g.gen_range(1, 5);
-    let mut result = Number::<E>::zero_order(E::from(order.clone()));
+    let mut result = Number::<E>::zero_order(&E::from(order.clone()));
 
     for _ in 1..=num_terms {
         let exp: i64 = g.gen_range(1, order);

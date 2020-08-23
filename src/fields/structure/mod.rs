@@ -58,8 +58,8 @@ fn make_structure_constants(order: i64, basis: &Vec<i64>) -> Vec<Vec<Vec<Q>>> {
 
     for i in 0..phi_n {
         for j in 0..phi_n {
-            let b_i = Number::e(order, basis[i]);
-            let b_j = Number::e(order, basis[j]);
+            let b_i = Number::e(&order, &basis[i]);
+            let b_j = Number::e(&order, &basis[j]);
             let mut product: Number = b_i.clone().mul(&mut b_j.clone()).clone();
             structure_constants[i][j] = write_dense_in_basis(&mut product, basis);
         }
@@ -116,8 +116,8 @@ impl CyclotomicField {
             basis: basis.clone(),
             phi_n: Exponent::phi(&order),
             factors: Exponent::factorise(&order),
-            zero: write_dense_in_basis(&mut Number::zero_order(order), &basis.clone()),
-            one: write_dense_in_basis(&mut Number::one_order(order), &basis.clone()),
+            zero: write_dense_in_basis(&mut Number::zero_order(&order), &basis.clone()),
+            one: write_dense_in_basis(&mut Number::one_order(&order), &basis.clone()),
         }
     }
 
@@ -162,7 +162,7 @@ impl CyclotomicField {
     }
 
     pub fn e(&self, k: i64) -> Vec<Q> {
-        write_dense_in_basis(&mut Number::e(self.order, k), &self.basis)
+        write_dense_in_basis(&mut Number::e(&self.order, &k), &self.basis)
     }
 }
 

@@ -18,5 +18,5 @@ pub struct Character {
 /// $\langle \chi_1, \chi_2 \rangle = \sum_g \chi_1(g) \overline{\chi_2(g)}$
 pub fn inner_product(chi1: &Character, chi2: &Character) -> Number<i64> {
     // TODO: implement this!
-    Number::<i64>::zero_order(3)
+    Number::<i64>::zero_order(&3)
 }

@@ -58,10 +58,10 @@ pub fn try_reduce(z: &mut Number) {
 
         if saw_exp_zero {
             let coeff = z.coeffs[0].clone();
-            *z = Number::zero_order(z.order);
+            *z = Number::zero_order(&z.order);
             z.coeffs[0] = coeff;
         } else {
-            *z = Number::zero_order(z.order);
+            *z = Number::zero_order(&z.order);
         }
 
         return;
@@ -85,10 +85,10 @@ pub fn try_reduce(z: &mut Number) {
 
     // now all exponents are coprime with the new order
     let n = z.order;
-    let phi_n = Exponent::phi(n);
+    let phi_n = Exponent::phi(&n);
 
     let n_div_powers = Exponent::factorise(&n);
-    let is_squarefree = n_div_powers.into_iter().all(|(_, power)| *power < 2);
+    let is_squarefree = n_div_powers.clone().into_iter().all(|(_, power)| power < 2);
     let num_primes = n_div_powers
         .into_iter()
         .filter(|(_factor, power)| *power > 0)

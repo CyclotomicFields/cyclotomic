@@ -68,9 +68,9 @@ where
 
         for (exp, (numerator, denominator)) in &z.exp_coeffs {
             result.add(
-                &mut Self::e(&order, E::from(exp.to_i64().unwrap()))
-                    .scalar_mul(&Q::from((numerator, denominator))),
-            )
+                &mut Self::e(&order, &E::from(exp.to_i64().unwrap()))
+                    .scalar_mul(&Q::from((Z::from(*numerator), Z::from(*denominator)))),
+            );
         }
 
         result
@@ -83,7 +83,7 @@ macro_rules! field_axiom_tests {
         #[quickcheck]
         fn zero_is_add_identity(z: $type) -> bool {
             z.clone()
-                .add(&mut $type::zero_order(z.order.clone()))
+                .add(&mut $type::zero_order(&z.order))
                 .eq(&mut z.clone())
         }
 
@@ -105,7 +105,7 @@ macro_rules! field_axiom_tests {
         fn one_is_mul_identity(z: $type) -> bool {
             let mut same = z
                 .clone()
-                .mul(&mut $type::one_order(z.order.clone()))
+                .mul(&mut $type::one_order(&z.order))
                 .clone();
             same.eq(&mut z.clone())
         }
@@ -114,14 +114,14 @@ macro_rules! field_axiom_tests {
         fn add_has_inverses(z: $type) -> bool {
             z.clone()
                 .add(z.clone().add_invert())
-                .eq(&mut $type::zero_order(z.order))
+                .eq(&mut $type::zero_order(&z.order))
         }
 
         #[quickcheck]
         fn zero_kills_all(z: $type) -> bool {
-            $type::zero_order(z.order.clone())
+            $type::zero_order(&z.order)
                 .mul(&mut z.clone())
-                .eq(&mut $type::zero_order(z.order))
+                .eq(&mut $type::zero_order(&z.order))
         }
 
         #[quickcheck]
@@ -145,7 +145,7 @@ macro_rules! field_axiom_tests {
                 return true;
             }
             let mut prod = z.clone().mul_invert().mul(&mut z.clone()).clone();
-            prod.eq(&mut $type::one_order(z.order))
+            prod.eq(&mut $type::one_order(&z.order))
         }
 
         #[quickcheck]

@@ -25,7 +25,7 @@ pub fn try_reduce<E: Exponent>(z: &mut Number<E>) {
             continue;
         }
 
-        num_nonzero_terms += 1;
+        num_nonzero_terms = num_nonzero_terms + E::from(1);
 
         if coeffs_are_equal {
             match &last_nonzero_coeff {
@@ -39,14 +39,14 @@ pub fn try_reduce<E: Exponent>(z: &mut Number<E>) {
         }
 
         // 0 will mess up the gcd calculation
-        if *exp == 0 {
+        if *exp == E::from(0) {
             saw_exp_zero = true;
             continue;
         }
 
         match current_gcd {
             None => current_gcd = Some(exp.clone()),
-            Some(gcd) => current_gcd = Some(gcd.gcd_ref(exp).into()),
+            Some(gcd) => current_gcd = Some(Exponent::gcd(&gcd, &exp)),
         }
     }
 
@@ -70,21 +70,21 @@ pub fn try_reduce<E: Exponent>(z: &mut Number<E>) {
     let gcd = current_gcd.unwrap();
 
     // no point dividing through by 1
-    if gcd != 1 {
-        let new_order: E = (&z.order / &gcd).into();
+    if gcd != E::from(1) {
+        let new_order: E = z.order.clone() / gcd.clone();
         z.order = new_order.clone();
 
         // don't need to reduce exp=0 since it would just reduce to exp=0
         let mut exp = E::from(1);
         while &exp != &new_order {
-            match z.coeffs.get(&(&gcd * &exp).into()) {
+            match z.coeffs.get(&(gcd.clone() * exp.clone())) {
                 None => (), // there is no term to rewrite
                 Some(coeff) => {
                     z.coeffs.insert(exp.clone(), coeff.clone());
-                    z.coeffs.remove(&(&gcd * &exp).into());
+                    z.coeffs.remove(&(gcd.clone() * exp.clone()));
                 }
             }
-            exp += 1;
+            exp = exp + E::from(1);
         }
     }
 
@@ -149,50 +149,50 @@ pub fn convert_to_base<E>(z: &Number<E>) -> Number<E> where E: Exponent {
 
     for (p, power) in &n_div_powers {
         // the maximal power of p that divides n
-        let q: E = p.pow(*power).into();
+        let q: E = p.power(*power);
 
         // i is in this set (mod q) iff it is not a basis element
-        let start_bad: E = if *p == 2 {
-            &q / E::from(2)
+        let start_bad: E = if *p == E::from(2) {
+            q.clone() / E::from(2)
         } else {
-            let div: E = (&q / p).into();
-            let minus1: E = (div - E::from(1)).into();
-            let neg: E = (-minus1).into();
-            (neg / E::from(2)).into()
+            let div: E = q.clone() / p.clone();
+            let minus1: E = div - E::from(1);
+            let neg: E = -minus1;
+            neg / E::from(2)
         };
-        let end_bad: E = if *p == 2 {
-            &q - E::from(1)
+        let end_bad: E = if *p == E::from(2) {
+            q.clone() - E::from(1)
         } else {
-            ((&q / p).into(): E - 1) / 2
+            ((q.clone() / p.clone()) - E::from(1)) / E::from(2)
         };
 
         let mut bad_exp_raw = start_bad;
-        while &bad_exp_raw <= &end_bad {
-            let bad_exp = Exponent::math_mod(&((n / &q).into(): E * &bad_exp_raw), &q);
+        while bad_exp_raw.clone() != end_bad.clone() + E::from(1) {
+            let bad_exp = Exponent::math_mod(&(n.clone() / q.clone() * bad_exp_raw.clone()), &q);
             // We want to remove the i that are equal to bad_exp mod q.
             // These are exactly the i such that i = bad_exp + aq for some a.
             // We also need only check 0 <= i <= n-1, which means we only need
             // to check -bad_exp/q - 1 <= a <= (n-1-bad_exp)/q + 1.
             // The -1 and +1 are so that even if the division isn't perfect,
             // then we still check the full range of a we need to check.
-            let start_check = (-&bad_exp).into(): E / &q - E::from(1);
-            let end_check =
-                (((n - E::from(1)).into(): E - &bad_exp) / &q + E::from(1));
+            let start_check = - bad_exp.clone() / q.clone() - E::from(1);
+            let end_check: E =
+                ((n.clone() - E::from(1)) - bad_exp.clone()) / q.clone() + E::from(1);
             let mut a = start_check;
-            while a <= end_check {
-                let i = (&bad_exp + &a * &q).into();
+            while a != end_check.clone() + E::from(1) {
+                let i = bad_exp.clone() + a.clone() * q.clone();
                 // if there isn't even a term for i, no need to convert it
                 let coeff = {
                     let maybe_coeff = result.coeffs.get(&i);
 
                     match maybe_coeff {
                         None => {
-                            a += 1;
+                            a = a + E::from(1);
                             continue;
                         }
                         Some(rational) => {
                             if *rational == 0 {
-                                a += 1;
+                                a =  a + E::from(1);
                                 continue;
                             }
                         }
@@ -202,15 +202,15 @@ pub fn convert_to_base<E>(z: &Number<E>) -> Number<E> where E: Exponent {
 
                 // if we got here, i has a nonzero term so must be rewritten
                 result.coeffs.remove(&i);
-                let mut k = Z::from(1);
-                while &k != p {
-                    let new_exp = Exponent::math_mod(&((&k * n).into(): E / p + &i), &n);
+                let mut k = E::from(1);
+                while k.clone() != p.clone() {
+                    let new_exp = Exponent::math_mod(&((k.clone() * n.clone()).into(): E / p.clone() + i.clone()), &n);
                     add_single(&mut result.coeffs, &new_exp, &coeff, Sign::Minus);
-                    k += 1;
+                    k =  k + E::from(1);
                 }
-                a += 1;
+                a = a + E::from(1);
             }
-            bad_exp_raw += 1;
+            bad_exp_raw = bad_exp_raw + E::from(1);
         }
     }
 

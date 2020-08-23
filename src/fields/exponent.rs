@@ -1,10 +1,31 @@
 use crate::fields::Z;
-use std::ops::{Add, Mul, Sub, Div, Rem};
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
+use std::hash::Hash;
+use std::ops::{Add, Div, Mul, Neg, Rem, Sub};
+use rug::ops::Pow;
+
+pub trait Power {
+    fn power(&self, i: u32) -> Self;
+}
 
 /// Something suitable to be the i in e^i. Big or small signed ints, most likely,
 /// and some other useful numeric functions.
-pub trait Exponent: Clone + Add + Mul + Sub + Div + Rem + From<i64> + Eq + Display + Send {
+pub trait Exponent:
+    Clone
+    + Add<Output = Self>
+    + Mul<Output = Self>
+    + Sub<Output = Self>
+    + Div<Output = Self>
+    + Rem<Output = Self>
+    + Neg<Output = Self>
+    + From<i64>
+    + Eq
+    + Display
+    + Send
+    + Hash
+    + Debug
+    + Power
+{
     fn gcd(x: &Self, y: &Self) -> Self;
     fn lcm(x: &Self, y: &Self) -> Self;
 
@@ -17,9 +38,9 @@ pub trait Exponent: Clone + Add + Mul + Sub + Div + Rem + From<i64> + Eq + Displ
         while current_divisor != *n {
             let mut power: u32 = 0;
 
-            while (n_factored % current_divisor) == Self::from(0) {
+            while (n_factored.clone() % current_divisor.clone()) == Self::from(0) {
                 power += 1;
-                n_factored = n_factored / current_divisor;
+                n_factored = n_factored / current_divisor.clone();
             }
 
             if power != 0 {
@@ -27,7 +48,7 @@ pub trait Exponent: Clone + Add + Mul + Sub + Div + Rem + From<i64> + Eq + Displ
             }
 
             // TODO: this is really bad, improve it later
-            current_divisor = current_divisor + 1;
+            current_divisor = current_divisor + Self::from(1);
         }
 
         if result.is_empty() {
@@ -44,36 +65,48 @@ pub trait Exponent: Clone + Add + Mul + Sub + Div + Rem + From<i64> + Eq + Displ
         let mut k = Self::from(1);
         while &k != n {
             if Exponent::gcd(n, &k) == Self::from(1) {
-                count += Self::from(1);
+                count = count + Self::from(1);
             }
-            k += Self::from(1);
+            k = k + Self::from(1);
         }
         count
     }
 
     fn math_mod(x: &Self, n: &Self) -> Self {
-        (x % n + n) % n
+        (x.clone() % n.clone() + n.clone()) % n.clone()
     }
 }
 
 impl Exponent for Z {
     fn gcd(x: &Z, y: &Z) -> Z {
-        x.gcd(y)
+        x.clone().gcd(y)
     }
 
     fn lcm(x: &Z, y: &Z) -> Z {
-        x.lcm(y)
+        x.clone().lcm(y)
+    }
+}
+
+impl Power for Z {
+    fn power(&self, i: u32) -> Self {
+        self.pow(i).into()
     }
 }
 
 impl Exponent for i64 {
     fn gcd(x: &i64, y: &i64) -> i64 {
-        num::integer::gcd(x as u64, y as u64) as i64
+        num::integer::gcd(*x as u64, *y as u64) as i64
     }
 
     // There is a real danger that the lcm doesn't fit into
     // a fixed-size integer, but we ignore that.
     fn lcm(x: &i64, y: &i64) -> i64 {
-        num::integer::lcm(x as u64, y as u64) as i64
+        num::integer::lcm(*x as u64, *y as u64) as i64
+    }
+}
+
+impl Power for i64 {
+    fn power(&self, i: u32) -> Self {
+        self.pow(i)
     }
 }

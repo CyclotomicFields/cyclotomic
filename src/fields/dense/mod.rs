@@ -53,9 +53,9 @@ impl fmt::Debug for Number {
 }
 
 impl Number {
-    pub fn new(order: i64, coeffs: &Vec<Q>) -> Number {
+    pub fn new(order: &i64, coeffs: &Vec<Q>) -> Number {
         Number {
-            order: order,
+            order: order.clone(),
             coeffs: coeffs.clone(),
         }
     }
@@ -138,9 +138,9 @@ impl FieldElement for Number {
 }
 
 impl CyclotomicFieldElement<i64> for Number {
-    fn e(n: i64, k: i64) -> Self {
-        let mut coeffs = vec![Q::from(0); n as usize];
-        coeffs[k as usize] = Q::from(1);
+    fn e(n: &i64, k: &i64) -> Self {
+        let mut coeffs = vec![Q::from(0); *n as usize];
+        coeffs[*k as usize] = Q::from(1);
         Number::new(n, &coeffs)
     }
 
@@ -151,12 +151,12 @@ impl CyclotomicFieldElement<i64> for Number {
         self
     }
 
-    fn zero_order(n: i64) -> Number {
-        Number::new(n, &vec![Q::from(0); n as usize])
+    fn zero_order(n: &i64) -> Number {
+        Number::new(n, &vec![Q::from(0); *n as usize])
     }
 
-    fn one_order(n: i64) -> Number {
-        let mut coeffs = vec![Q::from(0); n as usize];
+    fn one_order(n: &i64) -> Number {
+        let mut coeffs = vec![Q::from(0); *n as usize];
         coeffs[0] = Q::from(1);
         Number::new(n, &coeffs)
     }
@@ -177,7 +177,7 @@ where
 {
     let order = g.gen_range(min_order, max_order);
     let num_terms: u64 = g.gen_range(1, 5);
-    let mut result = Number::zero_order(order.clone());
+    let mut result = Number::zero_order(&order);
 
     for _ in 1..=num_terms {
         let exp: i64 = g.gen_range(1, order);

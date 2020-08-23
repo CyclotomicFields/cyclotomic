@@ -17,7 +17,7 @@ where
 {
     pub fn zero_matrix(N: usize, M: usize) -> Self {
         Matrix {
-            value: vec![vec![T::zero_order(E::from(1)); M]; N],
+            value: vec![vec![T::zero_order(&E::from(1)); M]; N],
             exp: PhantomData
         }
     }
@@ -26,7 +26,7 @@ where
     pub fn identity_matrix(N: usize) -> Self {
         let mut result = Self::zero_matrix(N, N);
         for i in 0..N {
-            result.value[i][i] = T::zero_order(E::from(1));
+            result.value[i][i] = T::zero_order(&E::from(1));
         }
         result
     }
@@ -58,7 +58,7 @@ where
 
         for i in 0..N {
             for j in 0..L {
-                let mut sum = T::zero_order(E::from(1));
+                let mut sum = T::zero_order(&E::from(1));
                 for k in 0..M {
                     sum.add(&mut A[i][k].clone().mul(&mut B[k][j]));
                 }
@@ -116,7 +116,7 @@ where
     fn dot_product(&self, other: &mut Self) -> T {
         let v1 = &self.value;
         let v2 = &mut other.value;
-        let mut result = T::zero_order(E::from(1));
+        let mut result = T::zero_order(&E::from(1));
 
         assert_eq!(v1.len(), v2.len());
 

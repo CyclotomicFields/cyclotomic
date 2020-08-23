@@ -8,10 +8,10 @@ use std::convert::TryInto;
 use crate::fields::exponent::Exponent;
 
 pub fn apply_automorphism<E: Exponent>(z: &Number<E>, i: &E) -> Number<E> {
-    let mut result = Number::zero_order(z.order.clone());
+    let mut result = Number::zero_order(&z.order);
 
     for (exp, coeff) in z.coeffs.clone() {
-        result.coeffs.insert(Exponent::math_mod(&(&exp * i).into(), &z.order), coeff);
+        result.coeffs.insert(Exponent::math_mod(&(exp.clone() * i.clone()).into(), &z.order), coeff);
     }
 
     result

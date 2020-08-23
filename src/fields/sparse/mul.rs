@@ -14,14 +14,14 @@ impl<E> MultiplicativeGroupElement for Number<E> where E: Exponent {
         let z2 = rhs;
         Self::match_orders(z1, z2);
 
-        let mut result = Number::zero_order(z1.order.clone());
+        let mut result = Number::zero_order(&z1.order);
 
         // This order is almost certainly not optimal. But you know, whatever.
         // TODO: make it gooder
         result.order = z1.order.clone();
         for (exp1, coeff1) in &z1.coeffs {
             for (exp2, coeff2) in &z2.coeffs {
-                let new_exp = ((exp1 + exp2).into(): E) % &z1.order;
+                let new_exp = ((exp1.clone() + exp2.clone()).into(): E) % z1.order.clone();
                 let new_coeff: Q = (coeff1 * coeff2).into();
                 add_single(&mut result.coeffs, &new_exp, &new_coeff, Sign::Plus);
             }
@@ -48,14 +48,14 @@ impl<E> MultiplicativeGroupElement for Number<E> where E: Exponent {
 
         // This is the product except for the term for $t = \id_L$.
 
-        let mut x = Number::one_order(n.clone());
+        let mut x = Number::one_order(n);
 
-        let mut i = Z::from(2);
+        let mut i = E::from(2);
         while &i != n {
-            if n.gcd_ref(&i).into(): E == 1 {
+            if Exponent::gcd(n ,&i) == E::from(1) {
                 x.mul(&mut apply_automorphism(&z, &i));
             }
-            i += 1;
+            i =  i + E::from(1);
         }
 
         // The full product:
@@ -63,7 +63,7 @@ impl<E> MultiplicativeGroupElement for Number<E> where E: Exponent {
         try_reduce(&mut q_cyc);
         println!("q_cyc = {:?}", q_cyc);
 
-        assert_eq!(q_cyc.order, 1);
+        assert_eq!(q_cyc.order, E::from(1));
         let q_rat = q_cyc.coeffs.get(&E::from(0)).unwrap();
         println!("q_rat = {:?}", q_rat);
 
