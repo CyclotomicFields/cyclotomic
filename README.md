@@ -165,39 +165,8 @@ sometimes, so this deserves a mention.
 
 ## Benchmarks
 
-There are source code for some benchmarks against various libraries
-under the `benchmarks/` directory. Currently, there are only
-benchmarks for the antic library for number fields (among other
-things).
-
-To compile the antic benchmark:
-
-```sh
-$ cd benchmarks/antic
-$ make
-```
-
-(assuming you have the antic and flint libraries installed (TODO:
-maybe some guidance on how to install those))
-
-To run, specify the order of the cyclotomic field and the number of
-dot products to perform:
-
-```sh
-$ ./anticbench 100 120000
-n = 100
-num_tests = 120000
-generating test data
-starting benchmark
-time elapsed (ms):
-3586
-```
-
-The actual benchmark run is kind of arbitrary and will be documented
-here more thoroughly. Basically some dot products.
-
-You can also run the benchmark for our library, to compare, using
-the `cyclobench` program. TODO: document this some more.
+There is a README in the `benchmarks/` directory, as well as some utility
+programs for plotting results.
 
 #### Contributors
 
