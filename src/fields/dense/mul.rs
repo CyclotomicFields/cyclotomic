@@ -3,6 +3,8 @@ use crate::fields::dense::*;
 use crate::fields::{CyclotomicFieldElement, MultiplicativeGroupElement};
 use basis::{convert_to_base, try_reduce};
 use galois::apply_automorphism;
+use crate::fields::exponent::Exponent;
+use crate::fields::util::Sign;
 
 impl MultiplicativeGroupElement for Number {
     /// Multiplies term by term, not bothering to do anything interesting.
@@ -11,7 +13,7 @@ impl MultiplicativeGroupElement for Number {
         let z2 = rhs;
         Self::match_orders(z1, z2);
 
-        let mut result = Number::zero_order(z1.order);
+        let mut result = Number::zero_order(&z1.order);
 
         // This order is almost certainly not optimal. But you know, whatever.
         // TODO: make it gooder
@@ -44,10 +46,10 @@ impl MultiplicativeGroupElement for Number {
         // $1 \leq i \leq n-1$ coprime to $n$.
 
         // This is the product except for the term for $t = \id_L$.
-        let mut x = Number::one_order(n);
+        let mut x = Number::one_order(&n);
 
         for i in 2..n {
-            if are_coprime(i, n) {
+            if Exponent::gcd(&i, &n) == 1 {
                 x.mul(&mut apply_automorphism(&z, i));
             }
         }

@@ -1,5 +1,6 @@
 use crate::fields::{CyclotomicFieldElement, FieldElement};
 use std::marker::PhantomData;
+use crate::fields::exponent::Exponent;
 
 /// Terrible implementation of a matrix (not contiguous)
 pub struct Matrix<T, E> {
@@ -12,11 +13,11 @@ pub struct Matrix<T, E> {
 impl<T, E> Matrix<T, E>
 where
     T: CyclotomicFieldElement<E>,
-    E: From<i64>,
+    E: From<i64> + Exponent,
 {
     pub fn zero_matrix(N: usize, M: usize) -> Self {
         Matrix {
-            value: vec![vec![T::zero_order(E::from(1)); M]; N],
+            value: vec![vec![T::zero_order(&E::from(1)); M]; N],
             exp: PhantomData
         }
     }
@@ -25,11 +26,12 @@ where
     pub fn identity_matrix(N: usize) -> Self {
         let mut result = Self::zero_matrix(N, N);
         for i in 0..N {
-            result.value[i][i] = T::zero_order(E::from(1));
+            result.value[i][i] = T::zero_order(&E::from(1));
         }
         result
     }
-    fn assert_compatible(mA: &Self, mB: &Self) {
+
+    fn assert_mul_compatible(mA: &Self, mB: &Self) {
         let A = &mA.value;
         let B = &mB.value;
 
@@ -44,7 +46,7 @@ where
     }
 
     pub fn mul(mA: &mut Self, mB: &mut Self) -> Self {
-        Self::assert_compatible(mA, mB);
+        Self::assert_mul_compatible(mA, mB);
         let A = &mut mA.value;
         let B = &mut mB.value;
 
@@ -56,7 +58,7 @@ where
 
         for i in 0..N {
             for j in 0..L {
-                let mut sum = T::zero_order(E::from(1));
+                let mut sum = T::zero_order(&E::from(1));
                 for k in 0..M {
                     sum.add(&mut A[i][k].clone().mul(&mut B[k][j]));
                 }
@@ -65,6 +67,15 @@ where
         }
 
         result
+    }
+
+    fn assert_add_compatible(mA: &Self, mB: &Self) {
+        assert!(mA.value.len() > 0);
+        assert_eq!(mA.value.len(), mB.value.len());
+
+        for i in 0..mA.value.len() {
+            assert_eq!(mA.value[i].len(), mB.value[i].len());
+        }
     }
 
     pub fn add(mA: &mut Self, mB: &mut Self) -> Self {
@@ -100,12 +111,12 @@ struct Vector<T, E> {
 impl<T, E> Vector<T, E>
 where
     T: CyclotomicFieldElement<E>,
-    E: From<i64>,
+    E: From<i64> + Exponent,
 {
     fn dot_product(&self, other: &mut Self) -> T {
         let v1 = &self.value;
         let v2 = &mut other.value;
-        let mut result = T::zero_order(E::from(1));
+        let mut result = T::zero_order(&E::from(1));
 
         assert_eq!(v1.len(), v2.len());
 
@@ -119,3 +130,5 @@ where
     // NOTE: the L2 norm might not be cyclotomic, so we can't
     // have a norm function without general number fields.
 }
+
+// TODO: tests!!!!

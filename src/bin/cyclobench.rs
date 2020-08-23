@@ -9,9 +9,8 @@ use clap::Clap;
 
 use cyclotomic::fields::{GenericCyclotomic, CyclotomicFieldElement};
 
-use cyclotomic::fields::sparse;
 use cyclotomic::fields::structure;
-use cyclotomic::fields::{big_sparse, dense, FieldElement};
+use cyclotomic::fields::{sparse, dense, FieldElement};
 
 use cyclotomic::fields::AdditiveGroupElement;
 use cyclotomic::fields::MultiplicativeGroupElement;
@@ -37,6 +36,7 @@ use test::black_box;
 
 use cyclotomic::fields::linear_algebra::Matrix;
 use std::marker::PhantomData;
+use cyclotomic::fields::exponent::Exponent;
 
 #[derive(Clap)]
 #[clap(version = "1.0")]
@@ -109,13 +109,13 @@ struct RandomOpts {
     #[clap(short, long, about = "make this fraction of the terms be nonzero")]
     density: Option<f64>,
 
-    #[clap(short, long, about = "only works with big_sparse")]
+    #[clap(short, long, about = "only works with sparse")]
     big_order: Option<String>,
 }
 
 // Writes a gap source file with a function f you can run that will
 // do the same computations, for benchmark purposes.
-fn write_gap_cycs(nums: &Vec<sparse::Number>, filename: String) -> Result<()> {
+fn write_gap_cycs(nums: &Vec<sparse::Number<i64>>, filename: String) -> Result<()> {
     eprintln!("writing GAP expressions to {}", filename);
 
     let mut file = File::create(filename).unwrap();
@@ -200,40 +200,8 @@ where
         .collect()
 }
 
-// TODO: clearly there's some way to use the Into trait, do it
-
-fn into_sparse_number(f: &GenericCyclotomic) -> sparse::Number {
-    let mut coeffs = cyclotomic::fields::sparse::ExpCoeffMap::default();
-
-    for (exp, (num, denom)) in &f.exp_coeffs {
-        coeffs.insert(exp.to_i64().unwrap(), Q::from((*num, *denom)));
-    }
-
-    sparse::Number::new(f.order.to_i64().unwrap(), &coeffs)
-}
-
-fn into_big_sparse_number(f: &GenericCyclotomic) -> big_sparse::Number {
-    let mut coeffs = cyclotomic::fields::big_sparse::ExpCoeffMap::default();
-
-    for (exp, (num, denom)) in &f.exp_coeffs {
-        coeffs.insert(exp.clone(), Q::from((*num, *denom)));
-    }
-
-    big_sparse::Number::new(&Z::from(&f.order), &coeffs)
-}
-
-fn into_dense_number(f: &GenericCyclotomic) -> dense::Number {
-    let mut coeffs = vec![Q::from(0); f.order.to_usize().unwrap()];
-
-    for (exp, (num, denom)) in &f.exp_coeffs {
-        coeffs[exp.to_usize().unwrap()] = Q::from((*num, *denom));
-    }
-
-    dense::Number::new(f.order.to_i64().unwrap(), &coeffs)
-}
-
 fn into_structure_number(field: &structure::CyclotomicField, f: &GenericCyclotomic) -> Vec<Q> {
-    let mut dense = into_dense_number(f);
+    let mut dense = dense::Number::from_generic(f);
     write_dense_in_basis(&mut dense, &field.basis)
 }
 
@@ -256,8 +224,8 @@ fn into_antic(
 }
 
 fn random(top_level: &TopLevel, opts: &RandomOpts) {
-    if opts.big_order.is_some() && top_level.implementation != "big_sparse".to_owned() {
-        eprintln!("you must use big_sparse with big_order!");
+    if opts.big_order.is_some() && top_level.implementation != "sparse".to_owned() {
+        eprintln!("you must use sparse with big_order!");
         return;
     }
 
@@ -293,20 +261,20 @@ fn random(top_level: &TopLevel, opts: &RandomOpts) {
         .map(|chunk| chunk.to_vec())
         .collect();
 
-    let big_sparse_nums: Vec<Vec<big_sparse::Number>> = chunks
+    let big_sparse_nums: Vec<Vec<sparse::Number<Z>>> = chunks
         .clone()
         .into_iter()
         .map(|chunk| {
             chunk
                 .into_iter()
-                .map(|f| into_big_sparse_number(&f))
+                .map(|f| sparse::Number::<Z>::from_generic(&f))
                 .collect()
         })
         .collect();
 
-    // if we're using big_order, we have to just run the benchmark for big_sparse,
+    // if we're using big_order, we have to just run the benchmark for sparse,
     // none of the implementations support big numbers
-    if top_level.implementation == "big_sparse".to_owned() && opts.big_order.is_some() {
+    if top_level.implementation == "sparse".to_owned() && opts.big_order.is_some() {
         eprintln!("running big order benchmark, only for big_sparse");
         eprintln!(
             "big order = {}",
@@ -319,16 +287,16 @@ fn random(top_level: &TopLevel, opts: &RandomOpts) {
         return;
     }
 
-    let sparse_nums: Vec<Vec<sparse::Number>> = chunks
+    let sparse_nums: Vec<Vec<sparse::Number<i64>>> = chunks
         .clone()
         .into_iter()
-        .map(|chunk| chunk.into_iter().map(|f| into_sparse_number(&f)).collect())
+        .map(|chunk| chunk.into_iter().map(|f| sparse::Number::from_generic(&f)).collect())
         .collect();
 
     let dense_nums: Vec<Vec<dense::Number>> = chunks
         .clone()
         .into_iter()
-        .map(|chunk| chunk.into_iter().map(|f| into_dense_number(&f)).collect())
+        .map(|chunk| chunk.into_iter().map(|f| dense::Number::from_generic(&f)).collect())
         .collect();
 
     // TODO: only supports a single fixed order, improve?
@@ -377,7 +345,7 @@ fn random(top_level: &TopLevel, opts: &RandomOpts) {
         number_bench(&opts, &sparse_nums);
     } else if top_level.implementation.as_str() == "dense" {
         number_bench(&opts, &dense_nums);
-    } else if top_level.implementation.as_str() == "big_sparse" {
+    } else if top_level.implementation.as_str() == "sparse" {
         number_bench(&opts, &big_sparse_nums);
     } else if top_level.implementation.as_str() == "structure" {
         structure_number_bench(&opts, &structure_field, &structure_nums);
@@ -509,6 +477,7 @@ fn gap2sexp(gap_cyc: String) -> String {
 // TODO: honestly this whole thing is horrific
 
 fn stdin(top_level: &TopLevel, opts: &StdinOpts) {
+    eprintln!("reading test matrices");
     let stdin = io::stdin();
     let lines = stdin.lock().lines();
     let sexps: Vec<String> = lines
@@ -527,27 +496,27 @@ fn stdin(top_level: &TopLevel, opts: &StdinOpts) {
             .chunks(opts.chunk_size)
             .map(|chunk| chunk.to_vec())
             .collect();
-        let mut big_sparse_nums: Vec<Vec<big_sparse::Number>> = chunks
+        let mut big_sparse_nums: Vec<Vec<sparse::Number<Z>>> = chunks
             .clone()
             .into_iter()
             .map(|chunk| {
                 chunk
                     .into_iter()
-                    .map(|f| into_big_sparse_number(&f))
+                    .map(|f| sparse::Number::from_generic(&f))
                     .collect()
             })
             .collect();
 
-        let mut sparse_nums: Vec<Vec<sparse::Number>> = chunks
+        let mut sparse_nums: Vec<Vec<sparse::Number<i64>>> = chunks
             .clone()
             .into_iter()
-            .map(|chunk| chunk.into_iter().map(|f| into_sparse_number(&f)).collect())
+            .map(|chunk| chunk.into_iter().map(|f| sparse::Number::from_generic(&f)).collect())
             .collect();
 
         let mut dense_nums: Vec<Vec<dense::Number>> = chunks
             .clone()
             .into_iter()
-            .map(|chunk| chunk.into_iter().map(|f| into_dense_number(&f)).collect())
+            .map(|chunk| chunk.into_iter().map(|f| dense::Number::from_generic(&f)).collect())
             .collect();
 
         eprintln!("starting scalar benchmark");
@@ -557,7 +526,7 @@ fn stdin(top_level: &TopLevel, opts: &StdinOpts) {
             black_box(stdin_scalar_bench(&opts, &mut sparse_nums));
         } else if top_level.implementation.as_str() == "dense" {
             black_box(stdin_scalar_bench(&opts, &mut dense_nums));
-        } else if top_level.implementation.as_str() == "big_sparse" {
+        } else if top_level.implementation.as_str() == "sparse" {
             black_box(stdin_scalar_bench(&opts, &mut big_sparse_nums));
         } else {
             panic!("unsupported implementation!")
@@ -573,11 +542,11 @@ fn stdin(top_level: &TopLevel, opts: &StdinOpts) {
             matrices.push(sexp2matrix(&sexp).unwrap());
         }
         assert_eq!(matrices.len() % opts.chunk_size, 0);
-        let mut sparse_matrices: Vec<Matrix<sparse::Number, i64>> = matrices.clone().into_iter().map(|matrix| {
+        let mut sparse_matrices: Vec<Matrix<sparse::Number<i64>, i64>> = matrices.clone().into_iter().map(|matrix| {
             Matrix {
                 value: matrix.into_iter().map(|row| {
                     row.into_iter().map(|generic| {
-                        into_sparse_number(&generic)
+                        sparse::Number::from_generic(&generic)
                     }).collect()
                 }).collect(),
                 exp: PhantomData,
@@ -600,12 +569,12 @@ fn stdin(top_level: &TopLevel, opts: &StdinOpts) {
 
 fn stdin_scalar_bench<T, E>(opts: &StdinOpts, chunks: &mut Vec<Vec<T>>)
     where
-        E: From<i64>,
+        E: Exponent,
         T: CyclotomicFieldElement<E>,
 {
-    let mut result = T::zero_order(E::from(1));
+    let mut result = T::zero_order(&E::from(1));
     for mut chunk in chunks {
-        let mut chunk_result = T::one_order(E::from(1));
+        let mut chunk_result = T::one_order(&E::from(1));
         for i in 0..chunk.len() {
             chunk_result.mul(&mut chunk[i]);
         }
@@ -615,7 +584,7 @@ fn stdin_scalar_bench<T, E>(opts: &StdinOpts, chunks: &mut Vec<Vec<T>>)
 
 fn stdin_matrix_bench<T, E>(opts: &StdinOpts, matrices: &mut Vec<Matrix<T, E>>)
     where
-        E: From<i64>,
+        E: Exponent,
         T: CyclotomicFieldElement<E>,
 {
     let N = matrices[0].value.len();

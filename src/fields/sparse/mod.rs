@@ -10,32 +10,35 @@ use basis::convert_to_base;
 use num::traits::Inv;
 use quickcheck::{Arbitrary, Gen};
 use rand::Rng;
-use rustc_hash::FxHashMap;
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 use std::fmt;
 use std::ops::{AddAssign, Mul, SubAssign};
 use std::vec::Vec;
 
 #[macro_use]
 use crate::fields::*;
+use crate::fields::exponent::Exponent;
+use self::rustc_hash::FxHashMap;
 
 pub mod add;
 pub mod basis;
 pub mod galois;
 pub mod mul;
 
-pub type ExpCoeffMap = FxHashMap<i64, Q>;
+// TODO: how to make this FxHashMap for i64 and HashMap for Z?
+type ExpCoeffMap<E> = FxHashMap<E, Q>;
 
 /// Represents a polynomial in the `order`th root of unity.
 #[derive(Clone)]
-pub struct Number {
-    order: i64,
-    coeffs: ExpCoeffMap,
+pub struct Number<E: Exponent> {
+    order: E,
+    coeffs: ExpCoeffMap<E>,
 }
 
-pub fn print_gap(z: &Number) -> String {
+pub fn print_gap<E: Exponent>(z: &Number<E>) -> String {
     let mut str_list: Vec<String> = vec![];
-    for exp in 0..z.order {
+    let mut exp = E::from(0);
+    while &exp != &z.order {
         let zero = Q::from(0).clone();
         let coeff = z.coeffs.get(&exp).unwrap_or(&zero);
         if *coeff != 0 {
@@ -43,44 +46,45 @@ pub fn print_gap(z: &Number) -> String {
                 format!("{} * E({})^{}", coeff, z.order, exp).as_str(),
             ))
         }
+        exp = exp + E::from(1);
     }
     "(".to_string() + &str_list.join(" + ") + ")"
 }
 
-impl fmt::Debug for Number {
+impl<E> fmt::Debug for Number<E> where E: Exponent {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Number ({})", print_gap(self))
     }
 }
 
-impl Number {
-    pub fn new(order: i64, coeffs: &ExpCoeffMap) -> Number {
+impl<E> Number<E> where E: Exponent {
+    pub fn new(order: &E, coeffs: &ExpCoeffMap<E>) -> Number<E> {
         Number {
-            order: order,
+            order: order.clone(),
             coeffs: coeffs.clone(),
         }
     }
 
-    pub fn increase_order_to(z: &mut Self, new_order: i64) {
+    pub fn increase_order_to(z: &mut Self, new_order: &E) {
         let mut new_coeffs = ExpCoeffMap::default();
         for (exp, coeff) in &z.coeffs {
-            new_coeffs.insert(new_order * exp.clone() / z.order.clone(), coeff.clone());
+            new_coeffs.insert(new_order.clone() * exp.clone() / z.order.clone(), coeff.clone());
         }
         z.order = new_order.clone();
         z.coeffs = new_coeffs;
     }
 
-    pub fn match_orders(z1: &mut Number, z2: &mut Number) {
+    pub fn match_orders(z1: &mut Number<E>, z2: &mut Number<E>) {
         if z1.order == z2.order {
             return;
         }
-        let new_order = num::integer::lcm(z1.order, z2.order);
-        Number::increase_order_to(z1, new_order);
-        Number::increase_order_to(z2, new_order);
+        let new_order: E = Exponent::lcm(&z1.order, &z2.order);
+        Number::<E>::increase_order_to(z1, &new_order);
+        Number::<E>::increase_order_to(z2, &new_order);
     }
 }
 
-fn get_same_coeff(z: &Number) -> Option<Q> {
+fn get_same_coeff<E: Exponent>(z: &Number<E>) -> Option<Q> {
     let coeffs = z.coeffs.clone().into_iter().map(|(_exp, coeff)| coeff);
     let nonzero_coeffs: HashSet<Q> = coeffs.filter(|q| *q != 0).collect();
 
@@ -94,14 +98,14 @@ fn get_same_coeff(z: &Number) -> Option<Q> {
     }
 }
 
-fn add_single(coeffs: &mut ExpCoeffMap, exp: i64, coeff: &Q, sign: Sign) {
-    let maybe_existing_coeff = coeffs.get_mut(&exp);
+fn add_single<E: Exponent>(coeffs: &mut ExpCoeffMap<E>, exp: &E, coeff: &Q, sign: Sign) {
+    let maybe_existing_coeff = coeffs.get_mut(exp);
     match maybe_existing_coeff {
         None => {
             if sign == Sign::Plus {
-                coeffs.insert(exp, coeff.clone());
+                coeffs.insert(exp.clone(), coeff.clone());
             } else {
-                coeffs.insert(exp, -coeff.clone());
+                coeffs.insert(exp.clone(), -coeff.clone());
             }
         }
         Some(existing_coeff) => {
@@ -115,7 +119,7 @@ fn add_single(coeffs: &mut ExpCoeffMap, exp: i64, coeff: &Q, sign: Sign) {
     }
 }
 
-pub fn is_zero(z: &Number) -> bool {
+pub fn is_zero<E: Exponent>(z: &Number<E>) -> bool {
     for (_, coeff) in &z.coeffs {
         if *coeff != 0 {
             return false;
@@ -124,18 +128,18 @@ pub fn is_zero(z: &Number) -> bool {
     true
 }
 
-impl FieldElement for Number {
+impl<E> FieldElement for Number<E> where E: Exponent {
     fn eq(&mut self, other: &mut Self) -> bool {
         let mut za = self.clone();
         let mut zb = other.clone();
-        Number::match_orders(&mut za, &mut zb);
+        Number::<E>::match_orders(&mut za, &mut zb);
         let z1 = convert_to_base(&za);
         let z2 = convert_to_base(&zb);
 
         // Now that we've matched the orders, z1 and z2 are expressed as
         // elements in the same field so are the same iff each nonzero term is
         // the same.
-        fn has_diff(left: &Number, right: &Number) -> bool {
+        fn has_diff<E>(left: &Number<E>, right: &Number<E>) -> bool where E: Exponent {
             for (exp_left, coeff_left) in &left.coeffs {
                 match right.coeffs.get(&exp_left) {
                     None => {
@@ -157,33 +161,35 @@ impl FieldElement for Number {
     }
 }
 
-impl CyclotomicFieldElement<i64> for Number {
-    fn e(n: i64, k: i64) -> Self {
-        Number::new(
+impl<E> CyclotomicFieldElement<E> for Number<E> where E: Exponent {
+    fn e(n: &E, k: &E) -> Self {
+        Number::<E>::new(
             n,
-            &[(k, Q::from(1))].iter().cloned().collect(),
+            &[(k.clone(), Q::from(1))].iter().cloned().collect(),
         )
     }
 
     fn scalar_mul(&mut self, scalar: &Q) -> &mut Self {
         let mut result = self.clone();
         for (_, coeff) in result.coeffs.iter_mut() {
-            *coeff *= scalar.clone();
+            *coeff *= scalar;
         }
         *self = result;
         self
     }
 
-    fn zero_order(n: i64) -> Number {
-        Number::new(n, &ExpCoeffMap::default())
+    fn zero_order(n: &E) -> Number<E> {
+        Number::<E>::new(&n, &ExpCoeffMap::<E>::default())
     }
 
-    fn one_order(n: i64) -> Number {
+    fn one_order(n: &E) -> Number<E> {
         let mut coeffs = ExpCoeffMap::default();
-        for i in 1..n {
-            coeffs.insert(i, Q::from(-1));
+        let mut i = E::from(1);
+        while i != *n {
+            coeffs.insert(i.clone(), Q::from(-1));
+            i = i + E::from(1);
         }
-        Number::new(n, &coeffs)
+        Number::<E>::new(n, &coeffs)
     }
 }
 
@@ -196,30 +202,44 @@ where
     Q::from((p, q))
 }
 
-pub fn random_cyclotomic<G>(g: &mut G, min_order: i64, max_order: i64) -> Number
+pub fn random_cyclotomic<G, E>(g: &mut G, min_order: i64, max_order: i64) -> Number<E>
 where
     G: rand::RngCore,
+    E: Exponent
 {
     let order = g.gen_range(min_order, max_order);
     let num_terms: u64 = g.gen_range(1, 5);
-    let mut result = Number::zero_order(order.clone());
+    let mut result = Number::<E>::zero_order(&E::from(order.clone()));
 
     for _ in 1..=num_terms {
         let exp: i64 = g.gen_range(1, order);
         let coeff = random_rational(g);
-        result.coeffs.insert(exp, coeff);
+        result.coeffs.insert(E::from(exp), coeff);
     }
 
     result
 }
 
-impl Arbitrary for Number {
+impl<E: 'static> Arbitrary for Number<E> where E: Exponent {
     fn arbitrary<G>(g: &mut G) -> Self
     where
         G: Gen,
     {
-        random_cyclotomic(g, 2, 50)
+        random_cyclotomic::<G, E>(g, 2, 50)
     }
 }
 
-field_axiom_tests!(Number);
+type Number_i64 = Number<i64>;
+type Number_Z = Number<Z>;
+
+#[cfg(test)]
+mod i64_tests {
+    use super::*;
+    field_axiom_tests!(Number_i64);
+}
+
+#[cfg(test)]
+mod Z_tests {
+    use super::*;
+    field_axiom_tests!(Number_Z);
+}
