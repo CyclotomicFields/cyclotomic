@@ -32,7 +32,7 @@ See [below for some benchmarks against antic](#benchmarks).
 
 * Sparse representations:
   - Using the Zumbroich basis (GAP-inspired) and hash maps of
-    exponents (64 bit ihts) to coefficients
+    exponents (64 bit ints) to coefficients
   - The same as the above, but with arbitrary integer exponents -
     this is for very large degree fields.
     
