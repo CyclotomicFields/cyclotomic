@@ -39,7 +39,8 @@ See [below for some benchmarks against antic](#benchmarks).
 * Dense representations:
   - Vector of coefficients and Zumbroich basis (the same as GAP,
     unpacked)
-  - Vector of coefficients with
+  - Vector of coefficients with multiplication via the structure
+    constants (viewed as a Q-algebra).
   
 ## Performance
 
