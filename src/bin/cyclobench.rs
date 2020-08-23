@@ -109,7 +109,7 @@ struct RandomOpts {
     #[clap(short, long, about = "make this fraction of the terms be nonzero")]
     density: Option<f64>,
 
-    #[clap(short, long, about = "only works with sparse")]
+    #[clap(short, long, about = "only works with big_sparse")]
     big_order: Option<String>,
 }
 
@@ -224,8 +224,8 @@ fn into_antic(
 }
 
 fn random(top_level: &TopLevel, opts: &RandomOpts) {
-    if opts.big_order.is_some() && top_level.implementation != "sparse".to_owned() {
-        eprintln!("you must use sparse with big_order!");
+    if opts.big_order.is_some() && top_level.implementation != "big_sparse".to_owned() {
+        eprintln!("you must use big_sparse with big_order!");
         return;
     }
 
@@ -274,7 +274,7 @@ fn random(top_level: &TopLevel, opts: &RandomOpts) {
 
     // if we're using big_order, we have to just run the benchmark for sparse,
     // none of the implementations support big numbers
-    if top_level.implementation == "sparse".to_owned() && opts.big_order.is_some() {
+    if top_level.implementation == "big_sparse".to_owned() && opts.big_order.is_some() {
         eprintln!("running big order benchmark, only for big_sparse");
         eprintln!(
             "big order = {}",
