@@ -32,26 +32,33 @@ See [below for some benchmarks against antic](#benchmarks).
 
 * Sparse representations:
   - Using the Zumbroich basis (GAP-inspired) and hash maps of
-    exponents to coefficients
+    exponents (64 bit ihts) to coefficients
+  - The same as the above, but with arbitrary integer exponents -
+    this is for very large degree fields.
+    
+* Dense representations:
+  - Vector of coefficients and Zumbroich basis (the same as GAP,
+    unpacked)
+  - Vector of coefficients with
+  
+## Performance
+
+The sparse representation perform better than the dense representations
+when the elements are sparse. Still acceptable even for non-sparse
+elements.
+
+TODO: some graphs to show this
 
 ## TODO
+
+* Dense representations:
+  - Dense polynomials with computation modulo the cyclotomic
+    polynomial
 
 * Get rid of all the copy and paste, make some abstractions that
   actually make sense.
 
 * C FFI interface for calling our Rust code from other languages
-
-* Sparse representations:
-  - Arbitrary integer exponents and efficient multi-level hashing,
-    cached factorisations etc. This is for very large degree fields.
-  - Vector of pairs of exponents and coefficients (sorted with a heap?)
-  - Hash map of exponents to coefficients using structure constant
-    multiplication
-
-* Dense representations:
-  - Vector of coefficients and Zumbroich basis (the same as GAP,
-    unpacked)
-  - Vector of coefficients and explicit polynomial division
 
 * Explicit construction as field of fractions of ring of
   integers. Trivial inversion, good when you're only multiplying?
