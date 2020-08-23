@@ -4,7 +4,7 @@ use std::fmt::Display;
 
 /// Something suitable to be the i in e^i. Big or small signed ints, most likely,
 /// and some other useful numeric functions.
-pub trait Exponent: Clone + Add + Mul + Sub + Div + Rem + From<i64> + Eq + Display {
+pub trait Exponent: Clone + Add + Mul + Sub + Div + Rem + From<i64> + Eq + Display + Send {
     fn gcd(x: &Self, y: &Self) -> Self;
     fn lcm(x: &Self, y: &Self) -> Self;
 
@@ -23,10 +23,10 @@ pub trait Exponent: Clone + Add + Mul + Sub + Div + Rem + From<i64> + Eq + Displ
             }
 
             if power != 0 {
-                result.push((divisor.clone(), power));
+                result.push((current_divisor.clone(), power));
             }
 
-            /// TODO: this is really bad, improve it later
+            // TODO: this is really bad, improve it later
             current_divisor = current_divisor + 1;
         }
 
@@ -43,7 +43,7 @@ pub trait Exponent: Clone + Add + Mul + Sub + Div + Rem + From<i64> + Eq + Displ
         let mut count = Self::from(0);
         let mut k = Self::from(1);
         while &k != n {
-            if gcd(n, &k) == Self::from(1) {
+            if Exponent::gcd(n, &k) == Self::from(1) {
                 count += Self::from(1);
             }
             k += Self::from(1);

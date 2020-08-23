@@ -1,5 +1,6 @@
 use crate::fields::{CyclotomicFieldElement, FieldElement};
 use std::marker::PhantomData;
+use crate::fields::exponent::Exponent;
 
 /// Terrible implementation of a matrix (not contiguous)
 pub struct Matrix<T, E> {
@@ -12,7 +13,7 @@ pub struct Matrix<T, E> {
 impl<T, E> Matrix<T, E>
 where
     T: CyclotomicFieldElement<E>,
-    E: From<i64>,
+    E: From<i64> + Exponent,
 {
     pub fn zero_matrix(N: usize, M: usize) -> Self {
         Matrix {
@@ -110,7 +111,7 @@ struct Vector<T, E> {
 impl<T, E> Vector<T, E>
 where
     T: CyclotomicFieldElement<E>,
-    E: From<i64>,
+    E: From<i64> + Exponent,
 {
     fn dot_product(&self, other: &mut Self) -> T {
         let v1 = &self.value;

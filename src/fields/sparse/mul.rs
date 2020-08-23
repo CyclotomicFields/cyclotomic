@@ -1,11 +1,13 @@
 use super::num::Zero;
 use crate::fields::sparse::basis::{convert_to_base, try_reduce};
 use crate::fields::sparse::*;
-use crate::fields::{CyclotomicFieldElement, MultiplicativeGroupElement};
+use crate::fields::{CyclotomicFieldElement, MultiplicativeGroupElement, Q};
 use galois::apply_automorphism;
 use std::convert::TryInto;
+use crate::fields::util::Sign;
+use crate::fields::exponent::Exponent;
 
-impl MultiplicativeGroupElement for Number {
+impl<E> MultiplicativeGroupElement for Number<E> where E: Exponent {
     /// Multiplies term by term, not bothering to do anything interesting.
     fn mul(&mut self, rhs: &mut Self) -> &mut Self {
         let z1 = self;
@@ -19,7 +21,7 @@ impl MultiplicativeGroupElement for Number {
         result.order = z1.order.clone();
         for (exp1, coeff1) in &z1.coeffs {
             for (exp2, coeff2) in &z2.coeffs {
-                let new_exp = ((exp1 + exp2).into(): Exponent) % &z1.order;
+                let new_exp = ((exp1 + exp2).into(): E) % &z1.order;
                 let new_coeff: Q = (coeff1 * coeff2).into();
                 add_single(&mut result.coeffs, &new_exp, &new_coeff, Sign::Plus);
             }
@@ -50,7 +52,7 @@ impl MultiplicativeGroupElement for Number {
 
         let mut i = Z::from(2);
         while &i != n {
-            if n.gcd_ref(&i).into(): Exponent == 1 {
+            if n.gcd_ref(&i).into(): E == 1 {
                 x.mul(&mut apply_automorphism(&z, &i));
             }
             i += 1;
@@ -62,7 +64,7 @@ impl MultiplicativeGroupElement for Number {
         println!("q_cyc = {:?}", q_cyc);
 
         assert_eq!(q_cyc.order, 1);
-        let q_rat = q_cyc.coeffs.get(&Exponent::from(0)).unwrap();
+        let q_rat = q_cyc.coeffs.get(&E::from(0)).unwrap();
         println!("q_rat = {:?}", q_rat);
 
         if *q_rat == 0 {

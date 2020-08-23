@@ -35,7 +35,7 @@ pub struct Number<E: Exponent> {
     coeffs: ExpCoeffMap<E>,
 }
 
-pub fn print_gap(z: &Number<E>) -> String {
+pub fn print_gap<E: Exponent>(z: &Number<E>) -> String {
     let mut str_list: Vec<String> = vec![];
     let mut exp = E::from(0);
     while &exp != &z.order {
@@ -51,14 +51,14 @@ pub fn print_gap(z: &Number<E>) -> String {
     "(".to_string() + &str_list.join(" + ") + ")"
 }
 
-impl fmt::Debug for Number<E> {
+impl<E> fmt::Debug for Number<E> where E: Exponent {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Number ({})", print_gap(self))
     }
 }
 
 impl<E> Number<E> where E: Exponent {
-    pub fn new(order: &E, coeffs: &ExpCoeffMap<E>) -> Number {
+    pub fn new(order: &E, coeffs: &ExpCoeffMap<E>) -> Number<E> {
         Number {
             order: order.clone(),
             coeffs: coeffs.clone(),
@@ -84,7 +84,7 @@ impl<E> Number<E> where E: Exponent {
     }
 }
 
-fn get_same_coeff(z: &Number<E>) -> Option<Q> {
+fn get_same_coeff<E: Exponent>(z: &Number<E>) -> Option<Q> {
     let coeffs = z.coeffs.clone().into_iter().map(|(_exp, coeff)| coeff);
     let nonzero_coeffs: HashSet<Q> = coeffs.filter(|q| *q != 0).collect();
 
@@ -98,7 +98,7 @@ fn get_same_coeff(z: &Number<E>) -> Option<Q> {
     }
 }
 
-fn add_single(coeffs: &mut ExpCoeffMap<E>, exp: &E, coeff: &Q, sign: Sign) {
+fn add_single<E: Exponent>(coeffs: &mut ExpCoeffMap<E>, exp: &E, coeff: &Q, sign: Sign) {
     let maybe_existing_coeff = coeffs.get_mut(exp);
     match maybe_existing_coeff {
         None => {
@@ -119,7 +119,7 @@ fn add_single(coeffs: &mut ExpCoeffMap<E>, exp: &E, coeff: &Q, sign: Sign) {
     }
 }
 
-pub fn is_zero(z: &Number<E>) -> bool {
+pub fn is_zero<E: Exponent>(z: &Number<E>) -> bool {
     for (_, coeff) in &z.coeffs {
         if *coeff != 0 {
             return false;
@@ -128,7 +128,7 @@ pub fn is_zero(z: &Number<E>) -> bool {
     true
 }
 
-impl FieldElement for Number<E> {
+impl<E> FieldElement for Number<E> where E: Exponent {
     fn eq(&mut self, other: &mut Self) -> bool {
         let mut za = self.clone();
         let mut zb = other.clone();
@@ -139,7 +139,7 @@ impl FieldElement for Number<E> {
         // Now that we've matched the orders, z1 and z2 are expressed as
         // elements in the same field so are the same iff each nonzero term is
         // the same.
-        fn has_diff(left: &Number<E>, right: &Number<E>) -> bool {
+        fn has_diff<E>(left: &Number<E>, right: &Number<E>) -> bool where E: Exponent {
             for (exp_left, coeff_left) in &left.coeffs {
                 match right.coeffs.get(&exp_left) {
                     None => {
@@ -161,7 +161,7 @@ impl FieldElement for Number<E> {
     }
 }
 
-impl CyclotomicFieldElement<E> for Number<E> {
+impl<E> CyclotomicFieldElement<E> for Number<E> where E: Exponent {
     fn e(n: &E, k: &E) -> Self {
         Number::<E>::new(
             n,
@@ -220,7 +220,7 @@ where
     result
 }
 
-impl<E> Arbitrary for Number<E> {
+impl<E: 'static> Arbitrary for Number<E> where E: Exponent {
     fn arbitrary<G>(g: &mut G) -> Self
     where
         G: Gen,
@@ -229,6 +229,17 @@ impl<E> Arbitrary for Number<E> {
     }
 }
 
-field_axiom_tests!(Number<i64>);
+type Number_i64 = Number<i64>;
+type Number_Z = Number<Z>;
 
-field_axiom_tests!(Number<Z>);
+#[cfg(test)]
+mod i64_tests {
+    use super::*;
+    field_axiom_tests!(Number_i64);
+}
+
+#[cfg(test)]
+mod Z_tests {
+    use super::*;
+    field_axiom_tests!(Number_Z);
+}

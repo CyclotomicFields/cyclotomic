@@ -199,38 +199,6 @@ where
         .collect()
 }
 
-// TODO: clearly there's some way to use the Into trait, do it
-
-fn into_sparse_number(f: &GenericCyclotomic) -> sparse::Number {
-    let mut coeffs = cyclotomic::fields::sparse::ExpCoeffMap::default();
-
-    for (exp, (num, denom)) in &f.exp_coeffs {
-        coeffs.insert(exp.to_i64().unwrap(), Q::from((*num, *denom)));
-    }
-
-    sparse::Number::new(f.order.to_i64().unwrap(), &coeffs)
-}
-
-fn into_big_sparse_number(f: &GenericCyclotomic) -> sparse::Number {
-    let mut coeffs = cyclotomic::fields::sparse::ExpCoeffMap::default();
-
-    for (exp, (num, denom)) in &f.exp_coeffs {
-        coeffs.insert(exp.clone(), Q::from((*num, *denom)));
-    }
-
-    sparse::Number::new(&Z::from(&f.order), &coeffs)
-}
-
-fn into_dense_number(f: &GenericCyclotomic) -> dense::Number {
-    let mut coeffs = vec![Q::from(0); f.order.to_usize().unwrap()];
-
-    for (exp, (num, denom)) in &f.exp_coeffs {
-        coeffs[exp.to_usize().unwrap()] = Q::from((*num, *denom));
-    }
-
-    dense::Number::new(f.order.to_i64().unwrap(), &coeffs)
-}
-
 fn into_structure_number(field: &structure::CyclotomicField, f: &GenericCyclotomic) -> Vec<Q> {
     let mut dense = into_dense_number(f);
     write_dense_in_basis(&mut dense, &field.basis)

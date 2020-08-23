@@ -3,6 +3,7 @@ use crate::fields::dense::*;
 use crate::fields::{CyclotomicFieldElement, MultiplicativeGroupElement};
 use basis::{convert_to_base, try_reduce};
 use galois::apply_automorphism;
+use crate::fields::exponent::Exponent;
 
 impl MultiplicativeGroupElement for Number {
     /// Multiplies term by term, not bothering to do anything interesting.
@@ -47,7 +48,7 @@ impl MultiplicativeGroupElement for Number {
         let mut x = Number::one_order(n);
 
         for i in 2..n {
-            if are_coprime(i, n) {
+            if Exponent::gcd(&i, &n) == 1 {
                 x.mul(&mut apply_automorphism(&z, i));
             }
         }

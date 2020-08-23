@@ -19,6 +19,8 @@ use crate::fields::*;
 #[macro_use]
 use std::collections::HashSet;
 
+use crate::fields::exponent::Exponent;
+
 pub mod add;
 pub mod basis;
 pub mod galois;
@@ -195,4 +197,8 @@ impl Arbitrary for Number {
     }
 }
 
-field_axiom_tests!(Number);
+#[cfg(test)]
+mod tests {
+    use super::*;
+    field_axiom_tests!(Number);
+}

@@ -2,6 +2,7 @@ use crate::fields::dense::basis::convert_to_base;
 use crate::fields::dense::*;
 use crate::fields::util::*;
 use crate::fields::*;
+use crate::fields::exponent::Exponent;
 use num::Zero;
 use quickcheck::{Arbitrary, Gen};
 use rand::Rng;
@@ -27,7 +28,7 @@ pub struct CyclotomicField {
 
     /// Let n = \prod_i p_i^{n_i} be a prime factorisation of n. Then factors[i]
     /// = (p_i, n_i).
-    factors: Vec<(i64, i64)>,
+    factors: Vec<(i64, u32)>,
 
     zero: Vec<Q>,
 
@@ -35,7 +36,7 @@ pub struct CyclotomicField {
 }
 
 pub fn write_dense_in_basis(dense: &mut Number, basis: &Vec<i64>) -> Vec<Q> {
-    let phi_n = phi(dense.coeffs.len() as i64);
+    let phi_n = Exponent::phi(&(dense.coeffs.len() as i64));
     let mut result = vec![Q::from(0); phi_n as usize];
     let dense_base = convert_to_base(dense);
 
@@ -49,7 +50,7 @@ pub fn write_dense_in_basis(dense: &mut Number, basis: &Vec<i64>) -> Vec<Q> {
 /// The structure constants c_ijk are such that (if b_i is the ith basis element)
 /// b_i b_j = \sum_k c_ijk b_k.
 fn make_structure_constants(order: i64, basis: &Vec<i64>) -> Vec<Vec<Vec<Q>>> {
-    let phi_n = phi(order) as usize;
+    let phi_n = Exponent::phi(&order) as usize;
 
     // We have to store n^3 space, but maybe if I vectorise this properly it'll
     // be fine?
@@ -68,22 +69,22 @@ fn make_structure_constants(order: i64, basis: &Vec<i64>) -> Vec<Vec<Vec<Q>>> {
 }
 
 fn zumbroich_basis(order: i64) -> Vec<i64> {
-    let n_div_powers = factorise(order);
+    let n_div_powers = Exponent::factorise(&order);
 
     let is_in_basis = |i| {
         for (p, power) in &n_div_powers {
             // the maximal power of p that divides n
-            let q: i64 = p.pow(*power as u32);
+            let q: i64 = p.pow(*power);
 
             if *p == 2 {
                 for bad_exp in (q / 2)..q - 1 + 1 {
-                    if math_mod(&i, &q) == math_mod(&((order / q) * bad_exp), &q) {
+                    if Exponent::math_mod(&i, &q) == Exponent::math_mod(&((order / q) * bad_exp), &q) {
                         return false;
                     }
                 }
             } else {
                 for bad_exp in -(q / *p - 1) / 2..(q / *p - 1) / 2 + 1 {
-                    if math_mod(&i, &q) == math_mod(&((order / q) * bad_exp), &q) {
+                    if Exponent::math_mod(&i, &q) == Exponent::math_mod(&((order / q) * bad_exp), &q) {
                         return false;
                     }
                 }
@@ -93,23 +94,6 @@ fn zumbroich_basis(order: i64) -> Vec<i64> {
     };
 
     (0..order).filter(|i| is_in_basis(*i)).collect()
-}
-
-// TODO: replace with rob's better version
-fn factorise(order: i64) -> Vec<(i64, i64)> {
-    let n_divisors: Vec<i64> = divisors::get_divisors(order as u64)
-        .into_iter()
-        .map(|x| x as i64)
-        .collect();
-
-    let mut n_div_powers = count_powers(&order, &n_divisors);
-
-    // if it has no divisors smaller than itself, it's prime
-    if n_div_powers.is_empty() {
-        n_div_powers.push((order, 1));
-    }
-
-    n_div_powers
 }
 
 fn print_rat_vec(v: &Vec<Q>) -> String {
@@ -130,8 +114,8 @@ impl CyclotomicField {
             order: order,
             structure_constants: make_structure_constants(order, &basis),
             basis: basis.clone(),
-            phi_n: phi(order),
-            factors: factorise(order),
+            phi_n: Exponent::phi(&order),
+            factors: Exponent::factorise(&order),
             zero: write_dense_in_basis(&mut Number::zero_order(order), &basis.clone()),
             one: write_dense_in_basis(&mut Number::one_order(order), &basis.clone()),
         }
@@ -240,7 +224,7 @@ mod tests {
     #[quickcheck]
     fn zumbroich_basis_has_phi_n_elems(small_order: SmallOrder) -> bool {
         let field = CyclotomicField::new(small_order.0);
-        field.basis.len() == phi(small_order.0) as usize
+        field.basis.len() == Exponent::phi(&small_order.0) as usize
     }
 
     #[test]

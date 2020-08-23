@@ -7,6 +7,9 @@ use crate::fields::dense::*;
 
 use std::convert::TryInto;
 use std::ops::Mul;
+use crate::fields::util::Sign;
+use crate::fields::exponent::Exponent;
+use crate::fields::CyclotomicFieldElement;
 
 // Tries to reduce to a possibly smaller cyclotomic field
 pub fn try_reduce(z: &mut Number) {
@@ -82,16 +85,9 @@ pub fn try_reduce(z: &mut Number) {
 
     // now all exponents are coprime with the new order
     let n = z.order;
-    let phi_n = phi(n);
-    let mut n_divisors: Vec<i64> = divisors::get_divisors(n as u64)
-        .into_iter()
-        .map(|x| x as i64)
-        .collect();
-    if n_divisors.len() == 0 {
-        n_divisors.push(n);
-    }
+    let phi_n = Exponent::phi(n);
 
-    let n_div_powers = &count_powers(&n, &n_divisors);
+    let n_div_powers = Exponent::factorise(&n);
     let is_squarefree = n_div_powers.into_iter().all(|(_, power)| *power < 2);
     let num_primes = n_div_powers
         .into_iter()
@@ -137,17 +133,8 @@ pub fn convert_to_base(z: &Number) -> Number {
     // currently z, will by the end still be equal to z but will be written in
     // the Zumbroich basis
     let mut result = z.clone();
+    let mut n_div_powers = Exponent::factorise(&n);
 
-    let n_divisors: Vec<i64> = divisors::get_divisors(n as u64)
-        .into_iter()
-        .map(|x| x as i64)
-        .collect();
-    let mut n_div_powers = count_powers(&n, &n_divisors);
-
-    // if it has no divisors smaller than itself, it's prime
-    if n_div_powers.is_empty() {
-        n_div_powers.push((n, 1));
-    }
 
     for (p, power) in &n_div_powers {
         // the maximal power of p that divides n
@@ -158,7 +145,7 @@ pub fn convert_to_base(z: &Number) -> Number {
         let end_bad = if *p == 2 { q - 1 } else { (q / p - 1) / 2 };
 
         for bad_exp_raw in start_bad..=end_bad {
-            let bad_exp = math_mod(&(n / q * bad_exp_raw), &q);
+            let bad_exp = Exponent::math_mod(&(n / q * bad_exp_raw), &q);
             // We want to remove the i that are equal to bad_exp mod q.
             // These are exactly the i such that i = bad_exp + aq for some a.
             // We also need only check 0 <= i <= n-1, which means we only need
@@ -168,16 +155,16 @@ pub fn convert_to_base(z: &Number) -> Number {
             for a in -bad_exp / q - 1..=((n - 1 - bad_exp) / q + 1) {
                 let i: i64 = bad_exp + a * q;
                 // if there isn't even a term for i, no need to convert it
-                let coeff = result.coeffs[(math_mod(&i, &n)) as usize].clone();
+                let coeff = result.coeffs[(Exponent::math_mod(&i, &n)) as usize].clone();
 
                 if coeff == 0 {
                     continue;
                 }
 
                 // if we got here, i has a nonzero term so must be rewritten
-                result.coeffs[math_mod(&i, &n) as usize] = Q::from(0);
+                result.coeffs[Exponent::math_mod(&i, &n) as usize] = Q::from(0);
                 for k in 1..*p {
-                    let new_exp = math_mod(&(k * n / p + i), &n);
+                    let new_exp = Exponent::math_mod(&(k * n / p + i), &n);
                     add_single(&mut result.coeffs, new_exp, &coeff, Sign::Minus);
                 }
             }
