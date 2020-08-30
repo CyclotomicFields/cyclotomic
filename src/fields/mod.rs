@@ -75,6 +75,8 @@ where
 
         result
     }
+
+    fn complex_conjugate(&self) -> Self;
 }
 
 #[macro_export]

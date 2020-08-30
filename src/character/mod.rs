@@ -2,21 +2,24 @@
 use crate::fields::sparse::Number;
 use crate::fields::CyclotomicFieldElement;
 
-/// We don't aim to have a full algebra system with representations of groups,
-/// etc. From the point of view of a character, we only care abotu the sizes
-/// of the conjugacy classes, since a character takes a single value on each
-/// conjugacy class (characters are class functions).
-pub struct ConjugacyClasses(Vec<usize>);
-
-/// A map from conjugacy classes to the value the class function takes.
-pub struct Character {
-    classes: ConjugacyClasses,
-    values: Vec<Number<i64>>
-}
-
 /// The standard character inner product:
 /// $\langle \chi_1, \chi_2 \rangle = \sum_g \chi_1(g) \overline{\chi_2(g)}$
-pub fn inner_product(chi1: &Character, chi2: &Character) -> Number<i64> {
-    // TODO: implement this!
-    Number::<i64>::zero_order(&3)
+pub fn inner_product<T: CyclotomicFieldElement>(
+    sizes: &Vec<i64>,
+    chi1: &Vec<T>,
+    chi2: &Vec<T>,
+) -> T {
+    assert_eq!(chi1.len(), chi2.len());
+    assert_eq!(chi1.len(), sizes.len());
+    let mut sum = T::zero_order(E::from(1));
+
+    for i in 0..chi1.len() {
+        let mut term = chi1[i]
+            .clone()
+            .mul(&mut chi2[i].complex_conjugate())
+            .scalar_mul(&Q::from(sizes[i]));
+        sum.add(&mut term);
+    }
+
+    sum
 }

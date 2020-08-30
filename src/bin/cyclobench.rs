@@ -7,14 +7,15 @@ extern crate test;
 use antic::safe::*;
 use clap::Clap;
 
-use cyclotomic::fields::{GenericCyclotomic, CyclotomicFieldElement};
+use cyclotomic::fields::{CyclotomicFieldElement, GenericCyclotomic};
 
 use cyclotomic::fields::structure;
-use cyclotomic::fields::{sparse, dense, FieldElement};
+use cyclotomic::fields::{dense, sparse, FieldElement};
 
 use cyclotomic::fields::AdditiveGroupElement;
 use cyclotomic::fields::MultiplicativeGroupElement;
 use cyclotomic::fields::{Q, Z};
+use cyclotomic::character::inner_product;
 
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
@@ -34,9 +35,10 @@ use std::process::{Command, Stdio};
 use std::time::Instant;
 use test::black_box;
 
+use cyclotomic::fields::exponent::Exponent;
 use cyclotomic::fields::linear_algebra::Matrix;
 use std::marker::PhantomData;
-use cyclotomic::fields::exponent::Exponent;
+use cyclotomic::fields::dense::basis::try_reduce;
 
 #[derive(Clap)]
 #[clap(version = "1.0")]
@@ -63,7 +65,16 @@ enum SubCommand {
         about = "Read GAP cyclotomic expressions to evaluate from stdin"
     )]
     Stdin(StdinOpts),
+
+    #[clap(
+        version = "1.0",
+        about = "Read some characters and do some inner products in some way"
+    )]
+    Stdin(CharacterOpts),
 }
+
+#[derive(Clap)]
+struct CharacterOpts {}
 
 #[derive(Clap)]
 struct StdinOpts {
@@ -290,13 +301,23 @@ fn random(top_level: &TopLevel, opts: &RandomOpts) {
     let sparse_nums: Vec<Vec<sparse::Number<i64>>> = chunks
         .clone()
         .into_iter()
-        .map(|chunk| chunk.into_iter().map(|f| sparse::Number::from_generic(&f)).collect())
+        .map(|chunk| {
+            chunk
+                .into_iter()
+                .map(|f| sparse::Number::from_generic(&f))
+                .collect()
+        })
         .collect();
 
     let dense_nums: Vec<Vec<dense::Number>> = chunks
         .clone()
         .into_iter()
-        .map(|chunk| chunk.into_iter().map(|f| dense::Number::from_generic(&f)).collect())
+        .map(|chunk| {
+            chunk
+                .into_iter()
+                .map(|f| dense::Number::from_generic(&f))
+                .collect()
+        })
         .collect();
 
     // TODO: only supports a single fixed order, improve?
@@ -446,18 +467,22 @@ fn sexp2cyclotomic(sexp: &sexp::Sexp) -> Option<GenericCyclotomic> {
     })
 }
 
+fn sexp2vector(sexp: &sexp::Sexp) -> Option<Vec<GenericCyclotomic>> {
+    let mut vector = vec![];
+    let cyc_list = sexp2list(sexp)?;
+    assert_eq_return!(sexp2string(&cyc_list[0])?, "list".to_string());
+    for i in 1..cyc_list.len() {
+        vector.push(sexp2cyclotomic(&cyc_list[i])?);
+    }
+    Some(vector)
+}
+
 fn sexp2matrix(sexp: &sexp::Sexp) -> Option<Vec<Vec<GenericCyclotomic>>> {
     let mut matrix = vec![];
     let row_list = sexp2list(sexp)?;
     assert_eq_return!(sexp2string(&row_list[0])?, "list".to_string());
     for i in 1..row_list.len() {
-        let mut row = vec![];
-        let cyc_list = sexp2list(&row_list[i])?;
-        assert_eq_return!(sexp2string(&cyc_list[0])?, "list".to_string());
-        for j in 1..cyc_list.len() {
-            row.push(sexp2cyclotomic(&cyc_list[j])?);
-        }
-        matrix.push(row);
+        matrix.push(sexp2vector(&row_list[i])?);
     }
     Some(matrix)
 }
@@ -510,13 +535,23 @@ fn stdin(top_level: &TopLevel, opts: &StdinOpts) {
         let mut sparse_nums: Vec<Vec<sparse::Number<i64>>> = chunks
             .clone()
             .into_iter()
-            .map(|chunk| chunk.into_iter().map(|f| sparse::Number::from_generic(&f)).collect())
+            .map(|chunk| {
+                chunk
+                    .into_iter()
+                    .map(|f| sparse::Number::from_generic(&f))
+                    .collect()
+            })
             .collect();
 
         let mut dense_nums: Vec<Vec<dense::Number>> = chunks
             .clone()
             .into_iter()
-            .map(|chunk| chunk.into_iter().map(|f| dense::Number::from_generic(&f)).collect())
+            .map(|chunk| {
+                chunk
+                    .into_iter()
+                    .map(|f| dense::Number::from_generic(&f))
+                    .collect()
+            })
             .collect();
 
         eprintln!("starting scalar benchmark");
@@ -542,16 +577,21 @@ fn stdin(top_level: &TopLevel, opts: &StdinOpts) {
             matrices.push(sexp2matrix(&sexp).unwrap());
         }
         assert_eq!(matrices.len() % opts.chunk_size, 0);
-        let mut sparse_matrices: Vec<Matrix<sparse::Number<i64>, i64>> = matrices.clone().into_iter().map(|matrix| {
-            Matrix {
-                value: matrix.into_iter().map(|row| {
-                    row.into_iter().map(|generic| {
-                        sparse::Number::from_generic(&generic)
-                    }).collect()
-                }).collect(),
+        let mut sparse_matrices: Vec<Matrix<sparse::Number<i64>, i64>> = matrices
+            .clone()
+            .into_iter()
+            .map(|matrix| Matrix {
+                value: matrix
+                    .into_iter()
+                    .map(|row| {
+                        row.into_iter()
+                            .map(|generic| sparse::Number::from_generic(&generic))
+                            .collect()
+                    })
+                    .collect(),
                 exp: PhantomData,
-            }
-        }).collect();
+            })
+            .collect();
         eprintln!("starting matrix benchmark");
         let start = Instant::now();
         if top_level.implementation.as_str() == "sparse" {
@@ -568,9 +608,9 @@ fn stdin(top_level: &TopLevel, opts: &StdinOpts) {
 }
 
 fn stdin_scalar_bench<T, E>(opts: &StdinOpts, chunks: &mut Vec<Vec<T>>)
-    where
-        E: Exponent,
-        T: CyclotomicFieldElement<E>,
+where
+    E: Exponent,
+    T: CyclotomicFieldElement<E>,
 {
     let mut result = T::zero_order(&E::from(1));
     for mut chunk in chunks {
@@ -583,9 +623,9 @@ fn stdin_scalar_bench<T, E>(opts: &StdinOpts, chunks: &mut Vec<Vec<T>>)
 }
 
 fn stdin_matrix_bench<T, E>(opts: &StdinOpts, matrices: &mut Vec<Matrix<T, E>>)
-    where
-        E: Exponent,
-        T: CyclotomicFieldElement<E>,
+where
+    E: Exponent,
+    T: CyclotomicFieldElement<E>,
 {
     let N = matrices[0].value.len();
     let mut result = Matrix::zero_matrix(N, N);
@@ -595,9 +635,87 @@ fn stdin_matrix_bench<T, E>(opts: &StdinOpts, matrices: &mut Vec<Matrix<T, E>>)
     for i in 0..num_chunks {
         let mut chunk_result = Matrix::identity_matrix(N);
         for j in 0..opts.chunk_size {
-            chunk_result = Matrix::mul(&mut chunk_result, &mut matrices[opts.chunk_size*i + j]);
+            chunk_result = Matrix::mul(&mut chunk_result, &mut matrices[opts.chunk_size * i + j]);
         }
         result = Matrix::add(&mut result, &mut chunk_result);
+    }
+}
+
+fn parse_equals(input: &str, var_name: &str) -> String {
+    let toks: Vec<String> = input.split("=").collect();
+    assert_eq!(toks.len(), 2);
+    assert_eq!(toks[0], var_name);
+    toks[1].into_string()
+}
+
+fn character(top_level: &TopLevel, opts: &CharacterOpts) {
+    eprintln!("character product benchmark, reading from stdin");
+    let mut sizes_str = String::new();
+    io::stdin().read_line(&mut sizes_str);
+    let sizes_nums = parse_equals(sizes_str.as_str(), "sizes")
+        .split(" ")
+        .map(|s| s.parse::<i64>().unwrap);
+    eprintln!("sizes={:?}", sizes_nums);
+    let mut num_chars_str = String::new();
+    io::stdin().read_line(&mut num_chars_str);
+    let num_chars = parse_equals(num_chars_str.as_str(), "num_chars")
+        .parse::<i64>()
+        .unwrap();
+    let mut irr_chars: Vec<Vec<GenericCyclotomic>> = vec![];
+    for _ in 0..num_chars {
+        let mut gap_char = String::new();
+        io::stdin().read_line(&mut gap_char);
+        let sexp = sexp::parse(gap2sexp(gap_char).as_str()).unwrap();
+        irr_chars.push(sexp2vector(&sexp).unwrap());
+    }
+    let mut random_char_str = String::new();
+    io::stdin().read_line(&mut random_char_str);
+    let random_char_gap = parse_equals(random_char_str.as_str(), "random_char");
+    let random_char: Vec<GenericCyclotomic> =
+        sexp2vector(&sexp::parse(gap2sexp(random_char_gap).as_str()).unwrap()).unwrap();
+
+    // TODO: currently only supports one implementation, fix (or not)
+    if top_level.implementation.as_str() == "sparse" {
+        let mut sparse_irr_chars = irr_chars
+            .into_iter()
+            .map(|char| {
+                char.into_iter()
+                    .map(|f| sparse::Number::<i64>::from_generic(&f))
+                    .collect();
+            })
+            .collect();
+        let mut sparse_random_char = random_char
+            .map(|f| sparse::Number::<i64>::from_generic(&f))
+            .collect();
+        let start = Instant::now();
+        black_box(character_bench(
+            &opts,
+            &sizes_nums,
+            &mut sparse_irr_chars,
+            &mut sparse_random_char,
+        ));
+        let elapsed = start.elapsed().as_millis();
+        eprintln!("time elapsed (ms):");
+        println!("{}", elapsed);
+    } else {
+        panic!("bad implementation! TODO: do the others?");
+    }
+}
+
+fn character_bench<T: CyclotomicFieldElement>(
+    opts: &CharacterOpts,
+    sizes: &Vec<i64>,
+    irr_chars: &mut Vec<Vec<T>>,
+    random_char: &mut Vec<T>,
+) {
+    let mut prods = vec![];
+    for irr_char in irr_chars {
+        let mut prod = inner_product(sizes, irr_char, random_char);
+        // We reduce because the result we're really after is the integer
+        // result of the inner product - it would be cheating to not count
+        // the time required for this conversion.
+        try_reduce(&mut prod);
+        prods.push(prod);
     }
 }
 
@@ -607,6 +725,7 @@ fn main() {
     match &top_level.subcmd {
         SubCommand::Random(random_opts) => random(&top_level, &random_opts),
         SubCommand::Stdin(stdin_opts) => stdin(&top_level, &stdin_opts),
+        SubCommand::Character(character_opts) => character(&top_level, &character_opts),
     }
 }
 

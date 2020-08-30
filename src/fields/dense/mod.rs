@@ -160,6 +160,18 @@ impl CyclotomicFieldElement<i64> for Number {
         coeffs[0] = Q::from(1);
         Number::new(n, &coeffs)
     }
+
+    fn complex_conjugate(&self) -> Self {
+        let n = self.order;
+        let mut new_coeffs = vec![Q::from(0); n as usize];
+
+        new_coeffs[0] = self.coeffs[0].clone();
+        for exp in 1..n {
+            new_coeffs[n-exp] = self.coeffs[exp].clone();
+        }
+
+        Self::new(&self.order, &new_coeffs)
+    }
 }
 
 pub fn random_rational<G>(g: &mut G) -> Q

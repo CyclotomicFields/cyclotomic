@@ -191,6 +191,20 @@ impl<E> CyclotomicFieldElement<E> for Number<E> where E: Exponent {
         }
         Number::<E>::new(n, &coeffs)
     }
+
+    fn complex_conjugate(&self) -> Self {
+        let mut new_coeffs = ExpCoeffMap::default();
+
+        for (exp, coeff) in self.coeffs {
+            if exp == E::from(0) {
+                new_coeffs.insert(E::from(0), coeff.clone());
+            } else {
+                new_coeffs.insert(&self.order - &exp, coeff.clone());
+            }
+        }
+
+        Self::new(&self.order, &new_coeffs)
+    }
 }
 
 pub fn random_rational<G>(g: &mut G) -> Q
