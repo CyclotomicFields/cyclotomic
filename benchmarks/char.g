@@ -4,16 +4,16 @@ G := CyclicGroup(N);;
 ccs := ConjugacyClasses(G);;
 sizes := List(ccs, Size);;
 irr_chars := List(Irr(G), List);;
-Print("sizes=", Concatenation(List(sizes, s -> Concatenation(" ", String(s)))), "\n");;
-Print("num_chars=", Length(irr_chars), "\n");;
+PrintFormattedString(Concatenation("sizes=", Concatenation(List(sizes, s -> Concatenation(" ", String(s)))), "\n"));;
+PrintFormattedString(Concatenation("num_chars=", String(Length(irr_chars)), "\n"));;
 for char in irr_chars do
-    Print(String(char), ";\n");;
+    PrintFormattedString(Concatenation(String(char), ";\n"));;
 od;;
 
 # random character generation
 rs := RandomSource(IsMersenneTwister, NanosecondsSinceEpoch());;
 char := Sum([1..Length(ccs)], i -> Random(rs, [-20..20]) * irr_chars[i]);;
-Print("random_char=", String(char), ";\n");;
+PrintFormattedString(Concatenation("random_char=", String(char), ";\n"));;
 
 # character inner product
 prod := function(char1, char2, sizes)

@@ -683,7 +683,7 @@ fn character(top_level: &TopLevel, opts: &CharacterOpts) {
 
     let random_char_filtered = random_char_gap.replace(&['\\', '\n'][..], "");
 
-    eprintln!("got random_char: {}", random_char_filtered);
+    //eprintln!("got random_char: {}", random_char_filtered);
     let random_char: Vec<GenericCyclotomic> =
         sexp2vector(&sexp::parse(gap2sexp(random_char_filtered).as_str()).unwrap()).unwrap();
 
@@ -734,7 +734,7 @@ fn character_bench(
 
         prods.push(prod.coeffs.get(&0).unwrap_or(&zero).numer().clone());
     }
-    eprintln!("cyclotomic calculated prod: {:?}", prods);
+    //eprintln!("cyclotomic calculated prod: {:?}", prods);
 }
 
 fn main() {
