@@ -32,7 +32,7 @@ type ExpCoeffMap<E> = FxHashMap<E, Q>;
 #[derive(Clone)]
 pub struct Number<E: Exponent> {
     order: E,
-    coeffs: ExpCoeffMap<E>,
+    pub coeffs: ExpCoeffMap<E>,
 }
 
 pub fn print_gap<E: Exponent>(z: &Number<E>) -> String {

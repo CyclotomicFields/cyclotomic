@@ -1,4 +1,4 @@
-N := 10;;
+N := 100;;
 
 G := CyclicGroup(N);;
 ccs := ConjugacyClasses(G);;
@@ -7,13 +7,13 @@ irr_chars := List(Irr(G), List);;
 Print("sizes=", Concatenation(List(sizes, s -> Concatenation(" ", String(s)))), "\n");;
 Print("num_chars=", Length(irr_chars), "\n");;
 for char in irr_chars do
-    Print(char, ";\n");;
+    Print(String(char), ";\n");;
 od;;
 
 # random character generation
-coeffs := Flat(RandomMat(1, Length(ccs)));;
-char := Sum([1..Length(ccs)], i -> coeffs[i] * irr_chars[i]);;
-Print("random_char=", char, ";\n");;
+rs := RandomSource(IsMersenneTwister, NanosecondsSinceEpoch());;
+char := Sum([1..Length(ccs)], i -> Random(rs, [-20..20]) * irr_chars[i]);;
+Print("random_char=", String(char), ";\n");;
 
 # character inner product
 prod := function(char1, char2, sizes)
@@ -29,4 +29,8 @@ prods := List(irr_chars, irr_char -> prod(irr_char, char, sizes));;
 
 end_time := NanosecondsSinceEpoch();;
 
-AppendTo("gap_results", N, ",", Float((end_time-start_time)/1000000), "\n");;
+PrintTo("*errout*", "GAP calculated prod: ", prods, "\n");
+ms_elapsed := Float((end_time-start_time)/1000000);;
+PrintTo("*errout*", "GAP time elapsed: ", ms_elapsed, "ms\n");
+
+AppendTo("gap_results", N, ",", ms_elapsed, "\n");;

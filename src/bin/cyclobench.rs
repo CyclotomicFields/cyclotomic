@@ -21,7 +21,7 @@ use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::Write;
+use std::io::{Write, Read};
 use std::io::{BufRead, Result};
 
 use cyclotomic::fields::structure::write_dense_in_basis;
@@ -654,12 +654,17 @@ fn character(top_level: &TopLevel, opts: &CharacterOpts) {
     io::stdin().read_line(&mut sizes_str);
     let sizes_nums = parse_equals(sizes_str.as_str(), "sizes")
         .split(" ")
-        .map(|s| s.parse::<i64>().unwrap())
+        .skip(1)
+        .map(|s| {
+            s.trim().to_owned().parse::<i64>().unwrap()
+        })
         .collect();
     eprintln!("sizes={:?}", sizes_nums);
     let mut num_chars_str = String::new();
     io::stdin().read_line(&mut num_chars_str);
     let num_chars = parse_equals(num_chars_str.as_str(), "num_chars")
+        .trim()
+        .to_owned()
         .parse::<i64>()
         .unwrap();
     let mut irr_chars: Vec<Vec<GenericCyclotomic>> = vec![];
@@ -669,11 +674,18 @@ fn character(top_level: &TopLevel, opts: &CharacterOpts) {
         let sexp = sexp::parse(gap2sexp(gap_char).as_str()).unwrap();
         irr_chars.push(sexp2vector(&sexp).unwrap());
     }
+
+    // The entire rest of the input is the random character, mainly because I
+    // can't work out how to get GAP to not print \ and \n everywhere
     let mut random_char_str = String::new();
-    io::stdin().read_line(&mut random_char_str);
+    io::stdin().read_to_string(&mut random_char_str);
     let random_char_gap = parse_equals(random_char_str.as_str(), "random_char");
+
+    let random_char_filtered = random_char_gap.replace(&['\\', '\n'][..], "");
+
+    eprintln!("got random_char: {}", random_char_filtered);
     let random_char: Vec<GenericCyclotomic> =
-        sexp2vector(&sexp::parse(gap2sexp(random_char_gap).as_str()).unwrap()).unwrap();
+        sexp2vector(&sexp::parse(gap2sexp(random_char_filtered).as_str()).unwrap()).unwrap();
 
     // TODO: currently only supports one implementation, fix (or not)
     if top_level.implementation.as_str() == "sparse" {
@@ -710,15 +722,19 @@ fn character_bench(
     irr_chars: &mut Vec<Vec<sparse::Number<i64>>>,
     random_char: &mut Vec<sparse::Number<i64>>,
 ) {
-    let mut prods = vec![];
+    let mut prods: Vec<Z> = vec![];
     for irr_char in irr_chars {
         let mut prod = inner_product(sizes, irr_char, random_char);
         // We reduce because the result we're really after is the integer
         // result of the inner product - it would be cheating to not count
         // the time required for this conversion.
+        prod = sparse::basis::convert_to_base(&prod);
         sparse::basis::try_reduce(&mut prod);
-        prods.push(prod);
+        let zero = Q::from(0);
+
+        prods.push(prod.coeffs.get(&0).unwrap_or(&zero).numer().clone());
     }
+    eprintln!("cyclotomic calculated prod: {:?}", prods);
 }
 
 fn main() {
