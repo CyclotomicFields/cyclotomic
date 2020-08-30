@@ -12,10 +12,10 @@ use cyclotomic::fields::{CyclotomicFieldElement, GenericCyclotomic};
 use cyclotomic::fields::structure;
 use cyclotomic::fields::{dense, sparse, FieldElement};
 
+use cyclotomic::character::inner_product;
 use cyclotomic::fields::AdditiveGroupElement;
 use cyclotomic::fields::MultiplicativeGroupElement;
 use cyclotomic::fields::{Q, Z};
-use cyclotomic::character::inner_product;
 
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
@@ -35,10 +35,10 @@ use std::process::{Command, Stdio};
 use std::time::Instant;
 use test::black_box;
 
+use cyclotomic::fields::dense::basis::try_reduce;
 use cyclotomic::fields::exponent::Exponent;
 use cyclotomic::fields::linear_algebra::Matrix;
 use std::marker::PhantomData;
-use cyclotomic::fields::dense::basis::try_reduce;
 
 #[derive(Clap)]
 #[clap(version = "1.0")]
@@ -70,7 +70,7 @@ enum SubCommand {
         version = "1.0",
         about = "Read some characters and do some inner products in some way"
     )]
-    Stdin(CharacterOpts),
+    Character(CharacterOpts),
 }
 
 #[derive(Clap)]
@@ -642,10 +642,10 @@ where
 }
 
 fn parse_equals(input: &str, var_name: &str) -> String {
-    let toks: Vec<String> = input.split("=").collect();
+    let toks: Vec<String> = input.split("=").map(|s| s.to_owned()).collect();
     assert_eq!(toks.len(), 2);
     assert_eq!(toks[0], var_name);
-    toks[1].into_string()
+    toks[1].to_owned()
 }
 
 fn character(top_level: &TopLevel, opts: &CharacterOpts) {
@@ -654,7 +654,8 @@ fn character(top_level: &TopLevel, opts: &CharacterOpts) {
     io::stdin().read_line(&mut sizes_str);
     let sizes_nums = parse_equals(sizes_str.as_str(), "sizes")
         .split(" ")
-        .map(|s| s.parse::<i64>().unwrap);
+        .map(|s| s.parse::<i64>().unwrap())
+        .collect();
     eprintln!("sizes={:?}", sizes_nums);
     let mut num_chars_str = String::new();
     io::stdin().read_line(&mut num_chars_str);
@@ -681,10 +682,11 @@ fn character(top_level: &TopLevel, opts: &CharacterOpts) {
             .map(|char| {
                 char.into_iter()
                     .map(|f| sparse::Number::<i64>::from_generic(&f))
-                    .collect();
+                    .collect()
             })
             .collect();
         let mut sparse_random_char = random_char
+            .into_iter()
             .map(|f| sparse::Number::<i64>::from_generic(&f))
             .collect();
         let start = Instant::now();
@@ -702,11 +704,11 @@ fn character(top_level: &TopLevel, opts: &CharacterOpts) {
     }
 }
 
-fn character_bench<T: CyclotomicFieldElement>(
+fn character_bench(
     opts: &CharacterOpts,
     sizes: &Vec<i64>,
-    irr_chars: &mut Vec<Vec<T>>,
-    random_char: &mut Vec<T>,
+    irr_chars: &mut Vec<Vec<sparse::Number<i64>>>,
+    random_char: &mut Vec<sparse::Number<i64>>,
 ) {
     let mut prods = vec![];
     for irr_char in irr_chars {
@@ -714,7 +716,7 @@ fn character_bench<T: CyclotomicFieldElement>(
         // We reduce because the result we're really after is the integer
         // result of the inner product - it would be cheating to not count
         // the time required for this conversion.
-        try_reduce(&mut prod);
+        sparse::basis::try_reduce(&mut prod);
         prods.push(prod);
     }
 }

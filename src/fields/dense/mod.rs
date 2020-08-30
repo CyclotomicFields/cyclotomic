@@ -167,7 +167,7 @@ impl CyclotomicFieldElement<i64> for Number {
 
         new_coeffs[0] = self.coeffs[0].clone();
         for exp in 1..n {
-            new_coeffs[n-exp] = self.coeffs[exp].clone();
+            new_coeffs[(n-exp) as usize] = self.coeffs[exp as usize].clone();
         }
 
         Self::new(&self.order, &new_coeffs)
