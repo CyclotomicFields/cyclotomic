@@ -10,7 +10,7 @@ use clap::Clap;
 use cyclotomic::fields::{CyclotomicFieldElement, GenericCyclotomic};
 
 use cyclotomic::fields::structure;
-use cyclotomic::fields::{dense, sparse, FieldElement};
+use cyclotomic::fields::{dense, sparse, sparse_fast, FieldElement};
 
 use cyclotomic::character::inner_product;
 use cyclotomic::fields::AdditiveGroupElement;
@@ -21,8 +21,8 @@ use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{Write, Read};
 use std::io::{BufRead, Result};
+use std::io::{Read, Write};
 
 use cyclotomic::fields::structure::write_dense_in_basis;
 use num::Zero;
@@ -655,9 +655,7 @@ fn character(top_level: &TopLevel, opts: &CharacterOpts) {
     let sizes_nums = parse_equals(sizes_str.as_str(), "sizes")
         .split(" ")
         .skip(1)
-        .map(|s| {
-            s.trim().to_owned().parse::<i64>().unwrap()
-        })
+        .map(|s| s.trim().to_owned().parse::<i64>().unwrap())
         .collect();
     //eprintln!("sizes={:?}", sizes_nums);
     let mut num_chars_str = String::new();
@@ -687,7 +685,7 @@ fn character(top_level: &TopLevel, opts: &CharacterOpts) {
     let random_char: Vec<GenericCyclotomic> =
         sexp2vector(&sexp::parse(gap2sexp(random_char_filtered).as_str()).unwrap()).unwrap();
 
-    // TODO: currently only supports one implementation, fix (or not)
+    // TODO: currently only supports sparse implementation, fix (or not)
     if top_level.implementation.as_str() == "sparse" {
         let mut sparse_irr_chars = irr_chars
             .into_iter()
@@ -711,9 +709,53 @@ fn character(top_level: &TopLevel, opts: &CharacterOpts) {
         let elapsed = start.elapsed().as_millis();
         eprintln!("time elapsed (ms):");
         println!("{}", elapsed);
+    } else if top_level.implementation.as_str() == "sparse_fast" {
+        let mut sparse_irr_chars = irr_chars
+            .into_iter()
+            .map(|char| {
+                char.into_iter()
+                    .map(|f| sparse_fast::Number::<i64>::from_generic(&f))
+                    .collect()
+            })
+            .collect();
+        let mut sparse_random_char = random_char
+            .into_iter()
+            .map(|f| sparse_fast::Number::<i64>::from_generic(&f))
+            .collect();
+        let start = Instant::now();
+        black_box(character_bench_fast(
+            &opts,
+            &sizes_nums,
+            &mut sparse_irr_chars,
+            &mut sparse_random_char,
+        ));
+        let elapsed = start.elapsed().as_millis();
+        eprintln!("time elapsed (ms):");
+        println!("{}", elapsed);
     } else {
         panic!("bad implementation! TODO: do the others?");
     }
+}
+
+fn character_bench_fast(
+    opts: &CharacterOpts,
+    sizes: &Vec<i64>,
+    irr_chars: &mut Vec<Vec<sparse_fast::Number<i64>>>,
+    random_char: &mut Vec<sparse_fast::Number<i64>>,
+) {
+    let mut prods: Vec<i64> = vec![];
+    for irr_char in irr_chars {
+        let mut prod = inner_product(sizes, irr_char, random_char);
+        // We reduce because the result we're really after is the integer
+        // result of the inner product - it would be cheating to not count
+        // the time required for this conversion.
+        prod = sparse_fast::basis::convert_to_base(&prod);
+        sparse_fast::basis::try_reduce(&mut prod);
+        let zero = sparse_fast::Rat::new(0, 1);
+
+        prods.push(prod.coeffs.get(&0).unwrap_or(&zero).num.clone());
+    }
+    //eprintln!("cyclotomic calculated prod: {:?}", prods);
 }
 
 fn character_bench(

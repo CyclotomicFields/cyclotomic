@@ -28,14 +28,14 @@ pub mod mul;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 pub struct Rat {
-    num: i64,
+    pub num: i64,
     denom: u64,
 }
 
 /// Not a real rational, but does work if all of your coefficients happen to
 /// be representable as 64 bit integers.
 impl Rat {
-    fn new(num: i64, denom: u64) -> Self {
+    pub fn new(num: i64, denom: u64) -> Self {
         Rat {
             num: num,
             denom: denom,
