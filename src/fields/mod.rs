@@ -38,16 +38,20 @@ pub struct GenericCyclotomic {
 }
 
 /// Provides convenience functions specific to cyclotomic fields.
-pub trait CyclotomicFieldElement<E>: FieldElement + Clone
+/// E is the exponent type, some type of integer, and C is the coefficient type,
+/// some kind of rational. Although really E just needs to be a ring, C needs
+/// to be a field.
+pub trait CyclotomicFieldElement<E, C = Q>: FieldElement + Clone
 where
     E: Exponent,
+    C: From<(Z, Z)>,
 {
     /// Returns $\zeta_n$^k.
     fn e(n: &E, k: &E) -> Self;
 
     /// Multiplies in-place by scalar. Recall that $\mathbb{Q}(\zeta_n)$ is a
     /// $\mathbb{Q}$-vector space.
-    fn scalar_mul(&mut self, scalar: &Q) -> &mut Self;
+    fn scalar_mul(&mut self, scalar: &C) -> &mut Self;
 
     /// Gives zero expressed as an element of $\mathbb{Q}(\zeta_n)$
     fn zero_order(n: &E) -> Self;
@@ -69,7 +73,7 @@ where
         for (exp, (numerator, denominator)) in &z.exp_coeffs {
             result.add(
                 &mut Self::e(&order, &E::from(exp.to_i64().unwrap()))
-                    .scalar_mul(&Q::from((Z::from(*numerator), Z::from(*denominator)))),
+                    .scalar_mul(&C::from((Z::from(*numerator), Z::from(*denominator)))),
             );
         }
 
@@ -105,10 +109,7 @@ macro_rules! field_axiom_tests {
 
         #[quickcheck]
         fn one_is_mul_identity(z: $type) -> bool {
-            let mut same = z
-                .clone()
-                .mul(&mut $type::one_order(&z.order))
-                .clone();
+            let mut same = z.clone().mul(&mut $type::one_order(&z.order)).clone();
             same.eq(&mut z.clone())
         }
 
@@ -162,6 +163,10 @@ macro_rules! field_axiom_tests {
 
 /// Sparse hash map based implementation.
 pub mod sparse;
+
+/// Sparse hash map based implementation, but faster, with a lot of assumptions
+/// made e.g. assuming integers are small.
+pub mod sparse_fast;
 
 /// Dense representation using a vector of coefficients.
 pub mod dense;

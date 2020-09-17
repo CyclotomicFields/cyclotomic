@@ -659,7 +659,7 @@ fn character(top_level: &TopLevel, opts: &CharacterOpts) {
             s.trim().to_owned().parse::<i64>().unwrap()
         })
         .collect();
-    eprintln!("sizes={:?}", sizes_nums);
+    //eprintln!("sizes={:?}", sizes_nums);
     let mut num_chars_str = String::new();
     io::stdin().read_line(&mut num_chars_str);
     let num_chars = parse_equals(num_chars_str.as_str(), "num_chars")
