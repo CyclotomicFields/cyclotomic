@@ -1,4 +1,4 @@
-N := 100;;
+N := 229;;
 
 G := CyclicGroup(N);;
 ccs := ConjugacyClasses(G);;
@@ -12,7 +12,11 @@ od;;
 
 # random character generation
 rs := RandomSource(IsMersenneTwister, NanosecondsSinceEpoch());;
-char := Sum([1..Length(ccs)], i -> Random(rs, [-20..20]) * irr_chars[i]);;
+#char := Sum([1..Length(ccs)], i -> Random(rs, [-20..20]) * irr_chars[i]);;
+
+# just pick a single one for max sparsity
+char := Random(rs, irr_chars);;
+
 PrintFormattedString(Concatenation("random_char=", String(char), ";\n"));;
 
 # character inner product
@@ -29,7 +33,7 @@ prods := List(irr_chars, irr_char -> prod(irr_char, char, sizes));;
 
 end_time := NanosecondsSinceEpoch();;
 
-PrintTo("*errout*", "GAP calculated prod: ", prods, "\n");
+#PrintTo("*errout*", "GAP calculated prod: ", prods, "\n");
 ms_elapsed := Float((end_time-start_time)/1000000);;
 PrintTo("*errout*", "GAP time elapsed: ", ms_elapsed, "ms\n");
 
