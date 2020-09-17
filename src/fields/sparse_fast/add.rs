@@ -1,6 +1,7 @@
 use crate::fields::sparse_fast::{ExpCoeffMap, Number};
 use crate::fields::{AdditiveGroupElement, CyclotomicFieldElement, Q, Z};
 use crate::fields::exponent::Exponent;
+use std::ops::AddAssign;
 
 impl<E> AdditiveGroupElement for Number<E> where E: Exponent {
     /// Simplest possible - term wise addition using hashing.
@@ -12,20 +13,13 @@ impl<E> AdditiveGroupElement for Number<E> where E: Exponent {
         let mut z2 = rhs;
         Self::match_orders(&mut z1, &mut z2);
 
-        // We will never need to reduce here, you can't add low powers of
-        // $\zeta_n$ and get higher powers. Higher powers do not exist.
-        let mut coeffs = ExpCoeffMap::<E>::default();
-
-        // TODO: make this more efficient, no copy etc
-        for (exp, coeff) in z1.coeffs.clone().into_iter().chain(z2.coeffs.clone()) {
-            match coeffs.get(&exp).clone() {
-                Some(existing_coeff) => coeffs.insert(exp, coeff + existing_coeff),
-                None => coeffs.insert(exp, coeff),
+        for (exp, coeff) in &z2.coeffs {
+            match z1.coeffs.get_mut(&exp) {
+                Some(existing_coeff) => existing_coeff.add_assign(coeff),
+                None => { z1.coeffs.insert(exp.clone(), coeff.clone()); }
             };
         }
 
-        let result = Number::new(&z1.order, &coeffs);
-        *z1 = result;
         z1
     }
 
