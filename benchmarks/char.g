@@ -1,4 +1,4 @@
-N := 229;;
+N := 100;;
 
 G := CyclicGroup(N);;
 ccs := ConjugacyClasses(G);;
@@ -12,10 +12,10 @@ od;;
 
 # random character generation
 rs := RandomSource(IsMersenneTwister, NanosecondsSinceEpoch());;
-#char := Sum([1..Length(ccs)], i -> Random(rs, [-20..20]) * irr_chars[i]);;
+char := Sum([1..Length(ccs)], i -> Random(rs, [-20..20]) * irr_chars[i]);;
 
 # just pick a single one for max sparsity
-char := Random(rs, irr_chars);;
+#char := Random(rs, irr_chars);;
 
 PrintFormattedString(Concatenation("random_char=", String(char), ";\n"));;
 
