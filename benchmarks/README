@@ -1,3 +1,5 @@
+## Synthetic, rigged benchmark
+
 To run the benchmarks, make sure you have compiled cyclobench and
 installed GAP.
 
@@ -24,3 +26,27 @@ which specifies the x and y axes, the filenames with the data, and the
 legend labels to use for the data coming from each file.
 
 This should generate a PNG file and tex file with the results graphed.
+
+## Real-world benchmark
+
+The better benchmark to run is the character inner product one. First,
+generate the test data (irreducible characters and one random
+character from one group):
+
+    $ gap -q < char.g > test_data
+
+GAP will also run the calculation and say how long it took:
+
+    GAP time elapsed: 378.918407ms
+
+Now run cyclobench in character mode:
+
+    $ cyclobench character < test_data
+    character product benchmark, reading from stdin
+    time elapsed (ms):
+    219
+
+It will probably take a very long time to read the data (I haven't
+optimized the parsing code at all - it works by running a Haskell
+program and piping text), but will then print the time taken to run
+the actual computation, after parsing.
