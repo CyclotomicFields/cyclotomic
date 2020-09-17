@@ -44,7 +44,7 @@ pub struct GenericCyclotomic {
 pub trait CyclotomicFieldElement<E, C = Q>: FieldElement + Clone
 where
     E: Exponent,
-    C: From<(Z, Z)>,
+    C: From<(i64, u64)>,
 {
     /// Returns $\zeta_n$^k.
     fn e(n: &E, k: &E) -> Self;
@@ -73,7 +73,7 @@ where
         for (exp, (numerator, denominator)) in &z.exp_coeffs {
             result.add(
                 &mut Self::e(&order, &E::from(exp.to_i64().unwrap()))
-                    .scalar_mul(&C::from((Z::from(*numerator), Z::from(*denominator)))),
+                    .scalar_mul(&C::from((*numerator, *denominator))),
             );
         }
 

@@ -5,23 +5,23 @@
 use super::num::Zero;
 use crate::fields::sparse_fast::*;
 
-use rug::ops::Pow;
+use crate::fields::exponent::Exponent;
 use crate::fields::util::Sign;
+use rug::ops::Pow;
 use std::convert::TryInto;
 use std::ops::Mul;
-use crate::fields::exponent::Exponent;
 
 // Tries to reduce to a possibly smaller cyclotomic field
 pub fn try_reduce<E: Exponent>(z: &mut Number<E>) {
     let mut current_gcd: Option<E> = None;
     let mut saw_exp_zero = false;
     let mut coeffs_are_equal = true;
-    let mut last_nonzero_coeff: Option<Q> = None;
+    let mut last_nonzero_coeff: Option<Rat> = None;
     let mut num_nonzero_terms = E::from(0);
 
     for (exp, coeff) in &z.coeffs {
         // this term doesn't really appear
-        if *coeff == 0 {
+        if coeff.num == 0 {
             continue;
         }
 
@@ -105,7 +105,9 @@ pub fn try_reduce<E: Exponent>(z: &mut Number<E>) {
         z.coeffs.clear();
         let new_coeff = last_nonzero_coeff
             .unwrap()
-            .mul(Z::from(i64::pow(-1, num_primes.try_into().unwrap())));
+            .clone()
+            .mul(&Rat::new(i64::pow(-1, num_primes.try_into().unwrap()), 1))
+            .clone();
         z.coeffs.insert(E::from(0), new_coeff);
         return;
     }
@@ -114,7 +116,10 @@ pub fn try_reduce<E: Exponent>(z: &mut Number<E>) {
 /// Writes a cyclotomic in the GAP basis (keeps field the same). This is needed
 /// for elements to have a unique representation, e.g. to check equality
 /// The rewriting rule is taken from GAP but the actual code isn't.
-pub fn convert_to_base<E>(z: &Number<E>) -> Number<E> where E: Exponent {
+pub fn convert_to_base<E>(z: &Number<E>) -> Number<E>
+where
+    E: Exponent,
+{
     // Currently z is expressed as a sum of some $e_n^i$.
     // We need to eliminate the $i$ such that either:
     // $i \in n/q [-(q/p-1)/2 .. (q/p-1)/2] mod q
@@ -140,7 +145,7 @@ pub fn convert_to_base<E>(z: &Number<E>) -> Number<E> where E: Exponent {
     let mut result = z.clone();
 
     for (exp, coeff) in &z.coeffs {
-        if *coeff == 0 {
+        if coeff.num == 0 {
             result.coeffs.remove(exp);
         }
     }
@@ -175,7 +180,7 @@ pub fn convert_to_base<E>(z: &Number<E>) -> Number<E> where E: Exponent {
             // to check -bad_exp/q - 1 <= a <= (n-1-bad_exp)/q + 1.
             // The -1 and +1 are so that even if the division isn't perfect,
             // then we still check the full range of a we need to check.
-            let start_check = - bad_exp.clone() / q.clone() - E::from(1);
+            let start_check = -bad_exp.clone() / q.clone() - E::from(1);
             let end_check: E =
                 ((n.clone() - E::from(1)) - bad_exp.clone()) / q.clone() + E::from(1);
             let mut a = start_check;
@@ -191,8 +196,8 @@ pub fn convert_to_base<E>(z: &Number<E>) -> Number<E> where E: Exponent {
                             continue;
                         }
                         Some(rational) => {
-                            if *rational == 0 {
-                                a =  a + E::from(1);
+                            if rational.num == 0 {
+                                a = a + E::from(1);
                                 continue;
                             }
                         }
@@ -204,9 +209,12 @@ pub fn convert_to_base<E>(z: &Number<E>) -> Number<E> where E: Exponent {
                 result.coeffs.remove(&i);
                 let mut k = E::from(1);
                 while k.clone() != p.clone() {
-                    let new_exp = Exponent::math_mod(&((k.clone() * n.clone()).into(): E / p.clone() + i.clone()), &n);
+                    let new_exp = Exponent::math_mod(
+                        &((k.clone() * n.clone()).into(): E / p.clone() + i.clone()),
+                        &n,
+                    );
                     add_single(&mut result.coeffs, &new_exp, &coeff, Sign::Minus);
-                    k =  k + E::from(1);
+                    k = k + E::from(1);
                 }
                 a = a + E::from(1);
             }

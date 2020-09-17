@@ -1,5 +1,5 @@
-use crate::fields::sparse_fast::{ExpCoeffMap, Number};
-use crate::fields::{AdditiveGroupElement, CyclotomicFieldElement, Q, Z};
+use crate::fields::sparse_fast::{ExpCoeffMap, Number, Rat};
+use crate::fields::{AdditiveGroupElement, CyclotomicFieldElement, Z};
 use crate::fields::exponent::Exponent;
 use std::ops::AddAssign;
 
@@ -15,7 +15,7 @@ impl<E> AdditiveGroupElement for Number<E> where E: Exponent {
 
         for (exp, coeff) in &z2.coeffs {
             match z1.coeffs.get_mut(&exp) {
-                Some(existing_coeff) => existing_coeff.add_assign(coeff),
+                Some(existing_coeff) => { existing_coeff.add(coeff); },
                 None => { z1.coeffs.insert(exp.clone(), coeff.clone()); }
             };
         }
@@ -24,7 +24,6 @@ impl<E> AdditiveGroupElement for Number<E> where E: Exponent {
     }
 
     fn add_invert(&mut self) -> &mut Self {
-        let minus_one = Q::from(-1);
-        self.scalar_mul(&minus_one)
+        self.scalar_mul(&Rat::new(-1, 1))
     }
 }

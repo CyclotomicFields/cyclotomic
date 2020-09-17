@@ -22,7 +22,7 @@ impl<E> MultiplicativeGroupElement for Number<E> where E: Exponent {
         for (exp1, coeff1) in &z1.coeffs {
             for (exp2, coeff2) in &z2.coeffs {
                 let new_exp = ((exp1.clone() + exp2.clone()).into(): E) % z1.order.clone();
-                let new_coeff: Q = (coeff1 * coeff2).into();
+                let new_coeff = coeff1.clone().mul(coeff2).clone();
                 add_single(&mut result.coeffs, &new_exp, &new_coeff, Sign::Plus);
             }
         }
@@ -67,12 +67,12 @@ impl<E> MultiplicativeGroupElement for Number<E> where E: Exponent {
         let q_rat = q_cyc.coeffs.get(&E::from(0)).unwrap();
         println!("q_rat = {:?}", q_rat);
 
-        if *q_rat == 0 {
+        if q_rat.num == 0 {
             panic!("can't invert zero!");
         }
 
-        let z_inv = x.scalar_mul(&q_rat.recip_ref().into());
-        *self = z_inv.clone();
+        let z_inv = x.scalar_mul(&q_rat.recip());
+        *self = (*z_inv).clone();
         self
     }
 }
