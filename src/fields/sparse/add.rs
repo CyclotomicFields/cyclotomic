@@ -18,9 +18,11 @@ where
         let mut z2 = rhs;
         Self::match_orders(&mut z1, &mut z2);
 
-        for (exp, coeff) in &z2.coeffs {
+        for (exp, coeff) in &mut z2.coeffs {
             match z1.coeffs.get_mut(&exp) {
-                Some(existing_coeff) => existing_coeff.add(coeff),
+                Some(existing_coeff) => {
+                    existing_coeff.add(coeff);
+                }
                 None => {
                     z1.coeffs.insert(exp.clone(), coeff.clone());
                 }

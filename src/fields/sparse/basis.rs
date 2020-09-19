@@ -6,13 +6,13 @@ use super::num::Zero;
 use crate::fields::sparse::*;
 
 use crate::fields::exponent::Exponent;
+use crate::fields::rational::Rational;
 use crate::fields::util::Sign;
-use rug::ops::Pow;
 use std::convert::TryInto;
 use std::ops::Mul;
 
 // Tries to reduce to a possibly smaller cyclotomic field
-pub fn try_reduce<E: Exponent>(z: &mut Number<E>) {
+pub fn try_reduce<E: Exponent, Q: Rational>(z: &mut Number<E, Q>) {
     let mut current_gcd: Option<E> = None;
     let mut saw_exp_zero = false;
     let mut coeffs_are_equal = true;
@@ -21,7 +21,7 @@ pub fn try_reduce<E: Exponent>(z: &mut Number<E>) {
 
     for (exp, coeff) in &z.coeffs {
         // this term doesn't really appear
-        if *coeff == 0 {
+        if coeff.is_zero() {
             continue;
         }
 
@@ -105,7 +105,8 @@ pub fn try_reduce<E: Exponent>(z: &mut Number<E>) {
         z.coeffs.clear();
         let new_coeff = last_nonzero_coeff
             .unwrap()
-            .mul(Z::from(i64::pow(-1, num_primes.try_into().unwrap())));
+            .mul(&mut Q::from((i64::pow(-1, num_primes.try_into().unwrap()), 1)))
+            .clone();
         z.coeffs.insert(E::from(0), new_coeff);
         return;
     }
@@ -144,7 +145,7 @@ where
     let mut result = z.clone();
 
     for (exp, coeff) in &z.coeffs {
-        if *coeff == 0 {
+        if coeff.is_zero() {
             result.coeffs.remove(exp);
         }
     }
@@ -195,7 +196,7 @@ where
                             continue;
                         }
                         Some(rational) => {
-                            if *rational == 0 {
+                            if rational.is_zero() {
                                 a = a + E::from(1);
                                 continue;
                             }

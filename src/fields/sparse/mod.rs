@@ -31,7 +31,7 @@ type ExpCoeffMap<E, Q> = FxHashMap<E, Q>;
 
 /// Represents a polynomial in the `order`th root of unity.
 #[derive(Clone)]
-pub struct Number<E: Exponent, Q: Rational> {
+pub struct Number<E: Exponent = i64, Q: Rational = rug::Rational> {
     order: E,
     pub coeffs: ExpCoeffMap<E, Q>,
 }
@@ -122,15 +122,17 @@ fn add_single<E: Exponent, Q: Rational>(
             if sign == Sign::Plus {
                 coeffs.insert(exp.clone(), coeff.clone());
             } else {
-                coeffs.insert(exp.clone(), -coeff.clone());
+                let mut neg = coeff.clone();
+                neg.add_invert();
+                coeffs.insert(exp.clone(), neg);
             }
         }
         Some(existing_coeff) => {
             // TODO: find a way to get rid of coeff.clone() here, it's not needed
             if sign == Sign::Plus {
-                existing_coeff.add(coeff.clone());
+                existing_coeff.add(&mut coeff.clone());
             } else {
-                existing_coeff.sub(coeff.clone());
+                existing_coeff.add(coeff.clone().add_invert());
             }
         }
     }
@@ -160,7 +162,7 @@ where
         // Now that we've matched the orders, z1 and z2 are expressed as
         // elements in the same field so are the same iff each nonzero term is
         // the same.
-        fn has_diff(left: &Number<E, Q>, right: &Number<E, Q>) -> bool {
+        fn has_diff<E: Exponent, Q: Rational>(left: &Number<E, Q>, right: &Number<E, Q>) -> bool {
             for (exp_left, coeff_left) in &left.coeffs {
                 match right.coeffs.get(&exp_left) {
                     None => {
@@ -188,13 +190,14 @@ where
     Q: Rational,
 {
     fn e(n: &E, k: &E) -> Self {
-        Number::<E>::new(n, &[(k.clone(), Q::from((1, 1)))].iter().cloned().collect())
+        Number::<E, Q>::new(n, &[(k.clone(), Q::from((1, 1)))].iter().cloned().collect())
     }
 
     fn scalar_mul(&mut self, scalar: &Q) -> &mut Self {
         let mut result = self.clone();
         for (_, coeff) in result.coeffs.iter_mut() {
-            coeff.mul(scalar);
+            // TODO: REMOVE THIS CLONE
+            coeff.mul(&mut scalar.clone());
         }
         *self = result;
         self
@@ -229,12 +232,12 @@ where
     }
 }
 
-pub fn random_rational<G>(g: &mut G) -> Q
+pub fn random_rational<G, Q: Rational>(g: &mut G) -> Q
 where
     G: rand::RngCore,
 {
     let p: i64 = g.gen_range(1, 10);
-    let q: i64 = g.gen_range(1, 10);
+    let q: u64 = g.gen_range(1, 10);
     Q::from((p, q))
 }
 
@@ -257,10 +260,10 @@ where
     result
 }
 
-impl<E: 'static, Q> Arbitrary for Number<E, Q>
+impl<E: 'static, Q: 'static> Arbitrary for Number<E, Q>
 where
     E: Exponent,
-    Q: Rational
+    Q: Rational,
 {
     fn arbitrary<G>(g: &mut G) -> Self
     where

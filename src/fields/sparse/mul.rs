@@ -65,7 +65,7 @@ impl<E, Q> MultiplicativeGroupElement for Number<E, Q> where E: Exponent, Q: Rat
         println!("q_cyc = {:?}", q_cyc);
 
         assert_eq!(q_cyc.order, E::from(1));
-        let mut q_rat = q_cyc.coeffs.get(&E::from(0)).unwrap();
+        let q_rat = q_cyc.coeffs.get_mut(&E::from(0)).unwrap();
         println!("q_rat = {:?}", q_rat);
 
         if q_rat.is_zero() {

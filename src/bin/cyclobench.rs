@@ -10,7 +10,7 @@ use clap::Clap;
 use cyclotomic::fields::{CyclotomicFieldElement, GenericCyclotomic};
 
 use cyclotomic::fields::structure;
-use cyclotomic::fields::{dense, sparse, sparse_fast, FieldElement};
+use cyclotomic::fields::{dense, sparse, FieldElement};
 
 use cyclotomic::character::inner_product;
 use cyclotomic::fields::AdditiveGroupElement;
@@ -38,7 +38,10 @@ use test::black_box;
 use cyclotomic::fields::dense::basis::try_reduce;
 use cyclotomic::fields::exponent::Exponent;
 use cyclotomic::fields::linear_algebra::Matrix;
+use cyclotomic::fields::rational::Rational;
+
 use std::marker::PhantomData;
+use cyclotomic::fields::rational::FixedSizeRational;
 
 #[derive(Clap)]
 #[clap(version = "1.0")]
@@ -714,16 +717,16 @@ fn character(top_level: &TopLevel, opts: &CharacterOpts) {
             .into_iter()
             .map(|char| {
                 char.into_iter()
-                    .map(|f| sparse_fast::Number::<i64>::from_generic(&f))
+                    .map(|f| sparse::Number::<i64, FixedSizeRational>::from_generic(&f))
                     .collect()
             })
             .collect();
         let mut sparse_random_char = random_char
             .into_iter()
-            .map(|f| sparse_fast::Number::<i64>::from_generic(&f))
+            .map(|f| sparse::Number::<i64, FixedSizeRational>::from_generic(&f))
             .collect();
         let start = Instant::now();
-        black_box(character_bench_fast(
+        black_box(character_bench(
             &opts,
             &sizes_nums,
             &mut sparse_irr_chars,
@@ -737,32 +740,11 @@ fn character(top_level: &TopLevel, opts: &CharacterOpts) {
     }
 }
 
-fn character_bench_fast(
+fn character_bench<E: Exponent, Q: Rational>(
     opts: &CharacterOpts,
     sizes: &Vec<i64>,
-    irr_chars: &mut Vec<Vec<sparse_fast::Number<i64>>>,
-    random_char: &mut Vec<sparse_fast::Number<i64>>,
-) {
-    let mut prods: Vec<i64> = vec![];
-    for irr_char in irr_chars {
-        let mut prod = inner_product(sizes, irr_char, random_char);
-        // We reduce because the result we're really after is the integer
-        // result of the inner product - it would be cheating to not count
-        // the time required for this conversion.
-        prod = sparse_fast::basis::convert_to_base(&prod);
-        sparse_fast::basis::try_reduce(&mut prod);
-        let zero = sparse_fast::Rat::new(0, 1);
-
-        prods.push(prod.coeffs.get(&0).unwrap_or(&zero).num.clone());
-    }
-    //eprintln!("cyclotomic calculated prod: {:?}", prods);
-}
-
-fn character_bench(
-    opts: &CharacterOpts,
-    sizes: &Vec<i64>,
-    irr_chars: &mut Vec<Vec<sparse::Number<i64>>>,
-    random_char: &mut Vec<sparse::Number<i64>>,
+    irr_chars: &mut Vec<Vec<sparse::Number<E, Q>>>,
+    random_char: &mut Vec<sparse::Number<E, Q>>,
 ) {
     let mut prods: Vec<Z> = vec![];
     for irr_char in irr_chars {
@@ -772,9 +754,7 @@ fn character_bench(
         // the time required for this conversion.
         prod = sparse::basis::convert_to_base(&prod);
         sparse::basis::try_reduce(&mut prod);
-        let zero = Q::from(0);
-
-        prods.push(prod.coeffs.get(&0).unwrap_or(&zero).numer().clone());
+        prods.push(prod.coeffs.get(&E::from(0)).unwrap_or(&Q::zero()).numer().clone());
     }
     //eprintln!("cyclotomic calculated prod: {:?}", prods);
 }
