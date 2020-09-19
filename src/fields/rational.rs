@@ -169,7 +169,7 @@ impl Rational for FixedSizeRational {
 
 // floats aren't rationals, but they are very fast...
 #[derive(Debug, Clone, PartialEq)]
-struct FloatRational(f64);
+pub struct FloatRational(f64);
 
 impl Eq for FloatRational {}
 

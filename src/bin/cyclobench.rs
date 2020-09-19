@@ -38,10 +38,11 @@ use test::black_box;
 use cyclotomic::fields::dense::basis::try_reduce;
 use cyclotomic::fields::exponent::Exponent;
 use cyclotomic::fields::linear_algebra::Matrix;
-use cyclotomic::fields::rational::Rational;
+use cyclotomic::fields::rational::{Rational, FloatRational};
 
-use std::marker::PhantomData;
 use cyclotomic::fields::rational::FixedSizeRational;
+use std::marker::PhantomData;
+use num_traits::Float;
 
 #[derive(Clap)]
 #[clap(version = "1.0")]
@@ -735,6 +736,29 @@ fn character(top_level: &TopLevel, opts: &CharacterOpts) {
         let elapsed = start.elapsed().as_millis();
         eprintln!("time elapsed (ms):");
         println!("{}", elapsed);
+    } else if top_level.implementation.as_str() == "sparse_float" {
+        let mut sparse_irr_chars = irr_chars
+            .into_iter()
+            .map(|char| {
+                char.into_iter()
+                    .map(|f| sparse::Number::<i64, FloatRational>::from_generic(&f))
+                    .collect()
+            })
+            .collect();
+        let mut sparse_random_char = random_char
+            .into_iter()
+            .map(|f| sparse::Number::<i64, FloatRational>::from_generic(&f))
+            .collect();
+        let start = Instant::now();
+        black_box(character_bench(
+            &opts,
+            &sizes_nums,
+            &mut sparse_irr_chars,
+            &mut sparse_random_char,
+        ));
+        let elapsed = start.elapsed().as_millis();
+        eprintln!("time elapsed (ms):");
+        println!("{}", elapsed);
     } else {
         panic!("bad implementation! TODO: do the others?");
     }
@@ -754,7 +778,13 @@ fn character_bench<E: Exponent, Q: Rational>(
         // the time required for this conversion.
         prod = sparse::basis::convert_to_base(&prod);
         sparse::basis::try_reduce(&mut prod);
-        prods.push(prod.coeffs.get(&E::from(0)).unwrap_or(&Q::zero()).numer().clone());
+        prods.push(
+            prod.coeffs
+                .get(&E::from(0))
+                .unwrap_or(&Q::zero())
+                .numer()
+                .clone(),
+        );
     }
     //eprintln!("cyclotomic calculated prod: {:?}", prods);
 }
