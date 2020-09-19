@@ -4,6 +4,18 @@ This is a library for exact operations in cyclotomic fields that is
 well-tested, well-documented, and aims for speed in certain use
 cases. Can be used from C, C++ or Rust.
 
+## TODO
+
+* Get rid of the clones in the Rational implementations.
+
+* See if we can use f64 for cases where we know the answer will be an
+  integer.
+
+* See if structure constants can become competitive if we use floats.
+
+* Write a GAP expression parser in Rust instead of reusing my Haskell
+  one (it's really, really slow).
+
 ## Why use this library?
 
 There are other libraries for more general use-cases out
@@ -35,13 +47,13 @@ See [below for some benchmarks against antic](#benchmarks).
     exponents (64 bit ints) to coefficients
   - The same as the above, but with arbitrary integer exponents -
     this is for very large degree fields.
-    
+
 * Dense representations:
   - Vector of coefficients and Zumbroich basis (the same as GAP,
     unpacked)
   - Vector of coefficients with multiplication via the structure
     constants (viewed as a Q-algebra).
-  
+
 ## Performance
 
 The sparse representation perform better than the dense representations
