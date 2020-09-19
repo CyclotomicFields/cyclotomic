@@ -6,8 +6,9 @@ use galois::apply_automorphism;
 use std::convert::TryInto;
 use crate::fields::util::Sign;
 use crate::fields::exponent::Exponent;
+use crate::fields::rational::Rational;
 
-impl<E> MultiplicativeGroupElement for Number<E> where E: Exponent {
+impl<E, Q> MultiplicativeGroupElement for Number<E, Q> where E: Exponent, Q: Rational {
     /// Multiplies term by term, not bothering to do anything interesting.
     fn mul(&mut self, rhs: &mut Self) -> &mut Self {
         let z1 = self;
@@ -19,10 +20,10 @@ impl<E> MultiplicativeGroupElement for Number<E> where E: Exponent {
         // This order is almost certainly not optimal. But you know, whatever.
         // TODO: make it gooder
         result.order = z1.order.clone();
-        for (exp1, coeff1) in &z1.coeffs {
-            for (exp2, coeff2) in &z2.coeffs {
+        for (exp1, coeff1) in &mut z1.coeffs {
+            for (exp2, coeff2) in &mut z2.coeffs {
                 let new_exp = ((exp1.clone() + exp2.clone()).into(): E) % z1.order.clone();
-                let new_coeff: Q = (coeff1 * coeff2).into();
+                let new_coeff = coeff1.clone().mul(coeff2).clone();
                 add_single(&mut result.coeffs, &new_exp, &new_coeff, Sign::Plus);
             }
         }
@@ -64,14 +65,15 @@ impl<E> MultiplicativeGroupElement for Number<E> where E: Exponent {
         println!("q_cyc = {:?}", q_cyc);
 
         assert_eq!(q_cyc.order, E::from(1));
-        let q_rat = q_cyc.coeffs.get(&E::from(0)).unwrap();
+        let mut q_rat = q_cyc.coeffs.get(&E::from(0)).unwrap();
         println!("q_rat = {:?}", q_rat);
 
-        if *q_rat == 0 {
+        if q_rat.is_zero() {
             panic!("can't invert zero!");
         }
+        q_rat.mul_invert();
 
-        let z_inv = x.scalar_mul(&q_rat.recip_ref().into());
+        let z_inv = x.scalar_mul(q_rat);
         *self = z_inv.clone();
         self
     }

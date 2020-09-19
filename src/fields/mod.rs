@@ -1,9 +1,10 @@
 pub type Z = rug::Integer;
 pub type Q = rug::Rational;
 
-use crate::fields::exponent::Exponent;
+use exponent::Exponent;
 use num::Integer;
 use std::collections::HashMap;
+use rational::Rational;
 
 pub trait AdditiveGroupElement {
     /// Adds z to self in place, so self = self + z
@@ -44,7 +45,7 @@ pub struct GenericCyclotomic {
 pub trait CyclotomicFieldElement<E, C = Q>: FieldElement + Clone
 where
     E: Exponent,
-    C: From<(i64, u64)>,
+    C: Rational,
 {
     /// Returns $\zeta_n$^k.
     fn e(n: &E, k: &E) -> Self;
@@ -164,10 +165,6 @@ macro_rules! field_axiom_tests {
 /// Sparse hash map based implementation.
 pub mod sparse;
 
-/// Sparse hash map based implementation, but faster, with a lot of assumptions
-/// made e.g. assuming integers are small.
-pub mod sparse_fast;
-
 /// Dense representation using a vector of coefficients.
 pub mod dense;
 
@@ -185,3 +182,7 @@ pub mod linear_algebra;
 /// Trait for types that can be used as an exponent. Used mainly for different
 /// big integer implementations, and machine-sized integers.
 pub mod exponent;
+
+/// Our own rational traits, implementations, etc. Not always guaranteed to
+/// actually satisfy field axioms for performance reasons.
+pub mod rational;

@@ -3,22 +3,23 @@ extern crate rustc_hash;
 
 use self::num::{One, Zero};
 
+use crate::fields::rational::Rational;
 use crate::fields::util::*;
 use crate::fields::MultiplicativeGroupElement;
-use crate::fields::{CyclotomicFieldElement, FieldElement, Q, Z};
+use crate::fields::{CyclotomicFieldElement, FieldElement, Z};
 use basis::convert_to_base;
 use num::traits::Inv;
 use quickcheck::{Arbitrary, Gen};
 use rand::Rng;
-use std::collections::{HashSet, HashMap};
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::ops::{AddAssign, Mul, SubAssign};
 use std::vec::Vec;
 
 #[macro_use]
 use crate::fields::*;
-use crate::fields::exponent::Exponent;
 use self::rustc_hash::FxHashMap;
+use crate::fields::exponent::Exponent;
 
 pub mod add;
 pub mod basis;
@@ -26,22 +27,22 @@ pub mod galois;
 pub mod mul;
 
 // TODO: how to make this FxHashMap for i64 and HashMap for Z?
-type ExpCoeffMap<E> = FxHashMap<E, Q>;
+type ExpCoeffMap<E, Q> = FxHashMap<E, Q>;
 
 /// Represents a polynomial in the `order`th root of unity.
 #[derive(Clone)]
-pub struct Number<E: Exponent> {
+pub struct Number<E: Exponent, Q: Rational> {
     order: E,
-    pub coeffs: ExpCoeffMap<E>,
+    pub coeffs: ExpCoeffMap<E, Q>,
 }
 
-pub fn print_gap<E: Exponent>(z: &Number<E>) -> String {
+pub fn print_gap<E: Exponent, Q: Rational>(z: &Number<E, Q>) -> String {
     let mut str_list: Vec<String> = vec![];
     let mut exp = E::from(0);
     while &exp != &z.order {
-        let zero = Q::from(0).clone();
+        let zero = Q::zero();
         let coeff = z.coeffs.get(&exp).unwrap_or(&zero);
-        if *coeff != 0 {
+        if !coeff.is_zero() {
             str_list.push(String::from(
                 format!("{} * E({})^{}", coeff, z.order, exp).as_str(),
             ))
@@ -51,14 +52,22 @@ pub fn print_gap<E: Exponent>(z: &Number<E>) -> String {
     "(".to_string() + &str_list.join(" + ") + ")"
 }
 
-impl<E> fmt::Debug for Number<E> where E: Exponent {
+impl<E, Q> fmt::Debug for Number<E, Q>
+where
+    E: Exponent,
+    Q: Rational,
+{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Number ({})", print_gap(self))
     }
 }
 
-impl<E> Number<E> where E: Exponent {
-    pub fn new(order: &E, coeffs: &ExpCoeffMap<E>) -> Number<E> {
+impl<E, Q> Number<E, Q>
+where
+    E: Exponent,
+    Q: Rational,
+{
+    pub fn new(order: &E, coeffs: &ExpCoeffMap<E, Q>) -> Number<E, Q> {
         Number {
             order: order.clone(),
             coeffs: coeffs.clone(),
@@ -68,29 +77,32 @@ impl<E> Number<E> where E: Exponent {
     pub fn increase_order_to(z: &mut Self, new_order: &E) {
         let mut new_coeffs = ExpCoeffMap::default();
         for (exp, coeff) in &z.coeffs {
-            new_coeffs.insert(new_order.clone() * exp.clone() / z.order.clone(), coeff.clone());
+            new_coeffs.insert(
+                new_order.clone() * exp.clone() / z.order.clone(),
+                coeff.clone(),
+            );
         }
         z.order = new_order.clone();
         z.coeffs = new_coeffs;
     }
 
-    pub fn match_orders(z1: &mut Number<E>, z2: &mut Number<E>) {
+    pub fn match_orders(z1: &mut Number<E, Q>, z2: &mut Number<E, Q>) {
         if z1.order == z2.order {
             return;
         }
         let new_order: E = Exponent::lcm(&z1.order, &z2.order);
-        Number::<E>::increase_order_to(z1, &new_order);
-        Number::<E>::increase_order_to(z2, &new_order);
+        Number::<E, Q>::increase_order_to(z1, &new_order);
+        Number::<E, Q>::increase_order_to(z2, &new_order);
     }
 }
 
-fn get_same_coeff<E: Exponent>(z: &Number<E>) -> Option<Q> {
+fn get_same_coeff<E: Exponent, Q: Rational>(z: &Number<E, Q>) -> Option<Q> {
     let coeffs = z.coeffs.clone().into_iter().map(|(_exp, coeff)| coeff);
-    let nonzero_coeffs: HashSet<Q> = coeffs.filter(|q| *q != 0).collect();
+    let nonzero_coeffs: HashSet<Q> = coeffs.filter(|q| !q.is_zero()).collect();
 
     if nonzero_coeffs.len() == 0 {
         // all coeffs are zero
-        Some(Q::from(0))
+        Some(Q::zero())
     } else if nonzero_coeffs.len() == 1 {
         Some(nonzero_coeffs.iter().last().unwrap().clone())
     } else {
@@ -98,7 +110,12 @@ fn get_same_coeff<E: Exponent>(z: &Number<E>) -> Option<Q> {
     }
 }
 
-fn add_single<E: Exponent>(coeffs: &mut ExpCoeffMap<E>, exp: &E, coeff: &Q, sign: Sign) {
+fn add_single<E: Exponent, Q: Rational>(
+    coeffs: &mut ExpCoeffMap<E, Q>,
+    exp: &E,
+    coeff: &Q,
+    sign: Sign,
+) {
     let maybe_existing_coeff = coeffs.get_mut(exp);
     match maybe_existing_coeff {
         None => {
@@ -111,39 +128,43 @@ fn add_single<E: Exponent>(coeffs: &mut ExpCoeffMap<E>, exp: &E, coeff: &Q, sign
         Some(existing_coeff) => {
             // TODO: find a way to get rid of coeff.clone() here, it's not needed
             if sign == Sign::Plus {
-                existing_coeff.add_assign(coeff.clone());
+                existing_coeff.add(coeff.clone());
             } else {
-                existing_coeff.sub_assign(coeff.clone());
+                existing_coeff.sub(coeff.clone());
             }
         }
     }
 }
 
-pub fn is_zero<E: Exponent>(z: &Number<E>) -> bool {
+pub fn is_zero<E: Exponent, Q: Rational>(z: &Number<E, Q>) -> bool {
     for (_, coeff) in &z.coeffs {
-        if *coeff != 0 {
+        if !coeff.is_zero() {
             return false;
         }
     }
     true
 }
 
-impl<E> FieldElement for Number<E> where E: Exponent {
+impl<E, Q> FieldElement for Number<E, Q>
+where
+    E: Exponent,
+    Q: Rational,
+{
     fn eq(&mut self, other: &mut Self) -> bool {
         let mut za = self.clone();
         let mut zb = other.clone();
-        Number::<E>::match_orders(&mut za, &mut zb);
+        Number::<E, Q>::match_orders(&mut za, &mut zb);
         let z1 = convert_to_base(&za);
         let z2 = convert_to_base(&zb);
 
         // Now that we've matched the orders, z1 and z2 are expressed as
         // elements in the same field so are the same iff each nonzero term is
         // the same.
-        fn has_diff<E>(left: &Number<E>, right: &Number<E>) -> bool where E: Exponent {
+        fn has_diff(left: &Number<E, Q>, right: &Number<E, Q>) -> bool {
             for (exp_left, coeff_left) in &left.coeffs {
                 match right.coeffs.get(&exp_left) {
                     None => {
-                        if *coeff_left != 0 {
+                        if !coeff_left.is_zero() {
                             return true;
                         }
                     }
@@ -161,35 +182,36 @@ impl<E> FieldElement for Number<E> where E: Exponent {
     }
 }
 
-impl<E> CyclotomicFieldElement<E> for Number<E> where E: Exponent {
+impl<E, Q> CyclotomicFieldElement<E, Q> for Number<E, Q>
+where
+    E: Exponent,
+    Q: Rational,
+{
     fn e(n: &E, k: &E) -> Self {
-        Number::<E>::new(
-            n,
-            &[(k.clone(), Q::from(1))].iter().cloned().collect(),
-        )
+        Number::<E>::new(n, &[(k.clone(), Q::from((1, 1)))].iter().cloned().collect())
     }
 
     fn scalar_mul(&mut self, scalar: &Q) -> &mut Self {
         let mut result = self.clone();
         for (_, coeff) in result.coeffs.iter_mut() {
-            *coeff *= scalar;
+            coeff.mul(scalar);
         }
         *self = result;
         self
     }
 
-    fn zero_order(n: &E) -> Number<E> {
-        Number::<E>::new(&n, &ExpCoeffMap::<E>::default())
+    fn zero_order(n: &E) -> Number<E, Q> {
+        Number::<E, Q>::new(&n, &ExpCoeffMap::<E, Q>::default())
     }
 
-    fn one_order(n: &E) -> Number<E> {
+    fn one_order(n: &E) -> Number<E, Q> {
         let mut coeffs = ExpCoeffMap::default();
         let mut i = E::from(1);
         while i != *n {
-            coeffs.insert(i.clone(), Q::from(-1));
+            coeffs.insert(i.clone(), Q::from((-1, 1)));
             i = i + E::from(1);
         }
-        Number::<E>::new(n, &coeffs)
+        Number::<E, Q>::new(n, &coeffs)
     }
 
     fn complex_conjugate(&self) -> Self {
@@ -216,14 +238,15 @@ where
     Q::from((p, q))
 }
 
-pub fn random_cyclotomic<G, E>(g: &mut G, min_order: i64, max_order: i64) -> Number<E>
+pub fn random_cyclotomic<G, E, Q>(g: &mut G, min_order: i64, max_order: i64) -> Number<E, Q>
 where
     G: rand::RngCore,
-    E: Exponent
+    E: Exponent,
+    Q: Rational,
 {
     let order = g.gen_range(min_order, max_order);
     let num_terms: u64 = g.gen_range(1, 5);
-    let mut result = Number::<E>::zero_order(&E::from(order.clone()));
+    let mut result = Number::<E, Q>::zero_order(&E::from(order.clone()));
 
     for _ in 1..=num_terms {
         let exp: i64 = g.gen_range(1, order);
@@ -234,17 +257,21 @@ where
     result
 }
 
-impl<E: 'static> Arbitrary for Number<E> where E: Exponent {
+impl<E: 'static, Q> Arbitrary for Number<E, Q>
+where
+    E: Exponent,
+    Q: Rational
+{
     fn arbitrary<G>(g: &mut G) -> Self
     where
         G: Gen,
     {
-        random_cyclotomic::<G, E>(g, 2, 50)
+        random_cyclotomic::<G, E, Q>(g, 2, 50)
     }
 }
 
-type Number_i64 = Number<i64>;
-type Number_Z = Number<Z>;
+type Number_i64 = Number<i64, rug::Rational>;
+type Number_Z = Number<Z, rug::Rational>;
 
 #[cfg(test)]
 mod i64_tests {

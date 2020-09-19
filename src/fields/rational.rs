@@ -1,7 +1,9 @@
-use crate::fields::{FieldElement, AdditiveGroupElement, MultiplicativeGroupElement};
+use crate::fields::{AdditiveGroupElement, FieldElement, MultiplicativeGroupElement};
+use std::fmt;
+use std::fmt::Display;
 use std::ops::{AddAssign, MulAssign};
 
-pub trait Rational: FieldElement + Clone + From<(i64, u64)> {
+pub trait Rational: FieldElement + Clone + From<(i64, u64)> + Display {
     fn zero() -> Self {
         Self::from((0, 1))
     }
@@ -77,6 +79,12 @@ impl FixedSizeRational {
     }
 }
 
+impl Display for FixedSizeRational {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}/{}", self.num, self.denom)
+    }
+}
+
 impl From<(i64, u64)> for FixedSizeRational {
     fn from(p: (i64, u64)) -> Self {
         Rat::new(p.0, p.1)
@@ -131,4 +139,3 @@ impl Rational for FixedSizeRational {
         self.is_zero()
     }
 }
-
