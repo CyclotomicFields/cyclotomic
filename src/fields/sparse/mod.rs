@@ -27,7 +27,7 @@ pub mod galois;
 pub mod mul;
 
 // TODO: how to make this FxHashMap for i64 and HashMap for Z?
-type ExpCoeffMap<E, Q> = FxHashMap<E, Q>;
+pub type ExpCoeffMap<E, Q> = FxHashMap<E, Q>;
 
 /// Represents a polynomial in the `order`th root of unity.
 #[derive(Clone)]

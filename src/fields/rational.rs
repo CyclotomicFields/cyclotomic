@@ -57,7 +57,7 @@ impl Rational for rug::Rational {
     }
 
     fn is_zero(&self) -> bool {
-        self.is_zero()
+        *self.numer() == Z::from(0)
     }
 
     fn numer(&self) -> Z {

@@ -39,6 +39,7 @@ use cyclotomic::fields::dense::basis::try_reduce;
 use cyclotomic::fields::exponent::Exponent;
 use cyclotomic::fields::linear_algebra::Matrix;
 use cyclotomic::fields::rational::{Rational, FloatRational};
+use cyclotomic::fields::simd_float;
 
 use cyclotomic::fields::rational::FixedSizeRational;
 use std::marker::PhantomData;
@@ -713,6 +714,29 @@ fn character(top_level: &TopLevel, opts: &CharacterOpts) {
         let elapsed = start.elapsed().as_millis();
         eprintln!("time elapsed (ms):");
         println!("{}", elapsed);
+    } else if top_level.implementation.as_str() == "simd_float" {
+        let mut simd_float_irr_chars = irr_chars
+            .into_iter()
+            .map(|char| {
+                char.into_iter()
+                    .map(|f| simd_float::Number::from_generic(&f))
+                    .collect()
+            })
+            .collect();
+        let mut simd_float_random_char = random_char
+            .into_iter()
+            .map(|f| simd_float::Number::from_generic(&f))
+            .collect();
+        let start = Instant::now();
+        black_box(simd_float_character_bench(
+            &opts,
+            &sizes_nums,
+            &mut simd_float_irr_chars,
+            &mut simd_float_random_char,
+        ));
+        let elapsed = start.elapsed().as_millis();
+        eprintln!("time elapsed (ms):");
+        println!("{}", elapsed);
     } else if top_level.implementation.as_str() == "sparse_fast" {
         let mut sparse_irr_chars = irr_chars
             .into_iter()
@@ -764,6 +788,23 @@ fn character(top_level: &TopLevel, opts: &CharacterOpts) {
     }
 }
 
+fn simd_float_character_bench (
+    opts: &CharacterOpts,
+    sizes: &Vec<i64>,
+    irr_chars: &mut Vec<Vec<simd_float::Number>>,
+    random_char: &mut Vec<simd_float::Number>,
+) {
+    let mut prods: Vec<Z> = vec![];
+    for irr_char in irr_chars {
+        let mut prod = inner_product(sizes, irr_char, random_char);
+        // We reduce because the result we're really after is the integer
+        // result of the inner product - it would be cheating to not count
+        // the time required for this conversion.
+        prods.push(prod.nearest_int());
+    }
+    eprintln!("simd_float calculated prods: {:?}", prods);
+}
+
 fn character_bench<E: Exponent, Q: Rational>(
     opts: &CharacterOpts,
     sizes: &Vec<i64>,
@@ -786,7 +827,7 @@ fn character_bench<E: Exponent, Q: Rational>(
                 .clone(),
         );
     }
-    //eprintln!("cyclotomic calculated prod: {:?}", prods);
+    eprintln!("cyclotomic calculated prods: {:?}", prods);
 }
 
 fn main() {

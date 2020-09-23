@@ -186,3 +186,6 @@ pub mod exponent;
 /// Our own rational traits, implementations, etc. Not always guaranteed to
 /// actually satisfy field axioms for performance reasons.
 pub mod rational;
+
+/// Speed at the expense of correctness. Incorrect in a lot of cases.
+pub mod simd_float;
