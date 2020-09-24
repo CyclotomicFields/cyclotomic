@@ -6,7 +6,11 @@ use crate::fields::{
     sparse, AdditiveGroupElement, CyclotomicFieldElement, FieldElement, MultiplicativeGroupElement,
     Z,
 };
+use core::arch::x86_64::*;
 use faster::*;
+use std::alloc::alloc;
+use std::alloc::Layout;
+use std::mem;
 
 #[derive(Clone)]
 pub struct Number {
@@ -87,44 +91,69 @@ impl MultiplicativeGroupElement for Number {
         // This is so we can read the shifted z directly without doing
         // i % n everywhere.
         let z_twice = [z.coeffs.as_slice(), z.coeffs.as_slice()].concat();
+        let num_full_chunks = n / 8;
 
-        // Will accumulate the final result
-        let mut result = vec![0_f32; n];
+        // yes I know assuming AVX2 is bad, do not run this code on a Pentium 3
+        unsafe {
+            // TODO: make everything aligned to 32 bytes including the original coeffs
 
-        // After each shift, shifted_result[i] contains the coefficient of
-        // x^(2i + shift mod n).
-        let mut shifted_result = vec![0_f32; n];
+            // needed because we want to operate on chunks of 8 for the whole
+            // vector
+            let rounded_n = ((n + 7) / 8) * 8;
 
-        // We then unjumble so unshifted_result[i] contains the coefficient of
-        // x^i.
-        let mut unshifted_result = vec![0_f32; n];
+            let leftover = n % 8;
 
-        for shift in 0..n {
-            let z_shifted = &z_twice[shift..shift + n];
-            shifted_result = (
-                self.coeffs.as_slice().simd_iter(f32s(0_f32)),
-                z_shifted.simd_iter(f32s(0_f32)),
-            )
-                .zip()
-                .simd_map(|(a, b)| a * b)
-                .scalar_collect();
+            let mem_layout = Layout::from_size_align(rounded_n * mem::size_of::<f32>(), 4).unwrap();
 
-            // There is a 2* here, surely there is some cool hack I can do to
-            // make this faster.
-            for i in 0..n {
-                unshifted_result[(2 * i + shift) % n] = shifted_result[i];
+            // Will accumulate the final result
+            let result = alloc(mem_layout.clone()) as *mut f32;
+
+            // After each shift, shifted_result[i] contains the coefficient of
+            // x^(2i + shift mod n).
+            let shifted_result = alloc(mem_layout.clone()) as *mut f32;
+
+            // We then unjumble so unshifted_result[i] contains the coefficient of
+            // x^i.
+            let unshifted_result = alloc(mem_layout.clone()) as *mut f32;
+
+            for shift in 0..n {
+                let z_shifted = &z_twice[shift..shift + n];
+
+                // shifted_result
+                for i in 0..num_full_chunks {
+                    let self_chunk = _mm256_loadu_ps(self.coeffs[i * 8..(i + 1) * 8].as_ptr());
+                    let z_chunk = _mm256_loadu_ps(z_shifted[i * 8..(i + 1) * 8].as_ptr());
+                    let prod = _mm256_mul_ps(self_chunk, z_chunk);
+                    _mm256_storeu_ps(shifted_result.add(i * 8), prod);
+                }
+                if leftover != 0 {
+                    // TODO: do stuff with the last chunk
+                }
+
+                // There is a 2* here, surely there is some cool hack I can do to
+                // make this faster.
+                // TODO: can we really do this without initialising the memory? is this
+                // a bijection?
+                for i in 0..n {
+                    *unshifted_result.add((2 * i + shift) % n) = *shifted_result.add(i);
+                }
+
+                for i in 0..num_full_chunks {
+                    let result_chunk = _mm256_loadu_ps(result.add(i * 8));
+                    let unshifted_result_chunk = _mm256_loadu_ps(unshifted_result.add(i * 8));
+                    let sum = _mm256_add_ps(result_chunk, unshifted_result_chunk);
+                    _mm256_storeu_ps(result.add(i * 8), sum);
+                }
+                if leftover != 0 {
+                    // TODO: do leftover stuff
+                }
             }
 
-            result = (
-                result.as_slice().simd_iter(f32s(0_f32)),
-                unshifted_result.as_slice().simd_iter(f32s(0_f32)),
-            )
-                .zip()
-                .simd_map(|(a, b)| a + b)
-                .scalar_collect();
+            for i in 0..n {
+                self.coeffs[i] = *result.add(i);
+            }
         }
 
-        self.coeffs = result;
         self
     }
 
