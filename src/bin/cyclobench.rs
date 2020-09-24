@@ -734,8 +734,8 @@ fn character(top_level: &TopLevel, opts: &CharacterOpts) {
             &mut simd_float_irr_chars,
             &mut simd_float_random_char,
         ));
-        let elapsed = start.elapsed().as_millis();
-        eprintln!("time elapsed (ms):");
+        let elapsed = start.elapsed().as_nanos();
+        eprintln!("time elapsed (ns):");
         println!("{}", elapsed);
     } else if top_level.implementation.as_str() == "sparse_fast" {
         let mut sparse_irr_chars = irr_chars
@@ -780,8 +780,8 @@ fn character(top_level: &TopLevel, opts: &CharacterOpts) {
             &mut sparse_irr_chars,
             &mut sparse_random_char,
         ));
-        let elapsed = start.elapsed().as_millis();
-        eprintln!("time elapsed (ms):");
+        let elapsed = start.elapsed().as_nanos();
+        eprintln!("time elapsed (ns):");
         println!("{}", elapsed);
     } else {
         panic!("bad implementation! TODO: do the others?");
