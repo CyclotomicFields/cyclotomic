@@ -84,16 +84,44 @@ impl MultiplicativeGroupElement for Number {
         Number::match_orders(self, z);
         let n = self.coeffs.len();
 
+        // This is so we can read the shifted z directly without doing
+        // i % n everywhere.
+        let z_twice = [z.coeffs.as_slice(), z.coeffs.as_slice()].concat();
+
+        // Will accumulate the final result
         let mut result = vec![0_f32; n];
 
+        // After each shift, shifted_result[i] contains the coefficient of
+        // x^(2i + shift mod n).
+        let mut shifted_result = vec![0_f32; n];
+
+        // We then unjumble so unshifted_result[i] contains the coefficient of
+        // x^i.
+        let mut unshifted_result = vec![0_f32; n];
+
         for shift in 0..n {
-            let mut shift_result = vec![0_f32; n];
+            let z_shifted = &z_twice[shift..shift + n];
+            shifted_result = (
+                self.coeffs.as_slice().simd_iter(f32s(0_f32)),
+                z_shifted.simd_iter(f32s(0_f32)),
+            )
+                .zip()
+                .simd_map(|(a, b)| a * b)
+                .scalar_collect();
+
+            // There is a 2* here, surely there is some cool hack I can do to
+            // make this faster.
             for i in 0..n {
-                shift_result[i] = self.coeffs[i] * z.coeffs[(i + shift) % n];
+                unshifted_result[(2 * i + shift) % n] = shifted_result[i];
             }
-            for i in 0..n {
-                result[(2 * i + shift) % n] += shift_result[i];
-            }
+
+            result = (
+                result.as_slice().simd_iter(f32s(0_f32)),
+                unshifted_result.as_slice().simd_iter(f32s(0_f32)),
+            )
+                .zip()
+                .simd_map(|(a, b)| a + b)
+                .scalar_collect();
         }
 
         self.coeffs = result;
