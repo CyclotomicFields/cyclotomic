@@ -24,6 +24,9 @@ antic = "0.1"
 rug = "1.10.0"
 num-traits = "0.2.12"
 sexp = "1.1.4"
+packed_simd = "0.3.3"
+simd_aligned = "0.2.1"
+faster = "0.5.1"
 
 [[bin]]
 name = "cyclobench"

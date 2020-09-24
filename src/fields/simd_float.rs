@@ -6,7 +6,7 @@ use crate::fields::{
     sparse, AdditiveGroupElement, CyclotomicFieldElement, FieldElement, MultiplicativeGroupElement,
     Z,
 };
-use std::cmp::min;
+use faster::*;
 
 #[derive(Clone)]
 pub struct Number {
@@ -23,10 +23,7 @@ impl Number {
         for i in 0..n {
             let int_rat = rug::Rational::from((self.coeffs[i].round() as i64, 1));
 
-            int_coeffs.insert(
-                i as i64,
-                int_rat,
-            );
+            int_coeffs.insert(i as i64, int_rat);
         }
 
         let mut z = sparse::Number::<i64, rug::Rational>::new(&(n as i64), &int_coeffs);
@@ -65,9 +62,15 @@ impl AdditiveGroupElement for Number {
     fn add(&mut self, z: &mut Self) -> &mut Self {
         Number::match_orders(self, z);
         let n = self.coeffs.len();
-        for i in 0..n {
-            self.coeffs[i] += z.coeffs[i];
-        }
+
+        self.coeffs = (
+            self.coeffs.as_slice().simd_iter(f32s(0_f32)),
+            z.coeffs.as_slice().simd_iter(f32s(0_f32)),
+        )
+            .zip()
+            .simd_map(|(a, b)| a + b)
+            .scalar_collect();
+
         self
     }
 

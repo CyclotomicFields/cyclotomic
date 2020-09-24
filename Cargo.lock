@@ -111,8 +111,10 @@ dependencies = [
  "clap",
  "combinations",
  "divisors",
+ "faster",
  "num",
  "num-traits",
+ "packed_simd",
  "quickcheck",
  "quickcheck_macros",
  "rand",
@@ -120,6 +122,7 @@ dependencies = [
  "rug",
  "rustc-hash",
  "sexp",
+ "simd_aligned",
 ]
 
 [[package]]
@@ -139,6 +142,16 @@ checksum = "44533bbbb3bb3c1fa17d9f2e4e38bbbaf8396ba82193c4cb1b6445d711445d36"
 dependencies = [
  "log",
  "regex",
+]
+
+[[package]]
+name = "faster"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f760b1ee067c7a07902aba0969968f2b02b3f313e41df1830612f4e3447397d3"
+dependencies = [
+ "packed_simd",
+ "vektor",
 ]
 
 [[package]]
@@ -309,6 +322,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06de47b848347d8c4c94219ad8ecd35eb90231704b067e67e6ae2e36ee023510"
 
 [[package]]
+name = "packed_simd"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a85ea9fc0d4ac0deb6fe7911d38786b32fc11119afd9e9d38b84ff691ce64220"
+dependencies = [
+ "cfg-if",
+]
+
+[[package]]
 name = "pkg-config"
 version = "0.3.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -470,6 +492,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c8fa7ac9df84000b0238cf497cb2d3056bac2ff2a7d8cf179d2803b4b58571f"
 
 [[package]]
+name = "simd_aligned"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "408577c656d457ee1608b2029ebb224c866ac11eb21d0e9b0b75f033d60b027b"
+dependencies = [
+ "packed_simd",
+]
+
+[[package]]
 name = "strsim"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -547,6 +578,15 @@ name = "vec_map"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1bddf1187be692e79c5ffeab891132dfb0f236ed36a43c7ed39f1165ee20191"
+
+[[package]]
+name = "vektor"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "42e86fbee9ad5d7dd720dbe6dd2e47c598d98632d707e18ed5186bd284e933da"
+dependencies = [
+ "packed_simd",
+]
 
 [[package]]
 name = "version_check"
