@@ -8,9 +8,10 @@ use crate::fields::{
 };
 use core::arch::x86_64::*;
 use faster::*;
-use std::alloc::alloc;
+use std::alloc::{alloc, alloc_zeroed, dealloc};
 use std::alloc::Layout;
-use std::mem;
+use std::{mem, ptr};
+use std::slice;
 
 #[derive(Clone)]
 pub struct Number {
@@ -83,6 +84,22 @@ impl AdditiveGroupElement for Number {
     }
 }
 
+unsafe fn read_leftover(arr: &[f32]) -> __m256 {
+    // precondition, 0 < arr.len() < 8
+    match arr.len() {
+        1 => _mm256_set_ps(arr[0], 0_f32, 0_f32, 0_f32, 0_f32, 0_f32, 0_f32, 0_f32),
+        2 => _mm256_set_ps(arr[0], arr[1], 0_f32, 0_f32, 0_f32, 0_f32, 0_f32, 0_f32),
+        3 => _mm256_set_ps(arr[0], arr[1], arr[2], 0_f32, 0_f32, 0_f32, 0_f32, 0_f32),
+        4 => _mm256_set_ps(arr[0], arr[1], arr[2], arr[3], 0_f32, 0_f32, 0_f32, 0_f32),
+        5 => _mm256_set_ps(arr[0], arr[1], arr[2], arr[3], arr[4], 0_f32, 0_f32, 0_f32),
+        6 => _mm256_set_ps(arr[0], arr[1], arr[2], arr[3], arr[4], arr[5], 0_f32, 0_f32),
+        7 => _mm256_set_ps(
+            arr[0], arr[1], arr[2], arr[3], arr[4], arr[5], arr[6], 0_f32,
+        ),
+        _ => panic!("leftover doesnt't have size in [1..7]"),
+    }
+}
+
 impl MultiplicativeGroupElement for Number {
     fn mul(&mut self, z: &mut Self) -> &mut Self {
         Number::match_orders(self, z);
@@ -103,10 +120,10 @@ impl MultiplicativeGroupElement for Number {
 
             let leftover = n % 8;
 
-            let mem_layout = Layout::from_size_align(rounded_n * mem::size_of::<f32>(), 4).unwrap();
+            let mem_layout = Layout::from_size_align(rounded_n * mem::size_of::<f32>(), 32).unwrap();
 
             // Will accumulate the final result
-            let result = alloc(mem_layout.clone()) as *mut f32;
+            let result = alloc_zeroed(mem_layout.clone()) as *mut f32;
 
             // After each shift, shifted_result[i] contains the coefficient of
             // x^(2i + shift mod n).
@@ -114,29 +131,41 @@ impl MultiplicativeGroupElement for Number {
 
             // We then unjumble so unshifted_result[i] contains the coefficient of
             // x^i.
-            let unshifted_result = alloc(mem_layout.clone()) as *mut f32;
+            let mut unshifted_result = alloc(mem_layout.clone()) as *mut f32;
 
+            eprintln!("loop");
             for shift in 0..n {
                 let z_shifted = &z_twice[shift..shift + n];
 
                 // shifted_result
                 for i in 0..num_full_chunks {
+                    eprintln!("---");
                     let self_chunk = _mm256_loadu_ps(self.coeffs[i * 8..(i + 1) * 8].as_ptr());
+                    eprintln!("self_chunk: {:?}", self_chunk);
                     let z_chunk = _mm256_loadu_ps(z_shifted[i * 8..(i + 1) * 8].as_ptr());
+                    eprintln!("z_chunk   : {:?}", z_chunk);
                     let prod = _mm256_mul_ps(self_chunk, z_chunk);
+                    eprintln!("prod      : {:?}", prod);
                     _mm256_storeu_ps(shifted_result.add(i * 8), prod);
                 }
                 if leftover != 0 {
-                    // TODO: do stuff with the last chunk
+                    let last_self_chunk = read_leftover(&self.coeffs[n - leftover..n]);
+                    let last_z_chunk = read_leftover(&z_shifted[n - leftover..n]);
+                    let prod = _mm256_mul_ps(last_self_chunk, last_z_chunk);
+                    _mm256_storeu_ps(shifted_result.add(num_full_chunks * 8), prod);
                 }
 
                 // There is a 2* here, surely there is some cool hack I can do to
                 // make this faster.
                 // TODO: can we really do this without initialising the memory? is this
                 // a bijection?
+
+                ptr::write_bytes::<f32>(unshifted_result, 0, rounded_n);
                 for i in 0..n {
                     *unshifted_result.add((2 * i + shift) % n) = *shifted_result.add(i);
                 }
+                eprintln!("shifted  : {:?}", slice::from_raw_parts::<f32>(shifted_result, rounded_n));
+                eprintln!("unshifted: {:?}", slice::from_raw_parts::<f32>(unshifted_result, rounded_n));
 
                 for i in 0..num_full_chunks {
                     let result_chunk = _mm256_loadu_ps(result.add(i * 8));
@@ -145,7 +174,10 @@ impl MultiplicativeGroupElement for Number {
                     _mm256_storeu_ps(result.add(i * 8), sum);
                 }
                 if leftover != 0 {
-                    // TODO: do leftover stuff
+                    let last_result_chunk = read_leftover(slice::from_raw_parts::<f32>(result.add(n-leftover), leftover));
+                    let last_unshifted_chunk = read_leftover(slice::from_raw_parts::<f32>(unshifted_result.add(n-leftover), leftover));
+                    let sum = _mm256_mul_ps(last_result_chunk, last_unshifted_chunk);
+                    _mm256_storeu_ps(unshifted_result.add(num_full_chunks * 8), sum);
                 }
             }
 
