@@ -8,10 +8,10 @@ use crate::fields::{
 };
 use core::arch::x86_64::*;
 use faster::*;
-use std::alloc::{alloc, alloc_zeroed, dealloc};
 use std::alloc::Layout;
-use std::{mem, ptr};
+use std::alloc::{alloc, alloc_zeroed, dealloc};
 use std::slice;
+use std::{mem, ptr};
 
 #[derive(Clone)]
 pub struct Number {
@@ -100,7 +100,67 @@ unsafe fn read_leftover(arr: &[f32]) -> __m256 {
     }
 }
 
+fn simd_mul_in_place(result: &mut Vec<f32>, x: &[f32], y: &[f32]) {
+    *result = (x.simd_iter(f32s(0_f32)), y.simd_iter(f32s(0_f32)))
+        .zip()
+        .simd_map(|(a, b)| a * b)
+        .scalar_collect();
+}
+
+fn simd_add_in_place(x: &mut Vec<f32>, y: &[f32]) {
+    *x = (
+        x.as_slice().simd_iter(f32s(0_f32)),
+        y.simd_iter(f32s(0_f32)),
+    )
+        .zip()
+        .simd_map(|(a, b)| a + b)
+        .scalar_collect();
+}
+
 impl MultiplicativeGroupElement for Number {
+    fn mul(&mut self, z: &mut Self) -> &mut Self {
+        Number::match_orders(self, z);
+        let n = self.coeffs.len();
+
+        // This is so we can read the shifted z directly without doing
+        // i % n everywhere.
+        let z_twice = [z.coeffs.as_slice(), z.coeffs.as_slice()].concat();
+
+        // Will accumulate the final result
+        let mut result = vec![0_f32; n];
+
+        // After each shift, shifted_result[i] contains the coefficient of
+        // x^(2i + shift mod n).
+        let mut shifted_result = vec![0_f32; n];
+
+        // We then unjumble so unshifted_result[i] contains the coefficient of
+        // x^i.
+        let mut unshifted_result = vec![0_f32; n];
+
+        for shift in 0..n {
+            let z_shifted = &z_twice[shift..shift + n];
+
+            simd_mul_in_place(&mut shifted_result, self.coeffs.as_slice(), z_shifted);
+
+            // There is a 2* here, surely there is some cool hack I can do to
+            // make this faster.
+            for i in 0..n {
+                unshifted_result[(2 * i + shift) % n] = shifted_result[i];
+            }
+
+            simd_add_in_place(&mut result, unshifted_result.as_slice());
+        }
+
+        self.coeffs = result;
+        self
+    }
+
+    fn mul_invert(&mut self) -> &mut Self {
+        panic!("unimplemented")
+    }
+}
+
+/*impl MultiplicativeGroupElement for Number {
     fn mul(&mut self, z: &mut Self) -> &mut Self {
         Number::match_orders(self, z);
         let n = self.coeffs.len();
@@ -192,7 +252,7 @@ impl MultiplicativeGroupElement for Number {
     fn mul_invert(&mut self) -> &mut Self {
         panic!("unimplemented")
     }
-}
+}*/
 
 impl FieldElement for Number {
     fn eq(&mut self, other: &mut Self) -> bool {
