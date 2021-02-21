@@ -16,6 +16,7 @@ use cyclotomic::character::inner_product;
 use cyclotomic::fields::AdditiveGroupElement;
 use cyclotomic::fields::MultiplicativeGroupElement;
 use cyclotomic::fields::{Q, Z};
+use cyclotomic::parser::{parse_element, parse_matrix};
 
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
@@ -385,36 +386,6 @@ fn random(top_level: &TopLevel, opts: &RandomOpts) {
     println!("{}", start.elapsed().as_millis());
 }
 
-// TODO: move all this parsing stuff into a different file
-
-fn sexp2i64(sexp: &sexp::Sexp) -> Option<i64> {
-    if let sexp::Sexp::Atom(sexp::Atom::I(order)) = sexp {
-        Some(*order)
-    } else {
-        None
-    }
-}
-
-fn sexp2z(sexp: &sexp::Sexp) -> Option<Z> {
-    Some(Z::from(sexp2i64(sexp)?))
-}
-
-fn sexp2list(sexp: &sexp::Sexp) -> Option<Vec<sexp::Sexp>> {
-    if let sexp::Sexp::List(sexps) = sexp {
-        Some(sexps.clone())
-    } else {
-        None
-    }
-}
-
-fn sexp2string(sexp: &sexp::Sexp) -> Option<String> {
-    if let sexp::Sexp::Atom(sexp::Atom::S(string)) = sexp {
-        Some(string.clone())
-    } else {
-        None
-    }
-}
-
 macro_rules! assert_eq_return {
     ($expr1:expr, $expr2:expr) => {
         if $expr1 != $expr2 {
@@ -423,103 +394,15 @@ macro_rules! assert_eq_return {
     };
 }
 
-fn parse_order(sexp: &sexp::Sexp) -> Option<Z> {
-    let sexps = sexp2list(sexp)?;
-    assert_eq_return!(sexp2string(&sexps[0])?, "order".to_owned());
-    sexp2z(&sexps[1])
-}
-
-fn parse_exponent(sexp: &sexp::Sexp) -> Option<Z> {
-    let sexps = sexp2list(sexp)?;
-    assert_eq_return!(sexp2string(&sexps[0])?, "exponent".to_owned());
-    sexp2z(&sexps[1])
-}
-
-fn parse_rational(sexp: &sexp::Sexp) -> Option<(i64, u64)> {
-    let sexps = sexp2list(sexp)?;
-    assert_eq_return!(sexp2string(&sexps[0])?, "rational".to_owned());
-    let numerator = sexp2i64(&sexps[1])?;
-    let denominator = sexp2i64(&sexps[2])?;
-    Some((numerator, denominator as u64))
-}
-
-fn parse_coeffs(sexp: &sexp::Sexp) -> Option<HashMap<Z, (i64, u64)>> {
-    let sexps = sexp2list(sexp)?;
-    assert_eq_return!(sexp2string(&sexps[0])?, "coeffs".to_owned());
-
-    let mut result = HashMap::new();
-
-    for i in 1..sexps.len() {
-        let coeff_sexps = sexp2list(&sexps[i])?;
-        assert_eq_return!(sexp2string(&coeff_sexps[0])?, "coeff".to_string());
-        let exponent = parse_exponent(&coeff_sexps[1])?;
-        let (numerator, denominator) = parse_rational(&coeff_sexps[2])?;
-        result.insert(exponent, (numerator, denominator));
-    }
-
-    Some(result)
-}
-
-fn sexp2cyclotomic(sexp: &sexp::Sexp) -> Option<GenericCyclotomic> {
-    let sexps = sexp2list(sexp)?;
-    assert_eq_return!(sexps.len(), 3);
-    assert_eq_return!(sexp2string(&sexps[0])?, "cyclotomic".to_string());
-    let order = parse_order(&sexps[1])?;
-    let coeffs = parse_coeffs(&sexps[2])?;
-    Some(GenericCyclotomic {
-        order: order,
-        exp_coeffs: coeffs,
-    })
-}
-
-fn sexp2vector(sexp: &sexp::Sexp) -> Option<Vec<GenericCyclotomic>> {
-    let mut vector = vec![];
-    let cyc_list = sexp2list(sexp)?;
-    assert_eq_return!(sexp2string(&cyc_list[0])?, "list".to_string());
-    for i in 1..cyc_list.len() {
-        vector.push(sexp2cyclotomic(&cyc_list[i])?);
-    }
-    Some(vector)
-}
-
-fn sexp2matrix(sexp: &sexp::Sexp) -> Option<Vec<Vec<GenericCyclotomic>>> {
-    let mut matrix = vec![];
-    let row_list = sexp2list(sexp)?;
-    assert_eq_return!(sexp2string(&row_list[0])?, "list".to_string());
-    for i in 1..row_list.len() {
-        matrix.push(sexp2vector(&row_list[i])?);
-    }
-    Some(matrix)
-}
-
-fn gap2sexp(gap_cyc: String) -> String {
-    let mut child = Command::new("gap2sexp")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .spawn()
-        .unwrap();
-    let stdin = child.stdin.as_mut().unwrap();
-    stdin.write_all(gap_cyc.as_bytes());
-    let output = child.wait_with_output().unwrap();
-    String::from_utf8(output.stdout).unwrap()
-}
-
-// TODO: honestly this whole thing is horrific
-
 fn stdin(top_level: &TopLevel, opts: &StdinOpts) {
     eprintln!("reading test matrices");
     let stdin = io::stdin();
     let lines = stdin.lock().lines();
-    let sexps: Vec<String> = lines
-        .into_iter()
-        .map(|line| gap2sexp(line.unwrap()))
-        .collect();
 
     if opts.element_type == "scalar".to_owned() {
         let mut scalars = vec![];
-        for str in sexps {
-            let sexp = sexp::parse(str.as_str()).unwrap();
-            scalars.push(sexp2cyclotomic(&sexp).unwrap());
+        for str in lines {
+            scalars.push(parse_element(str.unwrap().as_str()).unwrap())
         }
         assert_eq!(scalars.len() % opts.chunk_size, 0);
         let chunks: Vec<Vec<GenericCyclotomic>> = scalars
@@ -577,9 +460,8 @@ fn stdin(top_level: &TopLevel, opts: &StdinOpts) {
         println!("{}", elapsed);
     } else if opts.element_type == "matrix".to_owned() {
         let mut matrices = vec![];
-        for str in sexps {
-            let sexp = sexp::parse(str.as_str()).unwrap();
-            matrices.push(sexp2matrix(&sexp).unwrap());
+        for str in lines {
+            matrices.push(parse_matrix(str.unwrap().as_str());
         }
         assert_eq!(matrices.len() % opts.chunk_size, 0);
         let mut sparse_matrices: Vec<Matrix<sparse::Number<i64>, i64>> = matrices
