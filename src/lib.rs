@@ -33,3 +33,7 @@ pub mod fields;
 /// ways to do the standard character inner product quickly, read characters
 /// from standard input, etc.
 pub mod character;
+
+/// Tools for parsing elements of cyclotomic fields, vectors, matrices from
+/// strings.
+pub mod parser;

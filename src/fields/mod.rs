@@ -3,8 +3,8 @@ pub type Q = rug::Rational;
 
 use exponent::Exponent;
 use num::Integer;
-use std::collections::HashMap;
 use rational::Rational;
+use std::collections::HashMap;
 
 pub trait AdditiveGroupElement {
     /// Adds z to self in place, so self = self + z
@@ -31,7 +31,7 @@ pub trait FieldElement: AdditiveGroupElement + MultiplicativeGroupElement {
 
 /// Possible data structure for a CyclotomicFieldElement, useful as a common
 /// interchange format for different concrete CyclotomicFieldElement types.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GenericCyclotomic {
     // (exp, (numerator, denominator))
     pub exp_coeffs: HashMap<Z, (i64, u64)>,
