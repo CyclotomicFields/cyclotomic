@@ -1,5 +1,6 @@
 use crate::fields::GenericCyclotomic;
 use crate::fields::Z;
+use nom::multi::fold_many0;
 use nom::sequence::delimited;
 use nom::IResult;
 use nom::{
@@ -11,7 +12,7 @@ use nom::{
 use std::collections::HashMap;
 use std::str::FromStr;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 enum Expr {
     Root(u64),
     Integer(i64),
@@ -175,6 +176,87 @@ fn test_coeff_root() {
             Expr::Mult(
                 Box::new(Expr::Integer(-1)),
                 Box::new(Expr::Power(Box::new(Expr::Root(60)), 29))
+            )
+        ))
+    );
+}
+
+fn term(s1: &str) -> IResult<&str, Expr> {
+    alt((root, coeff_root))(s1)
+}
+
+#[test]
+fn test_term() {
+    assert_eq!(
+        term("-E(60)^29"),
+        Ok((
+            "",
+            Expr::Mult(
+                Box::new(Expr::Integer(-1)),
+                Box::new(Expr::Power(Box::new(Expr::Root(60)), 29))
+            )
+        ))
+    );
+    assert_eq!(
+        term("E(60)^29"),
+        Ok(("", Expr::Power(Box::new(Expr::Root(60)), 29)))
+    );
+}
+
+fn expr(s1: &str) -> IResult<&str, Expr> {
+    let (s2, leading_term) = term(s1)?;
+
+    fold_many0(
+        tuple((alt((char('+'), char('-'))), term)),
+        leading_term,
+        |acc, (op, next_term)| {
+            if op == '+' {
+                Expr::Add(Box::new(acc), Box::new(next_term))
+            } else {
+                Expr::Sub(Box::new(acc), Box::new(next_term))
+            }
+        },
+    )(s2)
+}
+
+#[test]
+fn test_expr() {
+    assert_eq!(
+        expr("-E(60)^29"),
+        Ok((
+            "",
+            Expr::Mult(
+                Box::new(Expr::Integer(-1)),
+                Box::new(Expr::Power(Box::new(Expr::Root(60)), 29))
+            )
+        ))
+    );
+    assert_eq!(
+        expr("E(6)^2+E(6)^3"),
+        Ok((
+            "",
+            Expr::Add(
+                Box::new(Expr::Power(Box::new(Expr::Root(6)), 2)),
+                Box::new(Expr::Power(Box::new(Expr::Root(6)), 3))
+            )
+        ))
+    );
+    assert_eq!(
+        expr("-E(5)^2+1/2*E(5)^3-E(5)"),
+        Ok((
+            "",
+            Expr::Sub(
+                Box::new(Expr::Add(
+                    Box::new(Expr::Mult(
+                        Box::new(Expr::Integer(-1)),
+                        Box::new(Expr::Power(Box::new(Expr::Root(5)), 2))
+                    )),
+                    Box::new(Expr::Mult(
+                        Box::new(Expr::Rational(1, 2)),
+                        Box::new(Expr::Power(Box::new(Expr::Root(5)), 3))
+                    ))
+                )),
+                Box::new(Expr::Root(5))
             )
         ))
     );
