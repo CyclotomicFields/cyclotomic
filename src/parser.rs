@@ -53,7 +53,7 @@ fn coeff(s1: &str) -> IResult<&str, Expr> {
 
     match q {
         None => map(integer, Expr::Integer)(s1),
-        Some(rat) => Ok((s2, rat))
+        Some(rat) => Ok((s2, rat)),
     }
 }
 
@@ -66,9 +66,118 @@ fn test_coeff() {
     assert_eq!(coeff("1/0"), Ok(("", Expr::Rational(1, 0))));
 }
 
-fn root(s1: &str) -> IResult<&str, Expr> {
+fn root_no_power(s1: &str) -> IResult<&str, Expr> {
     let (s2, (_, k)) = tuple((char('E'), delimited(char('('), integer, char(')'))))(s1)?;
     Ok((s2, Expr::Root(k as u64)))
+}
+
+#[test]
+fn test_root_no_power() {
+    assert_eq!(root_no_power("E(6)"), Ok(("", Expr::Root(6))));
+    assert_eq!(root_no_power("E(0)"), Ok(("", Expr::Root(0))));
+    assert_eq!(root_no_power("E(1234)"), Ok(("", Expr::Root(1234))));
+}
+
+fn root_power(s1: &str) -> IResult<&str, Expr> {
+    let (s2, base) = root_no_power(s1)?;
+    let (s3, (_, power)) = tuple((char('^'), integer))(s2)?;
+    Ok((s3, Expr::Power(Box::new(base), power as u64)))
+}
+
+#[test]
+fn test_root_power() {
+    assert_eq!(
+        root_power("E(6)^2"),
+        Ok(("", Expr::Power(Box::new(Expr::Root(6)), 2)))
+    );
+    assert_eq!(
+        root_power("E(123)^56"),
+        Ok(("", Expr::Power(Box::new(Expr::Root(123)), 56)))
+    );
+    assert_eq!(
+        root_power("E(0)^0"),
+        Ok(("", Expr::Power(Box::new(Expr::Root(0)), 0)))
+    );
+}
+
+fn root(s1: &str) -> IResult<&str, Expr> {
+    alt((root_power, root_no_power))(s1)
+}
+
+#[test]
+fn test_root() {
+    assert_eq!(
+        root("E(6)^2"),
+        Ok(("", Expr::Power(Box::new(Expr::Root(6)), 2)))
+    );
+    assert_eq!(
+        root("E(123)^56"),
+        Ok(("", Expr::Power(Box::new(Expr::Root(123)), 56)))
+    );
+    assert_eq!(
+        root("E(0)^0"),
+        Ok(("", Expr::Power(Box::new(Expr::Root(0)), 0)))
+    );
+    assert_eq!(root("E(6)"), Ok(("", Expr::Root(6))));
+    assert_eq!(root("E(0)"), Ok(("", Expr::Root(0))));
+    assert_eq!(root("E(1234)"), Ok(("", Expr::Root(1234))));
+}
+
+fn rat_root(s1: &str) -> IResult<&str, Expr> {
+    let (s2, (coeff, _, root)) = tuple((coeff, char('*'), root))(s1)?;
+    Ok((s2, Expr::Mult(Box::new(coeff), Box::new(root))))
+}
+
+fn coeff_root(s1: &str) -> IResult<&str, Expr> {
+    let (s2, maybe_rat_root) = opt(rat_root)(s1)?;
+    match maybe_rat_root {
+        Some(rat_root) => Ok((s2, rat_root)),
+        None => {
+            let (s3, (_, root)) = tuple((char('-'), root))(s1)?;
+            Ok((s3, Expr::Mult(Box::new(Expr::Integer(-1)), Box::new(root))))
+        }
+    }
+}
+
+#[test]
+fn test_coeff_root() {
+    assert_eq!(
+        coeff_root("12*E(7)"),
+        Ok((
+            "",
+            Expr::Mult(Box::new(Expr::Integer(12)), Box::new(Expr::Root(7)))
+        ))
+    );
+    assert_eq!(
+        coeff_root("1*E(6)^2"),
+        Ok((
+            "",
+            Expr::Mult(
+                Box::new(Expr::Integer(1)),
+                Box::new(Expr::Power(Box::new(Expr::Root(6)), 2))
+            )
+        ))
+    );
+    assert_eq!(
+        coeff_root("2/40*E(16)^12"),
+        Ok((
+            "",
+            Expr::Mult(
+                Box::new(Expr::Rational(2, 40)),
+                Box::new(Expr::Power(Box::new(Expr::Root(16)), 12))
+            )
+        ))
+    );
+    assert_eq!(
+        coeff_root("-E(60)^29"),
+        Ok((
+            "",
+            Expr::Mult(
+                Box::new(Expr::Integer(-1)),
+                Box::new(Expr::Power(Box::new(Expr::Root(60)), 29))
+            )
+        ))
+    );
 }
 
 pub fn parse_element(s: &str) -> Option<GenericCyclotomic> {
