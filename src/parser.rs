@@ -266,46 +266,55 @@ fn extract_order_power(root: Box<Expr>) -> (u64, u64) {
     match *root {
         Expr::Root(k) => (k, 1),
         Expr::Power(root, power) => (extract_order_power(root).0, power),
-        _ => panic!("not a root!")
+        _ => panic!("not a root!"),
     }
 }
 
-fn consume_term (term: Box<Expr>, sign: i64, result: &mut GenericCyclotomic) {
+fn consume_term(term: Box<Expr>, sign: i64, result: &mut GenericCyclotomic) {
     match *term {
         Expr::Root(_) | Expr::Power(_, _) => {
             let (order, power) = extract_order_power(term);
             result.order = Z::from(order);
             result.exp_coeffs.insert(Z::from(power), (sign, 1));
         }
-        Expr::Integer(x) => { result.exp_coeffs.insert(Z::from(0), (sign*x, 1)); },
-        Expr::Rational(p, q) => { result.exp_coeffs.insert(Z::from(0), (sign*p, q)); },
+        Expr::Integer(x) => {
+            result.exp_coeffs.insert(Z::from(0), (sign * x, 1));
+        }
+        Expr::Rational(p, q) => {
+            result.exp_coeffs.insert(Z::from(0), (sign * p, q));
+        }
         Expr::Mult(coeff, root) => {
             let rational = match *coeff {
-                Expr::Integer(x) => (sign*x, 1),
-                Expr::Rational(p, q) => (sign*p, q),
-                _ => (1, 1)
+                Expr::Integer(x) => (sign * x, 1),
+                Expr::Rational(p, q) => (sign * p, q),
+                _ => (1, 1),
             };
             let (order, power) = extract_order_power(root);
             result.order = Z::from(order);
             result.exp_coeffs.insert(Z::from(power), rational);
-        },
+        }
         _ => {}
     }
 }
 
-fn consume_terms (expression: Box<Expr>, result: &mut GenericCyclotomic) {
+fn consume_terms(expression: Box<Expr>, result: &mut GenericCyclotomic) {
     match *expression {
-        Expr::Add(left, right) => { consume_term(right, 1, result); consume_terms(left, result) }
-        Expr::Sub(left, right) => { consume_term(right, -1, result); consume_terms(left, result) }
-        _ => consume_term(expression, 1, result)
+        Expr::Add(left, right) => {
+            consume_term(right, 1, result);
+            consume_terms(left, result)
+        }
+        Expr::Sub(left, right) => {
+            consume_term(right, -1, result);
+            consume_terms(left, result)
+        }
+        _ => consume_term(expression, 1, result),
     }
 }
 
-// TODO: This can certainly be written in a more pure style, it's a bit messy
 fn expr2cyc(expression: Expr) -> Option<GenericCyclotomic> {
     let mut result = GenericCyclotomic {
         exp_coeffs: HashMap::new(),
-        order: Z::from(1)
+        order: Z::from(1),
     };
 
     consume_terms(Box::new(expression), &mut result);
@@ -321,6 +330,110 @@ pub fn parse_element(s: &str) -> Option<GenericCyclotomic> {
     }
 }
 
+#[test]
+fn parses_single_roots() {
+    assert_eq!(
+        parse_element("123").unwrap(),
+        GenericCyclotomic {
+            exp_coeffs: vec![(Z::from(0), (123, 1))].into_iter().collect(),
+            order: Z::from(1)
+        }
+    );
+    assert_eq!(
+        parse_element("12/4").unwrap(),
+        GenericCyclotomic {
+            exp_coeffs: vec![(Z::from(0), (12, 4))].into_iter().collect(),
+            order: Z::from(1)
+        }
+    );
+    assert_eq!(
+        parse_element("E(5)").unwrap(),
+        GenericCyclotomic {
+            exp_coeffs: vec![(Z::from(1), (1, 1))].into_iter().collect(),
+            order: Z::from(5)
+        }
+    );
+    assert_eq!(
+        parse_element("E(6)^2").unwrap(),
+        GenericCyclotomic {
+            exp_coeffs: vec![(Z::from(2), (1, 1))].into_iter().collect(),
+            order: Z::from(6)
+        }
+    );
+    assert_eq!(
+        parse_element("-E(5)").unwrap(),
+        GenericCyclotomic {
+            exp_coeffs: vec![(Z::from(1), (-1, 1))].into_iter().collect(),
+            order: Z::from(5)
+        }
+    );
+    assert_eq!(
+        parse_element("-E(7)^3").unwrap(),
+        GenericCyclotomic {
+            exp_coeffs: vec![(Z::from(3), (-1, 1))].into_iter().collect(),
+            order: Z::from(7)
+        }
+    );
+    assert_eq!(
+        parse_element("2*E(7)^3").unwrap(),
+        GenericCyclotomic {
+            exp_coeffs: vec![(Z::from(3), (2, 1))].into_iter().collect(),
+            order: Z::from(7)
+        }
+    );
+    assert_eq!(
+        parse_element("2/3*E(700)^345").unwrap(),
+        GenericCyclotomic {
+            exp_coeffs: vec![(Z::from(345), (2, 3))].into_iter().collect(),
+            order: Z::from(700)
+        }
+    );
+}
+
+#[test]
+fn parses_multiple_roots() {
+    assert_eq!(
+        parse_element("E(3)+E(3)^2").unwrap(),
+        GenericCyclotomic {
+            exp_coeffs: vec![(Z::from(1), (1, 1)), (Z::from(2), (1, 1))]
+                .into_iter()
+                .collect(),
+            order: Z::from(3)
+        }
+    );
+    assert_eq!(
+        parse_element("-E(3)-E(3)^2").unwrap(),
+        GenericCyclotomic {
+            exp_coeffs: vec![(Z::from(1), (-1, 1)), (Z::from(2), (-1, 1))]
+                .into_iter()
+                .collect(),
+            order: Z::from(3)
+        }
+    );
+    assert_eq!(
+        parse_element("1/2*E(4)-2/3*E(4)^2").unwrap(),
+        GenericCyclotomic {
+            exp_coeffs: vec![(Z::from(1), (1, 2)), (Z::from(2), (-2, 3))]
+                .into_iter()
+                .collect(),
+            order: Z::from(4)
+        }
+    );
+    assert_eq!(
+        parse_element("-1/2*E(5)-2/30*E(5)^2+4/5*E(5)^3").unwrap(),
+        GenericCyclotomic {
+            exp_coeffs: vec![
+                (Z::from(1), (-1, 2)),
+                (Z::from(2), (-2, 30)),
+                (Z::from(3), (4, 5))
+            ]
+            .into_iter()
+            .collect(),
+            order: Z::from(5)
+        }
+    );
+}
+
 pub fn parse_vector(s: &str) -> Option<Vec<GenericCyclotomic>> {
     Some(vec![GenericCyclotomic {
         exp_coeffs: HashMap::new(),
@@ -333,31 +446,4 @@ pub fn parse_matrix(s: &str) -> Option<Vec<Vec<GenericCyclotomic>>> {
         exp_coeffs: HashMap::new(),
         order: Z::from(1),
     }]])
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parses_integer() {
-        assert_eq!(
-            parse_element("123").unwrap(),
-            GenericCyclotomic {
-                exp_coeffs: vec![(Z::from(0), (123, 1))].into_iter().collect(),
-                order: Z::from(1)
-            }
-        )
-    }
-
-    #[test]
-    fn parses_rational() {
-        assert_eq!(
-            parse_element("12/4").unwrap(),
-            GenericCyclotomic {
-                exp_coeffs: vec![(Z::from(0), (12, 4))].into_iter().collect(),
-                order: Z::from(1)
-            }
-        )
-    }
 }
