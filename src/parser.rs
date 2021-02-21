@@ -182,7 +182,7 @@ fn test_coeff_root() {
 }
 
 fn term(s1: &str) -> IResult<&str, Expr> {
-    alt((root, coeff_root))(s1)
+    alt((root, coeff_root, coeff))(s1)
 }
 
 #[test]
@@ -262,11 +262,63 @@ fn test_expr() {
     );
 }
 
+fn extract_order_power(root: Box<Expr>) -> (u64, u64) {
+    match *root {
+        Expr::Root(k) => (k, 1),
+        Expr::Power(root, power) => (extract_order_power(root).0, power),
+        _ => panic!("not a root!")
+    }
+}
+
+fn consume_term (term: Box<Expr>, sign: i64, result: &mut GenericCyclotomic) {
+    match *term {
+        Expr::Root(_) | Expr::Power(_, _) => {
+            let (order, power) = extract_order_power(term);
+            result.order = Z::from(order);
+            result.exp_coeffs.insert(Z::from(power), (sign, 1));
+        }
+        Expr::Integer(x) => { result.exp_coeffs.insert(Z::from(0), (sign*x, 1)); },
+        Expr::Rational(p, q) => { result.exp_coeffs.insert(Z::from(0), (sign*p, q)); },
+        Expr::Mult(coeff, root) => {
+            let rational = match *coeff {
+                Expr::Integer(x) => (sign*x, 1),
+                Expr::Rational(p, q) => (sign*p, q),
+                _ => (1, 1)
+            };
+            let (order, power) = extract_order_power(root);
+            result.order = Z::from(order);
+            result.exp_coeffs.insert(Z::from(power), rational);
+        },
+        _ => {}
+    }
+}
+
+fn consume_terms (expression: Box<Expr>, result: &mut GenericCyclotomic) {
+    match *expression {
+        Expr::Add(left, right) => { consume_term(right, 1, result); consume_terms(left, result) }
+        Expr::Sub(left, right) => { consume_term(right, -1, result); consume_terms(left, result) }
+        _ => consume_term(expression, 1, result)
+    }
+}
+
+// TODO: This can certainly be written in a more pure style, it's a bit messy
+fn expr2cyc(expression: Expr) -> Option<GenericCyclotomic> {
+    let mut result = GenericCyclotomic {
+        exp_coeffs: HashMap::new(),
+        order: Z::from(1)
+    };
+
+    consume_terms(Box::new(expression), &mut result);
+    Some(result)
+}
+
 pub fn parse_element(s: &str) -> Option<GenericCyclotomic> {
-    Some(GenericCyclotomic {
-        exp_coeffs: vec![(Z::from(0), (123, 1))].into_iter().collect(),
-        order: Z::from(1),
-    })
+    let parsed = expr(s);
+
+    match parsed {
+        Ok((_, expression)) => expr2cyc(expression),
+        Err(_) => None,
+    }
 }
 
 pub fn parse_vector(s: &str) -> Option<Vec<GenericCyclotomic>> {
