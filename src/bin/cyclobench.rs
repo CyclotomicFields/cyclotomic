@@ -16,7 +16,7 @@ use cyclotomic::character::inner_product;
 use cyclotomic::fields::AdditiveGroupElement;
 use cyclotomic::fields::MultiplicativeGroupElement;
 use cyclotomic::fields::{Q, Z};
-use cyclotomic::parser::{parse_element, parse_matrix};
+use cyclotomic::parser::{parse_element, parse_matrix, parse_vector};
 
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
@@ -461,7 +461,7 @@ fn stdin(top_level: &TopLevel, opts: &StdinOpts) {
     } else if opts.element_type == "matrix".to_owned() {
         let mut matrices = vec![];
         for str in lines {
-            matrices.push(parse_matrix(str.unwrap().as_str());
+            matrices.push(parse_matrix(str.unwrap().as_str()).unwrap());
         }
         assert_eq!(matrices.len() % opts.chunk_size, 0);
         let mut sparse_matrices: Vec<Matrix<sparse::Number<i64>, i64>> = matrices
@@ -556,8 +556,7 @@ fn character(top_level: &TopLevel, opts: &CharacterOpts) {
     for _ in 0..num_chars {
         let mut gap_char = String::new();
         io::stdin().read_line(&mut gap_char);
-        let sexp = sexp::parse(gap2sexp(gap_char).as_str()).unwrap();
-        irr_chars.push(sexp2vector(&sexp).unwrap());
+        irr_chars.push(parse_vector(gap_char.as_str()).unwrap());
     }
 
     // The entire rest of the input is the random character, mainly because I
@@ -569,8 +568,7 @@ fn character(top_level: &TopLevel, opts: &CharacterOpts) {
     let random_char_filtered = random_char_gap.replace(&['\\', '\n'][..], "");
 
     //eprintln!("got random_char: {}", random_char_filtered);
-    let random_char: Vec<GenericCyclotomic> =
-        sexp2vector(&sexp::parse(gap2sexp(random_char_filtered).as_str()).unwrap()).unwrap();
+    let random_char  = parse_vector(random_char_filtered.as_str()).unwrap();
 
     // TODO: currently only supports sparse implementation, fix (or not)
     if top_level.implementation.as_str() == "sparse" {
