@@ -1,6 +1,6 @@
 use crate::fields::GenericCyclotomic;
 use crate::fields::Z;
-use nom::multi::fold_many0;
+use nom::multi::{fold_many0, separated_list0};
 use nom::sequence::delimited;
 use nom::IResult;
 use nom::{
@@ -434,16 +434,93 @@ fn parses_multiple_roots() {
     );
 }
 
+fn vector(s: &str) -> IResult<&str, Vec<Expr>> {
+    delimited(char('['), separated_list0(char(','), expr), char(']'))(s)
+}
+
 pub fn parse_vector(s: &str) -> Option<Vec<GenericCyclotomic>> {
-    Some(vec![GenericCyclotomic {
-        exp_coeffs: HashMap::new(),
-        order: Z::from(1),
-    }])
+    match vector(s) {
+        Ok((_, cycs)) => cycs.into_iter().map(expr2cyc).collect(),
+        Err(_) => None,
+    }
+}
+
+#[test]
+fn test_vector() {
+    assert_eq!(
+        parse_vector("[1,2,3]").unwrap(),
+        vec![
+            GenericCyclotomic {
+                exp_coeffs: vec![(Z::from(0), (1, 1))].into_iter().collect(),
+                order: Z::from(1)
+            },
+            GenericCyclotomic {
+                exp_coeffs: vec![(Z::from(0), (2, 1))].into_iter().collect(),
+                order: Z::from(1)
+            },
+            GenericCyclotomic {
+                exp_coeffs: vec![(Z::from(0), (3, 1))].into_iter().collect(),
+                order: Z::from(1)
+            },
+        ]
+    );
+    assert_eq!(
+        parse_vector("[E(3)+E(3)^2,2,-1/2*E(5)-2/30*E(5)^2+4/5*E(5)^3]").unwrap(),
+        vec![
+            GenericCyclotomic {
+                exp_coeffs: vec![(Z::from(1), (1, 1)), (Z::from(2), (1, 1))]
+                    .into_iter()
+                    .collect(),
+                order: Z::from(3)
+            },
+            GenericCyclotomic {
+                exp_coeffs: vec![(Z::from(0), (2, 1))].into_iter().collect(),
+                order: Z::from(1)
+            },
+            GenericCyclotomic {
+                exp_coeffs: vec![
+                    (Z::from(1), (-1, 2)),
+                    (Z::from(2), (-2, 30)),
+                    (Z::from(3), (4, 5))
+                ]
+                .into_iter()
+                .collect(),
+                order: Z::from(5)
+            }
+        ]
+    );
+}
+
+fn matrix(s: &str) -> IResult<&str, Vec<Vec<Expr>>> {
+    delimited(char('['), separated_list0(char(','), vector), char(']'))(s)
 }
 
 pub fn parse_matrix(s: &str) -> Option<Vec<Vec<GenericCyclotomic>>> {
-    Some(vec![vec![GenericCyclotomic {
-        exp_coeffs: HashMap::new(),
+    match matrix(s) {
+        Ok((_, vecs)) => vecs
+            .into_iter()
+            .map(|v| v.into_iter().map(expr2cyc).collect())
+            .collect(),
+        Err(_) => None,
+    }
+}
+
+#[test]
+fn test_matrix() {
+    let one = GenericCyclotomic {
+        exp_coeffs: vec![(Z::from(0), (1, 1))].into_iter().collect(),
         order: Z::from(1),
-    }]])
+    };
+    let zero = GenericCyclotomic {
+        exp_coeffs: vec![(Z::from(0), (0, 1))].into_iter().collect(),
+        order: Z::from(1),
+    };
+    assert_eq!(
+        parse_matrix("[[1,0,0],[0,1,0],[0,0,1]]").unwrap(),
+        vec![
+            vec![one.clone(), zero.clone(), zero.clone()],
+            vec![zero.clone(), one.clone(), zero.clone()],
+            vec![zero.clone(), zero.clone(), one.clone()]
+        ]
+    )
 }
