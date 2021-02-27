@@ -27,6 +27,7 @@ sexp = "1.1.4"
 packed_simd = "0.3.3"
 simd_aligned = "0.2.1"
 faster = "0.5.1"
+nom = "6.1.2"
 
 [[bin]]
 name = "cyclobench"
