@@ -404,7 +404,7 @@ fn stdin(top_level: &TopLevel, opts: &StdinOpts) {
         } else if top_level.implementation.as_str() == "dense" {
             stdin_scalar_bench::<dense::Number, i64, Q>(&opts, &chunks)
         } else if top_level.implementation.as_str() == "big_sparse" {
-            stdin_scalar_bench::<sparse::Number::<Z>, Z, Q>(&opts, &chunks)
+            stdin_scalar_bench::<sparse::Number<Z>, Z, Q>(&opts, &chunks)
         } else {
             eprintln!("bad implementation!");
             0
@@ -530,129 +530,78 @@ fn character(top_level: &TopLevel, opts: &CharacterOpts) {
     let random_char = parse_vector(prepare_line(&random_char_filtered).as_str()).unwrap();
 
     // TODO: currently only supports sparse implementation, fix (or not)
-    if top_level.implementation.as_str() == "sparse" {
-        let mut sparse_irr_chars = irr_chars
-            .into_iter()
-            .map(|char| {
-                char.into_iter()
-                    .map(|f| sparse::Number::<i64>::from_generic(&f))
-                    .collect()
-            })
-            .collect();
-        let mut sparse_random_char = random_char
-            .into_iter()
-            .map(|f| sparse::Number::<i64>::from_generic(&f))
-            .collect();
-        let start = Instant::now();
-        black_box(character_bench(
-            &opts,
-            &sizes_nums,
-            &mut sparse_irr_chars,
-            &mut sparse_random_char,
-        ));
-        let elapsed = start.elapsed().as_nanos();
-        eprintln!("time elapsed (ns):");
-        println!("{}", elapsed);
-    } else if top_level.implementation.as_str() == "simd_float" {
-        let mut simd_float_irr_chars = irr_chars
-            .into_iter()
-            .map(|char| {
-                char.into_iter()
-                    .map(|f| simd_float::Number::from_generic(&f))
-                    .collect()
-            })
-            .collect();
-        let mut simd_float_random_char = random_char
-            .into_iter()
-            .map(|f| simd_float::Number::from_generic(&f))
-            .collect();
-        let start = Instant::now();
-        black_box(simd_float_character_bench(
-            &opts,
-            &sizes_nums,
-            &mut simd_float_irr_chars,
-            &mut simd_float_random_char,
-        ));
-        let elapsed = start.elapsed().as_nanos();
-        eprintln!("time elapsed (ns):");
-        println!("{}", elapsed);
+    let elapsed_nanos = if top_level.implementation.as_str() == "sparse" {
+        character_bench::<i64, Q>(opts, &sizes_nums, &irr_chars, &random_char)
     } else if top_level.implementation.as_str() == "sparse_fast" {
-        let mut sparse_irr_chars = irr_chars
-            .into_iter()
-            .map(|char| {
-                char.into_iter()
-                    .map(|f| sparse::Number::<i64, FixedSizeRational>::from_generic(&f))
-                    .collect()
-            })
-            .collect();
-        let mut sparse_random_char = random_char
-            .into_iter()
-            .map(|f| sparse::Number::<i64, FixedSizeRational>::from_generic(&f))
-            .collect();
-        let start = Instant::now();
-        black_box(character_bench(
-            &opts,
-            &sizes_nums,
-            &mut sparse_irr_chars,
-            &mut sparse_random_char,
-        ));
-        let elapsed = start.elapsed().as_nanos();
-        eprintln!("time elapsed (ns):");
-        println!("{}", elapsed);
+        character_bench::<i64, FixedSizeRational>(opts, &sizes_nums, &irr_chars, &random_char)
     } else if top_level.implementation.as_str() == "sparse_float" {
-        let mut sparse_irr_chars = irr_chars
-            .into_iter()
-            .map(|char| {
-                char.into_iter()
-                    .map(|f| sparse::Number::<i64, FloatRational>::from_generic(&f))
-                    .collect()
-            })
-            .collect();
-        let mut sparse_random_char = random_char
-            .into_iter()
-            .map(|f| sparse::Number::<i64, FloatRational>::from_generic(&f))
-            .collect();
-        let start = Instant::now();
-        black_box(character_bench(
-            &opts,
-            &sizes_nums,
-            &mut sparse_irr_chars,
-            &mut sparse_random_char,
-        ));
-        let elapsed = start.elapsed().as_nanos();
-        eprintln!("time elapsed (ns):");
-        println!("{}", elapsed);
+        character_bench::<i64, FloatRational>(opts, &sizes_nums, &irr_chars, &random_char)
+    } else if top_level.implementation.as_str() == "simd_float" {
+        simd_float_character_bench(opts, &sizes_nums, &irr_chars, &random_char)
     } else {
         panic!("bad implementation! TODO: do the others?");
-    }
+        0
+    };
+
+    eprintln!("elapsed (ns):");
+    println!("{}", elapsed_nanos);
 }
 
 fn simd_float_character_bench(
     opts: &CharacterOpts,
     sizes: &Vec<i64>,
-    irr_chars: &mut Vec<Vec<simd_float::Number>>,
-    random_char: &mut Vec<simd_float::Number>,
-) {
+    generic_irr_chars: &Vec<Vec<GenericCyclotomic>>,
+    generic_random_char: &Vec<GenericCyclotomic>,
+) -> u128 {
+    let (mut irr_chars, mut random_char) = generic_chars_to_concrete::<simd_float::Number, i64, Q>(
+        generic_irr_chars,
+        generic_random_char,
+    );
+    let start = Instant::now();
     let mut prods: Vec<Z> = vec![];
     for irr_char in irr_chars {
-        let mut prod = inner_product(sizes, irr_char, random_char);
+        let mut prod = inner_product(sizes, &irr_char, &random_char);
         // We reduce because the result we're really after is the integer
         // result of the inner product - it would be cheating to not count
         // the time required for this conversion.
         prods.push(prod.nearest_int());
     }
+    let elapsed_nanos = start.elapsed().as_nanos();
     eprintln!("simd_float calculated prods: {:?}", prods);
+    elapsed_nanos
+}
+
+fn generic_chars_to_concrete<T: CyclotomicFieldElement<E, Q>, E: Exponent, Q: Rational>(
+    generic_irr_chars: &Vec<Vec<GenericCyclotomic>>,
+    generic_random_char: &Vec<GenericCyclotomic>,
+) -> (Vec<Vec<T>>, Vec<T>) {
+    (
+        generic_irr_chars
+            .into_iter()
+            .map(|char| char.into_iter().map(|f| T::from_generic(&f)).collect())
+            .collect(),
+        generic_random_char
+            .into_iter()
+            .map(|f| T::from_generic(&f))
+            .collect(),
+    )
 }
 
 fn character_bench<E: Exponent, Q: Rational>(
     opts: &CharacterOpts,
     sizes: &Vec<i64>,
-    irr_chars: &mut Vec<Vec<sparse::Number<E, Q>>>,
-    random_char: &mut Vec<sparse::Number<E, Q>>,
-) {
+    generic_irr_chars: &Vec<Vec<GenericCyclotomic>>,
+    generic_random_char: &Vec<GenericCyclotomic>,
+) -> u128 {
+    let (mut sparse_irr_chars, mut sparse_random_char) =
+        generic_chars_to_concrete::<sparse::Number<E, Q>, E, Q>(
+            generic_irr_chars,
+            generic_random_char,
+        );
+    let start = Instant::now();
     let mut prods: Vec<Z> = vec![];
-    for irr_char in irr_chars {
-        let mut prod = inner_product(sizes, irr_char, random_char);
+    for sparse_irr_char in sparse_irr_chars {
+        let mut prod = inner_product(sizes, &sparse_irr_char, &sparse_random_char);
         // We reduce because the result we're really after is the integer
         // result of the inner product - it would be cheating to not count
         // the time required for this conversion.
@@ -666,7 +615,9 @@ fn character_bench<E: Exponent, Q: Rational>(
                 .clone(),
         );
     }
+    let elapsed_nanos = start.elapsed().as_nanos();
     eprintln!("cyclotomic calculated prods: {:?}", prods);
+    elapsed_nanos
 }
 
 fn main() {
