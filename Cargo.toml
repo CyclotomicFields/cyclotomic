@@ -1,7 +1,7 @@
 [package]
 name = "cyclotomic"
 description = "high-performance library for exact operations in cyclotomic fields"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["romo <robmoore121@gmail.com>", "Kaashif Hymabaccus <kaashif@kaashif.co.uk>"]
 license = "LGPL-3.0-only"
 edition = "2018"

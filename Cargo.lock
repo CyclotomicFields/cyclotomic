@@ -129,7 +129,7 @@ checksum = "728b7ab3119b5167cc60a4aad16b6086b762278f5571cc650e7eed2e89a23a15"
 
 [[package]]
 name = "cyclotomic"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "antic",
  "clap",
