@@ -394,6 +394,11 @@ macro_rules! assert_eq_return {
     };
 }
 
+// Prepares line for parser (strips unsupported syntax, whitespace)
+fn prepare_line(line: &String) -> String {
+    line.chars().filter(|c| !c.is_whitespace() && *c != ';').collect()
+}
+
 fn stdin(top_level: &TopLevel, opts: &StdinOpts) {
     eprintln!("reading test matrices");
     let stdin = io::stdin();
@@ -401,8 +406,8 @@ fn stdin(top_level: &TopLevel, opts: &StdinOpts) {
 
     if opts.element_type == "scalar".to_owned() {
         let mut scalars = vec![];
-        for str in lines {
-            scalars.push(parse_element(str.unwrap().as_str()).unwrap())
+        for line in lines {
+            scalars.push(parse_element(prepare_line(&line.unwrap()).as_str()).unwrap())
         }
         assert_eq!(scalars.len() % opts.chunk_size, 0);
         let chunks: Vec<Vec<GenericCyclotomic>> = scalars
@@ -544,7 +549,6 @@ fn character(top_level: &TopLevel, opts: &CharacterOpts) {
         .skip(1)
         .map(|s| s.trim().to_owned().parse::<i64>().unwrap())
         .collect();
-    //eprintln!("sizes={:?}", sizes_nums);
     let mut num_chars_str = String::new();
     io::stdin().read_line(&mut num_chars_str);
     let num_chars = parse_equals(num_chars_str.as_str(), "num_chars")
@@ -556,7 +560,7 @@ fn character(top_level: &TopLevel, opts: &CharacterOpts) {
     for _ in 0..num_chars {
         let mut gap_char = String::new();
         io::stdin().read_line(&mut gap_char);
-        irr_chars.push(parse_vector(gap_char.as_str()).unwrap());
+        irr_chars.push(parse_vector(prepare_line(&gap_char).as_str()).unwrap());
     }
 
     // The entire rest of the input is the random character, mainly because I
@@ -568,7 +572,7 @@ fn character(top_level: &TopLevel, opts: &CharacterOpts) {
     let random_char_filtered = random_char_gap.replace(&['\\', '\n'][..], "");
 
     //eprintln!("got random_char: {}", random_char_filtered);
-    let random_char  = parse_vector(random_char_filtered.as_str()).unwrap();
+    let random_char  = parse_vector(prepare_line(&random_char_filtered).as_str()).unwrap();
 
     // TODO: currently only supports sparse implementation, fix (or not)
     if top_level.implementation.as_str() == "sparse" {
@@ -591,8 +595,8 @@ fn character(top_level: &TopLevel, opts: &CharacterOpts) {
             &mut sparse_irr_chars,
             &mut sparse_random_char,
         ));
-        let elapsed = start.elapsed().as_millis();
-        eprintln!("time elapsed (ms):");
+        let elapsed = start.elapsed().as_nanos();
+        eprintln!("time elapsed (ns):");
         println!("{}", elapsed);
     } else if top_level.implementation.as_str() == "simd_float" {
         let mut simd_float_irr_chars = irr_chars
@@ -637,8 +641,8 @@ fn character(top_level: &TopLevel, opts: &CharacterOpts) {
             &mut sparse_irr_chars,
             &mut sparse_random_char,
         ));
-        let elapsed = start.elapsed().as_millis();
-        eprintln!("time elapsed (ms):");
+        let elapsed = start.elapsed().as_nanos();
+        eprintln!("time elapsed (ns):");
         println!("{}", elapsed);
     } else if top_level.implementation.as_str() == "sparse_float" {
         let mut sparse_irr_chars = irr_chars
