@@ -396,55 +396,22 @@ fn stdin(top_level: &TopLevel, opts: &StdinOpts) {
             .chunks(opts.chunk_size)
             .map(|chunk| chunk.to_vec())
             .collect();
-        let mut big_sparse_nums: Vec<Vec<sparse::Number<Z>>> = chunks
-            .clone()
-            .into_iter()
-            .map(|chunk| {
-                chunk
-                    .into_iter()
-                    .map(|f| sparse::Number::from_generic(&f))
-                    .collect()
-            })
-            .collect();
-
-        let mut sparse_nums: Vec<Vec<sparse::Number<i64>>> = chunks
-            .clone()
-            .into_iter()
-            .map(|chunk| {
-                chunk
-                    .into_iter()
-                    .map(|f| sparse::Number::from_generic(&f))
-                    .collect()
-            })
-            .collect();
-
-        let mut dense_nums: Vec<Vec<dense::Number>> = chunks
-            .clone()
-            .into_iter()
-            .map(|chunk| {
-                chunk
-                    .into_iter()
-                    .map(|f| dense::Number::from_generic(&f))
-                    .collect()
-            })
-            .collect();
 
         eprintln!("starting scalar benchmark");
-        let start = Instant::now();
 
-        if top_level.implementation.as_str() == "sparse" {
-            black_box(stdin_scalar_bench(&opts, &mut sparse_nums));
+        let elapsed_nanos = if top_level.implementation.as_str() == "sparse" {
+            stdin_scalar_bench::<sparse::Number<i64>, i64, Q>(&opts, &chunks)
         } else if top_level.implementation.as_str() == "dense" {
-            black_box(stdin_scalar_bench(&opts, &mut dense_nums));
-        } else if top_level.implementation.as_str() == "sparse" {
-            black_box(stdin_scalar_bench(&opts, &mut big_sparse_nums));
+            stdin_scalar_bench::<dense::Number, i64, Q>(&opts, &chunks)
+        } else if top_level.implementation.as_str() == "big_sparse" {
+            stdin_scalar_bench::<sparse::Number::<Z>, Z, Q>(&opts, &chunks)
         } else {
-            panic!("unsupported implementation!")
-        }
+            eprintln!("bad implementation!");
+            0
+        };
 
-        let elapsed = start.elapsed().as_millis();
-        eprintln!("time elapsed (ms):");
-        println!("{}", elapsed);
+        eprintln!("time elapsed (ns):");
+        println!("{}", elapsed_nanos);
     } else if opts.element_type == "matrix".to_owned() {
         let mut matrices = vec![];
         for str in lines {
@@ -481,19 +448,25 @@ fn stdin(top_level: &TopLevel, opts: &StdinOpts) {
     }
 }
 
-fn stdin_scalar_bench<T, E>(opts: &StdinOpts, chunks: &mut Vec<Vec<T>>)
+fn stdin_scalar_bench<T, E, Q>(opts: &StdinOpts, generic_nums: &Vec<Vec<GenericCyclotomic>>) -> u128
 where
+    T: CyclotomicFieldElement<E, Q>,
     E: Exponent,
-    T: CyclotomicFieldElement<E>,
+    Q: Rational,
 {
+    let num_chunks = generic_to_concrete::<T, E, Q>(generic_nums);
+
+    let start = Instant::now();
     let mut result = T::zero_order(&E::from(1));
-    for mut chunk in chunks {
+    for mut chunk in num_chunks {
         let mut chunk_result = T::one_order(&E::from(1));
         for i in 0..chunk.len() {
-            chunk_result.mul(&mut chunk[i]);
+            black_box(chunk_result.mul(&mut chunk[i]));
         }
-        result.add(&mut chunk_result);
+        black_box(result.add(&mut chunk_result));
     }
+
+    start.elapsed().as_nanos()
 }
 
 fn stdin_matrix_bench<T, E>(opts: &StdinOpts, matrices: &mut Vec<Matrix<T, E>>)
