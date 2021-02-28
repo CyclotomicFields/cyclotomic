@@ -39,12 +39,12 @@ use test::black_box;
 use cyclotomic::fields::dense::basis::try_reduce;
 use cyclotomic::fields::exponent::Exponent;
 use cyclotomic::fields::linear_algebra::Matrix;
-use cyclotomic::fields::rational::{Rational, FloatRational};
+use cyclotomic::fields::rational::{FloatRational, Rational};
 use cyclotomic::fields::simd_float;
 
 use cyclotomic::fields::rational::FixedSizeRational;
-use std::marker::PhantomData;
 use num_traits::Float;
+use std::marker::PhantomData;
 
 #[derive(Clap)]
 #[clap(version = "1.0")]
@@ -278,17 +278,6 @@ fn random(top_level: &TopLevel, opts: &RandomOpts) {
         .map(|chunk| chunk.to_vec())
         .collect();
 
-    let big_sparse_nums: Vec<Vec<sparse::Number<Z>>> = chunks
-        .clone()
-        .into_iter()
-        .map(|chunk| {
-            chunk
-                .into_iter()
-                .map(|f| sparse::Number::<Z>::from_generic(&f))
-                .collect()
-        })
-        .collect();
-
     // if we're using big_order, we have to just run the benchmark for sparse,
     // none of the implementations support big numbers
     if top_level.implementation == "big_sparse".to_owned() && opts.big_order.is_some() {
@@ -298,33 +287,11 @@ fn random(top_level: &TopLevel, opts: &RandomOpts) {
             opts.big_order.clone().unwrap().parse::<Z>().unwrap()
         );
         let start = Instant::now();
-        number_bench(&opts, &big_sparse_nums);
+        number_bench::<sparse::Number<Z>, Z, Q>(&opts, &chunks);
         eprintln!("time elapsed (ms):");
         println!("{}", start.elapsed().as_millis());
         return;
     }
-
-    let sparse_nums: Vec<Vec<sparse::Number<i64>>> = chunks
-        .clone()
-        .into_iter()
-        .map(|chunk| {
-            chunk
-                .into_iter()
-                .map(|f| sparse::Number::from_generic(&f))
-                .collect()
-        })
-        .collect();
-
-    let dense_nums: Vec<Vec<dense::Number>> = chunks
-        .clone()
-        .into_iter()
-        .map(|chunk| {
-            chunk
-                .into_iter()
-                .map(|f| dense::Number::from_generic(&f))
-                .collect()
-        })
-        .collect();
 
     // TODO: only supports a single fixed order, improve?
     let structure_field = structure::CyclotomicField::new(opts.lower_bound_order as i64);
@@ -356,7 +323,11 @@ fn random(top_level: &TopLevel, opts: &RandomOpts) {
 
     if let Some(gap_out) = opts.gap_out.clone() {
         match write_gap_cycs(
-            &sparse_nums.clone().into_iter().flatten().collect(),
+            &generic_to_concrete::<sparse::Number<i64>, i64, Q>(&chunks)
+                .clone()
+                .into_iter()
+                .flatten()
+                .collect(),
             gap_out.clone(),
         ) {
             Ok(()) => (),
@@ -364,26 +335,35 @@ fn random(top_level: &TopLevel, opts: &RandomOpts) {
         };
     }
 
-    eprintln!("starting benchmark");
-    let start = Instant::now();
-
     // TODO: clearly should be an enum
-    if top_level.implementation.as_str() == "sparse" {
-        number_bench(&opts, &sparse_nums);
-    } else if top_level.implementation.as_str() == "dense" {
-        number_bench(&opts, &dense_nums);
-    } else if top_level.implementation.as_str() == "sparse" {
-        number_bench(&opts, &big_sparse_nums);
-    } else if top_level.implementation.as_str() == "structure" {
-        structure_number_bench(&opts, &structure_field, &structure_nums);
-    } else if top_level.implementation.as_str() == "antic" {
-        antic_bench(&opts, &mut cyclotomic_field_n, &antic_nums);
-    } else {
-        panic!("bad implementation {}", top_level.implementation);
+    eprintln!("starting benchmark");
+
+    if top_level.implementation.as_str() == "structure"
+        || top_level.implementation.as_str() == "antic"
+    {
+        let start = Instant::now();
+        if top_level.implementation.as_str() == "structure" {
+            structure_number_bench(&opts, &structure_field, &structure_nums);
+        } else if top_level.implementation.as_str() == "antic" {
+            antic_bench(&opts, &mut cyclotomic_field_n, &antic_nums);
+        }
+        eprintln!("time elapsed (ns):");
+        println!("{}", start.elapsed().as_nanos());
     }
 
-    eprintln!("time elapsed (ms):");
-    println!("{}", start.elapsed().as_millis());
+    let elapsed_nanos = if top_level.implementation.as_str() == "sparse" {
+        number_bench::<sparse::Number<i64>, i64, Q>(&opts, &chunks)
+    } else if top_level.implementation.as_str() == "dense" {
+        number_bench::<dense::Number, i64, Q>(&opts, &chunks)
+    } else if top_level.implementation.as_str() == "big_sparse" {
+        number_bench::<sparse::Number<Z>, Z, Q>(&opts, &chunks)
+    } else {
+        eprintln!("bad implementation!");
+        0
+    };
+
+    eprintln!("time elapsed (ns):");
+    println!("{}", elapsed_nanos);
 }
 
 macro_rules! assert_eq_return {
@@ -396,7 +376,9 @@ macro_rules! assert_eq_return {
 
 // Prepares line for parser (strips unsupported syntax, whitespace)
 fn prepare_line(line: &String) -> String {
-    line.chars().filter(|c| !c.is_whitespace() && *c != ';').collect()
+    line.chars()
+        .filter(|c| !c.is_whitespace() && *c != ';')
+        .collect()
 }
 
 fn stdin(top_level: &TopLevel, opts: &StdinOpts) {
@@ -572,7 +554,7 @@ fn character(top_level: &TopLevel, opts: &CharacterOpts) {
     let random_char_filtered = random_char_gap.replace(&['\\', '\n'][..], "");
 
     //eprintln!("got random_char: {}", random_char_filtered);
-    let random_char  = parse_vector(prepare_line(&random_char_filtered).as_str()).unwrap();
+    let random_char = parse_vector(prepare_line(&random_char_filtered).as_str()).unwrap();
 
     // TODO: currently only supports sparse implementation, fix (or not)
     if top_level.implementation.as_str() == "sparse" {
@@ -672,7 +654,7 @@ fn character(top_level: &TopLevel, opts: &CharacterOpts) {
     }
 }
 
-fn simd_float_character_bench (
+fn simd_float_character_bench(
     opts: &CharacterOpts,
     sizes: &Vec<i64>,
     irr_chars: &mut Vec<Vec<simd_float::Number>>,
@@ -724,10 +706,28 @@ fn main() {
     }
 }
 
-fn number_bench<T>(opts: &RandomOpts, nums: &Vec<Vec<T>>)
+fn generic_to_concrete<T, E, Q>(generic_nums: &Vec<Vec<GenericCyclotomic>>) -> Vec<Vec<T>>
 where
-    T: FieldElement + Clone,
+    T: CyclotomicFieldElement<E, Q> + FieldElement + Clone,
+    E: Exponent,
+    Q: Rational,
 {
+    generic_nums
+        .clone()
+        .into_iter()
+        .map(|chunk| chunk.into_iter().map(|f| T::from_generic(&f)).collect())
+        .collect()
+}
+
+fn number_bench<T, E, Q>(opts: &RandomOpts, generic_nums: &Vec<Vec<GenericCyclotomic>>) -> u128
+where
+    T: CyclotomicFieldElement<E, Q> + FieldElement + Clone,
+    E: Exponent,
+    Q: Rational,
+{
+    let mut nums = generic_to_concrete::<T, E, Q>(generic_nums);
+    let start = Instant::now();
+
     for i in 0..opts.threads {
         let num_chunk = &nums[i];
         for j in 0..opts.num_tests / opts.threads {
@@ -742,6 +742,7 @@ where
             black_box(x.mul(y).add(z.mul(a)).add(b.mul(c)));
         }
     }
+    start.elapsed().as_nanos()
 }
 
 fn structure_number_bench(
