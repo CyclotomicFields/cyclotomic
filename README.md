@@ -13,8 +13,19 @@ cases. Can be used from C, C++ or Rust.
 
 * See if structure constants can become competitive if we use floats.
 
-* Write a GAP expression parser in Rust instead of reusing my Haskell
-  one (it's really, really slow).
+* Dense representations:
+  - Dense polynomials with computation modulo the cyclotomic
+    polynomial
+
+* Get rid of all the copy and paste, make some abstractions that
+  actually make sense.
+
+* C FFI interface for calling our Rust code from other languages
+
+* Explicit construction as field of fractions of ring of
+  integers. Trivial inversion, good when you're only multiplying?
+
+* More investigation and thought into SIMD usage.
 
 ## Why use this library?
 
@@ -61,22 +72,6 @@ when the elements are sparse. Still acceptable even for non-sparse
 elements.
 
 TODO: some graphs to show this
-
-## TODO
-
-* Dense representations:
-  - Dense polynomials with computation modulo the cyclotomic
-    polynomial
-
-* Get rid of all the copy and paste, make some abstractions that
-  actually make sense.
-
-* C FFI interface for calling our Rust code from other languages
-
-* Explicit construction as field of fractions of ring of
-  integers. Trivial inversion, good when you're only multiplying?
-
-* More investigation and thought into SIMD usage.
 
 ## Quick start
 
