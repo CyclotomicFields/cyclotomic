@@ -19,14 +19,11 @@ rand = "0.7.3"
 divisors = "0.2.1"
 rand_chacha = "0.2.2"
 rustc-hash = "1.1.0"
-clap = "3.0.0-beta.1"
+clap = { version = "3.2.17", features = ["derive"] }
 antic = "0.1"
 rug = "1.10.0"
 num-traits = "0.2.12"
 sexp = "1.1.4"
-packed_simd = "0.3.3"
-simd_aligned = "0.2.1"
-faster = "0.5.1"
 nom = "6.1.2"
 
 [[bin]]

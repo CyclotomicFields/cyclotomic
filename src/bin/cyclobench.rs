@@ -5,7 +5,7 @@ extern crate rand;
 extern crate test;
 
 use antic::safe::*;
-use clap::Clap;
+use clap::{Parser, Subcommand, Args};
 
 use cyclotomic::fields::{CyclotomicFieldElement, GenericCyclotomic};
 
@@ -40,57 +40,52 @@ use cyclotomic::fields::dense::basis::try_reduce;
 use cyclotomic::fields::exponent::Exponent;
 use cyclotomic::fields::linear_algebra::Matrix;
 use cyclotomic::fields::rational::{FloatRational, Rational};
-use cyclotomic::fields::simd_float;
 
 use cyclotomic::fields::rational::FixedSizeRational;
 use num_traits::Float;
 use std::marker::PhantomData;
 
-#[derive(Clap)]
+#[derive(Parser)]
 #[clap(version = "1.0")]
 struct TopLevel {
     #[clap(
         short,
         long,
         default_value = "sparse",
-        about = "sparse, dense, big_sparse, or antic"
     )]
     implementation: String,
 
     #[clap(subcommand)]
-    subcmd: SubCommand,
+    subcmd: Commands,
 }
 
-#[derive(Clap)]
-enum SubCommand {
-    #[clap(version = "1.0", about = "Generate random test data to benchmark")]
+#[derive(Subcommand)]
+enum Commands {
+    #[clap(version = "1.0")]
     Random(RandomOpts),
 
     #[clap(
         version = "1.0",
-        about = "Read GAP cyclotomic expressions to evaluate from stdin"
     )]
     Stdin(StdinOpts),
 
     #[clap(
         version = "1.0",
-        about = "Read some characters and do some inner products in some way"
     )]
     Character(CharacterOpts),
 }
 
-#[derive(Clap)]
+#[derive(Args)]
 struct CharacterOpts {}
 
-#[derive(Clap)]
+#[derive(Args)]
 struct StdinOpts {
-    #[clap(short, long, about = "type of each element being input")]
+    #[clap(short, long)]
     element_type: String,
 
     #[clap(
         short,
         long,
-        about = "computation to run on list of inputs",
         default_value = "sumofproducts"
     )]
     mode: String,
@@ -98,14 +93,13 @@ struct StdinOpts {
     #[clap(
         short,
         long,
-        about = "if mode is X of Y, this is the size of chunk to run Y on"
     )]
     chunk_size: usize,
 }
 
-#[derive(Clap)]
+#[derive(Args)]
 struct RandomOpts {
-    #[clap(short, long, about = "file to output GAP benchmark code to")]
+    #[clap(short, long)]
     gap_out: Option<String>,
 
     #[clap(short, long, default_value = "120000")]
@@ -123,10 +117,10 @@ struct RandomOpts {
     #[clap(long, default_value = "5")]
     terms: usize,
 
-    #[clap(short, long, about = "make this fraction of the terms be nonzero")]
+    #[clap(short, long)]
     density: Option<f64>,
 
-    #[clap(short, long, about = "only works with big_sparse")]
+    #[clap(short, long)]
     big_order: Option<String>,
 }
 
@@ -536,8 +530,6 @@ fn character(top_level: &TopLevel, opts: &CharacterOpts) {
         character_bench::<i64, FixedSizeRational>(opts, &sizes_nums, &irr_chars, &random_char)
     } else if top_level.implementation.as_str() == "sparse_float" {
         character_bench::<i64, FloatRational>(opts, &sizes_nums, &irr_chars, &random_char)
-    } else if top_level.implementation.as_str() == "simd_float" {
-        simd_float_character_bench(opts, &sizes_nums, &irr_chars, &random_char)
     } else {
         panic!("bad implementation! TODO: do the others?");
         0
@@ -545,30 +537,6 @@ fn character(top_level: &TopLevel, opts: &CharacterOpts) {
 
     eprintln!("elapsed (ns):");
     println!("{}", elapsed_nanos);
-}
-
-fn simd_float_character_bench(
-    opts: &CharacterOpts,
-    sizes: &Vec<i64>,
-    generic_irr_chars: &Vec<Vec<GenericCyclotomic>>,
-    generic_random_char: &Vec<GenericCyclotomic>,
-) -> u128 {
-    let (mut irr_chars, mut random_char) = generic_chars_to_concrete::<simd_float::Number, i64, Q>(
-        generic_irr_chars,
-        generic_random_char,
-    );
-    let start = Instant::now();
-    let mut prods: Vec<Z> = vec![];
-    for irr_char in irr_chars {
-        let mut prod = inner_product(sizes, &irr_char, &random_char);
-        // We reduce because the result we're really after is the integer
-        // result of the inner product - it would be cheating to not count
-        // the time required for this conversion.
-        prods.push(prod.nearest_int());
-    }
-    let elapsed_nanos = start.elapsed().as_nanos();
-    eprintln!("simd_float calculated prods: {:?}", prods);
-    elapsed_nanos
 }
 
 fn generic_chars_to_concrete<T: CyclotomicFieldElement<E, Q>, E: Exponent, Q: Rational>(
@@ -624,9 +592,9 @@ fn main() {
     let top_level: TopLevel = TopLevel::parse();
 
     match &top_level.subcmd {
-        SubCommand::Random(random_opts) => random(&top_level, &random_opts),
-        SubCommand::Stdin(stdin_opts) => stdin(&top_level, &stdin_opts),
-        SubCommand::Character(character_opts) => character(&top_level, &character_opts),
+        Commands::Random(random_opts) => random(&top_level, &random_opts),
+        Commands::Stdin(stdin_opts) => stdin(&top_level, &stdin_opts),
+        Commands::Character(character_opts) => character(&top_level, &character_opts),
     }
 }
 
