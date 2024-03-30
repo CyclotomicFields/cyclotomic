@@ -1,8 +1,5 @@
-#![feature(test)]
-
 extern crate antic;
 extern crate rand;
-extern crate test;
 
 use antic::safe::*;
 use clap::{Parser, Subcommand, Args};
@@ -34,7 +31,7 @@ use std::convert::TryInto;
 use std::io;
 use std::process::{Command, Stdio};
 use std::time::Instant;
-use test::black_box;
+use std::hint::black_box;
 
 use cyclotomic::fields::dense::basis::try_reduce;
 use cyclotomic::fields::exponent::Exponent;
