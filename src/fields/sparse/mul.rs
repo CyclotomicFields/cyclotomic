@@ -22,7 +22,7 @@ impl<E, Q> MultiplicativeGroupElement for Number<E, Q> where E: Exponent, Q: Rat
         result.order = z1.order.clone();
         for (exp1, coeff1) in &mut z1.coeffs {
             for (exp2, coeff2) in &mut z2.coeffs {
-                let new_exp = ((exp1.clone() + exp2.clone()).into(): E) % z1.order.clone();
+                let new_exp = (exp1.clone() + exp2.clone()) % z1.order.clone();
                 let new_coeff = coeff1.clone().mul(coeff2).clone();
                 add_single(&mut result.coeffs, &new_exp, &new_coeff, Sign::Plus);
             }

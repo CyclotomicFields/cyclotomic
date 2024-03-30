@@ -1,5 +1,3 @@
-#![feature(type_ascription)]
-
 // Needs to be at the root to load macros.
 #[cfg(test)]
 #[macro_use]

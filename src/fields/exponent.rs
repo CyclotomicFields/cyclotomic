@@ -25,6 +25,7 @@ pub trait Exponent:
     + Hash
     + Debug
     + Power
+    + Sync
 {
     fn gcd(x: &Self, y: &Self) -> Self;
     fn lcm(x: &Self, y: &Self) -> Self;

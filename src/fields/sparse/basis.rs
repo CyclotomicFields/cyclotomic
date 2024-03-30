@@ -210,7 +210,7 @@ where
                 let mut k = E::from(1);
                 while k.clone() != p.clone() {
                     let new_exp = Exponent::math_mod(
-                        &((k.clone() * n.clone()).into(): E / p.clone() + i.clone()),
+                        &((k.clone() * n.clone()) / p.clone() + i.clone()),
                         &n,
                     );
                     add_single(&mut result.coeffs, &new_exp, &coeff, Sign::Minus);
