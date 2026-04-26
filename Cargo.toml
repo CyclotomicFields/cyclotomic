@@ -21,13 +21,13 @@ rand_chacha = "0.2.2"
 rustc-hash = "1.1.0"
 clap = { version = "3.2.17", features = ["derive"] }
 antic = { version = "0.1", optional = true }
-rug = "1.10.0"
+rug = { version = "1.10.0", default-features = false, features = ["integer", "rational"] }
 num-traits = "0.2.12"
 sexp = "1.1.4"
 nom = "6.1.2"
 
 [features]
-bench-antic = ["dep:antic"]
+bench-antic = ["dep:antic", "rug/rand"]
 
 [[bin]]
 name = "cyclobench"
