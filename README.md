@@ -49,7 +49,8 @@ much, much more that's specific to cyclotomic fields, and this allows
 us to be faster for certain use cases (keep an eye on arXiv for some
 details).
 
-See [below for some benchmarks against antic](#benchmarks).
+See [the performance notebook](notebooks/performance_benchmarks.ipynb)
+for benchmark results and graphs.
 
 ## Features
 
@@ -67,17 +68,16 @@ See [below for some benchmarks against antic](#benchmarks).
 
 ## Performance
 
-The sparse representation perform better than the dense representations
+The sparse representation performs better than the dense representations
 when the elements are sparse. Still acceptable even for non-sparse
-elements.
-
-TODO: some graphs to show this
+elements. The checked-in
+[performance notebook](notebooks/performance_benchmarks.ipynb) contains
+reproducible benchmark results and graphs for sparse, dense, and
+structure-constant arithmetic.
 
 ## Quick start
 
-The core library only needs a Rust toolchain. The ANTIC and FLINT
-native libraries are optional and are only needed for the benchmark
-binary that compares against ANTIC.
+The core library only needs a Rust toolchain.
 
 ### Use cyclotomic in a Rust program
 
