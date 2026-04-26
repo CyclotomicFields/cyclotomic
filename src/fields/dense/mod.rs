@@ -8,7 +8,7 @@ use crate::fields::{CyclotomicFieldElement, FieldElement, Q, Z};
 use basis::convert_to_base;
 use num::traits::Inv;
 use quickcheck::{Arbitrary, Gen};
-use rand::Rng;
+use rand::RngExt;
 use std::fmt;
 use std::ops::{AddAssign, Mul, SubAssign};
 use std::vec::Vec;
@@ -176,23 +176,23 @@ impl CyclotomicFieldElement<i64> for Number {
 
 pub fn random_rational<G>(g: &mut G) -> Q
 where
-    G: rand::RngCore,
+    G: rand::Rng,
 {
-    let p: i64 = g.gen_range(1, 10);
-    let q: i64 = g.gen_range(1, 10);
+    let p: i64 = g.random_range(1..10);
+    let q: i64 = g.random_range(1..10);
     Q::from((p, q))
 }
 
 pub fn random_cyclotomic<G>(g: &mut G, min_order: i64, max_order: i64) -> Number
 where
-    G: rand::RngCore,
+    G: rand::Rng,
 {
-    let order = g.gen_range(min_order, max_order);
-    let num_terms: u64 = g.gen_range(1, 5);
+    let order = g.random_range(min_order..max_order);
+    let num_terms: u64 = g.random_range(1..5);
     let mut result = Number::zero_order(&order);
 
     for _ in 1..=num_terms {
-        let exp: i64 = g.gen_range(1, order);
+        let exp: i64 = g.random_range(1..order);
         let coeff = random_rational(g);
         result.coeffs[exp as usize] = coeff;
     }
@@ -201,12 +201,24 @@ where
 }
 
 impl Arbitrary for Number {
-    fn arbitrary<G>(g: &mut G) -> Self
-    where
-        G: Gen,
-    {
-        random_cyclotomic(g, 2, 10)
+    fn arbitrary(g: &mut Gen) -> Self {
+        let order = arbitrary_i64(g, 2, 10);
+        let num_terms = arbitrary_i64(g, 1, 5);
+        let mut result = Number::zero_order(&order);
+
+        for _ in 1..=num_terms {
+            let exp = arbitrary_i64(g, 1, order);
+            let coeff = Q::from((arbitrary_i64(g, 1, 10), arbitrary_i64(g, 1, 10)));
+            result.coeffs[exp as usize] = coeff;
+        }
+
+        result
     }
+}
+
+fn arbitrary_i64(g: &mut Gen, min: i64, max: i64) -> i64 {
+    let width = (max - min) as u64;
+    min + (u64::arbitrary(g) % width) as i64
 }
 
 #[cfg(test)]

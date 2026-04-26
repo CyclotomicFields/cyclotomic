@@ -119,26 +119,6 @@ that you have push permissions
 6. Check that your push has triggered a pipeline build on
 [Travis](https://travis-ci.com/github/CyclotomicFields/cyclotomic/builds)
 
-### Optional ANTIC benchmark dependencies on macOS
-
-The default build does not require ANTIC or FLINT. To build the `cyclobench`
-binary with ANTIC support, install compatible native libraries and enable the
-`bench-antic` feature:
-
-```sh
-cargo build --features bench-antic --bin cyclobench
-```
-
-Homebrew provides FLINT, GMP, and MPFR:
-
-```sh
-brew install flint gmp mpfr
-```
-
-ANTIC is not currently packaged in Homebrew. If you need the ANTIC benchmark,
-build ANTIC from source against a FLINT version compatible with ANTIC. The
-library tests do not need this.
-
 ## Building the documentation
 
 Just run `cargo doc --no-deps` and have a look at

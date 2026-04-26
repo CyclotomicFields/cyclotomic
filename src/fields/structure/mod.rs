@@ -5,7 +5,7 @@ use crate::fields::*;
 use crate::fields::exponent::Exponent;
 use num::Zero;
 use quickcheck::{Arbitrary, Gen};
-use rand::Rng;
+use rand::RngExt;
 
 /// This doesn't really fit the same interface as the rest of the fields module,
 /// since we don't just have elements on their own, we have structs representing
@@ -170,24 +170,26 @@ impl CyclotomicField {
 struct SmallOrder(i64);
 
 impl Arbitrary for SmallOrder {
-    fn arbitrary<G>(g: &mut G) -> Self
-    where
-        G: Gen,
-    {
-        let small_int = g.gen_range(2, 20);
+    fn arbitrary(g: &mut Gen) -> Self {
+        let small_int = arbitrary_i64(g, 2, 20);
         SmallOrder(small_int)
     }
 }
 
+fn arbitrary_i64(g: &mut Gen, min: i64, max: i64) -> i64 {
+    let width = (max - min) as u64;
+    min + (u64::arbitrary(g) % width) as i64
+}
+
 fn random_cyc(field: &CyclotomicField) -> Vec<Q> {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let mut result = vec![];
     for _ in 0..field.phi_n {
-        if rng.gen_range(0, 2) == 1 {
+        if rng.random_range(0..2) == 1 {
             result.push(Q::from(0))
         } else {
-            let numerator = rng.gen_range(0, 10);
-            let denominator = rng.gen_range(1, 10);
+            let numerator = rng.random_range(0..10);
+            let denominator = rng.random_range(1..10);
             result.push(Q::from((numerator, denominator)));
         }
     }

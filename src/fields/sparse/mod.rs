@@ -10,7 +10,7 @@ use crate::fields::{CyclotomicFieldElement, FieldElement, Z};
 use basis::convert_to_base;
 use num::traits::Inv;
 use quickcheck::{Arbitrary, Gen};
-use rand::Rng;
+use rand::RngExt;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::ops::{AddAssign, Mul, SubAssign};
@@ -234,25 +234,25 @@ where
 
 pub fn random_rational<G, Q: Rational>(g: &mut G) -> Q
 where
-    G: rand::RngCore,
+    G: rand::Rng,
 {
-    let p: i64 = g.gen_range(1, 10);
-    let q: u64 = g.gen_range(1, 10);
+    let p: i64 = g.random_range(1..10);
+    let q: u64 = g.random_range(1..10);
     Q::from((p, q))
 }
 
 pub fn random_cyclotomic<G, E, Q>(g: &mut G, min_order: i64, max_order: i64) -> Number<E, Q>
 where
-    G: rand::RngCore,
+    G: rand::Rng,
     E: Exponent,
     Q: Rational,
 {
-    let order = g.gen_range(min_order, max_order);
-    let num_terms: u64 = g.gen_range(1, 5);
+    let order = g.random_range(min_order..max_order);
+    let num_terms: u64 = g.random_range(1..5);
     let mut result = Number::<E, Q>::zero_order(&E::from(order.clone()));
 
     for _ in 1..=num_terms {
-        let exp: i64 = g.gen_range(1, order);
+        let exp: i64 = g.random_range(1..order);
         let coeff = random_rational(g);
         result.coeffs.insert(E::from(exp), coeff);
     }
@@ -265,12 +265,28 @@ where
     E: Exponent,
     Q: Rational,
 {
-    fn arbitrary<G>(g: &mut G) -> Self
-    where
-        G: Gen,
-    {
-        random_cyclotomic::<G, E, Q>(g, 2, 50)
+    fn arbitrary(g: &mut Gen) -> Self {
+        let order = arbitrary_i64(g, 2, 50);
+        let num_terms = arbitrary_i64(g, 1, 5);
+        let mut result = Number::<E, Q>::zero_order(&E::from(order.clone()));
+
+        for _ in 1..=num_terms {
+            let exp = arbitrary_i64(g, 1, order);
+            let coeff = Q::from((arbitrary_i64(g, 1, 10), arbitrary_u64(g, 1, 10)));
+            result.coeffs.insert(E::from(exp), coeff);
+        }
+
+        result
     }
+}
+
+fn arbitrary_i64(g: &mut Gen, min: i64, max: i64) -> i64 {
+    let width = (max - min) as u64;
+    min + (u64::arbitrary(g) % width) as i64
+}
+
+fn arbitrary_u64(g: &mut Gen, min: u64, max: u64) -> u64 {
+    min + (u64::arbitrary(g) % (max - min))
 }
 
 type Number_i64 = Number<i64, rug::Rational>;

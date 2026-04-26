@@ -206,9 +206,9 @@ fn test_term() {
 fn expr(s1: &str) -> IResult<&str, Expr> {
     let (s2, leading_term) = term(s1)?;
 
-    fold_many0(
+    let result = fold_many0(
         tuple((alt((char('+'), char('-'))), term)),
-        leading_term,
+        || leading_term.clone(),
         |acc, (op, next_term)| {
             if op == '+' {
                 Expr::Add(Box::new(acc), Box::new(next_term))
@@ -216,7 +216,8 @@ fn expr(s1: &str) -> IResult<&str, Expr> {
                 Expr::Sub(Box::new(acc), Box::new(next_term))
             }
         },
-    )(s2)
+    )(s2);
+    result
 }
 
 #[test]
