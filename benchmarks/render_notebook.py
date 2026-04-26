@@ -117,6 +117,7 @@ def line_chart(
     *,
     width: int = 860,
     height: int = 470,
+    log_y: bool = True,
 ) -> str:
     margin = {"left": 88, "right": 24, "top": 72, "bottom": 64}
     plot_w = width - margin["left"] - margin["right"]
@@ -125,13 +126,20 @@ def line_chart(
 
     points = [pt for values in series.values() for pt in values]
     xs = [x for x, _y in points]
-    raw_ys = [max(y, 0.0) for _x, y in points]
+    raw_ys = [max(y, 1e-9) for _x, y in points]
     min_x, max_x = min(xs), max(xs)
     if min_x == max_x:
         max_x = min_x + 1.0
-    min_y, max_y = 0.0, max(raw_ys)
-    span = max_y - min_y or 1.0
-    y_tick_values = [min_y + span * i / 4 for i in range(5)]
+    if log_y:
+        ys = [math.log10(y) for y in raw_ys]
+        min_y, max_y = min(ys), max(ys)
+        y_transform = lambda y: math.log10(max(y, 1e-9))
+        y_tick_values = [10**v for v in range(math.floor(min_y), math.ceil(max_y) + 1)]
+    else:
+        min_y, max_y = 0.0, max(raw_ys)
+        y_transform = lambda y: y
+        span = max_y - min_y or 1.0
+        y_tick_values = [min_y + span * i / 4 for i in range(5)]
     if min_y == max_y:
         max_y = min_y + 1.0
 
@@ -139,7 +147,8 @@ def line_chart(
         return margin["left"] + (x - min_x) / (max_x - min_x) * plot_w
 
     def sy(y: float) -> float:
-        return margin["top"] + (max_y - y) / (max_y - min_y) * plot_h
+        yv = y_transform(y)
+        return margin["top"] + (max_y - yv) / (max_y - min_y) * plot_h
 
     x_ticks = sorted(set(xs))
     if len(x_ticks) > 8:
@@ -421,7 +430,7 @@ def build_notebook(records: list[Record]) -> dict[str, object]:
             "benchmarks.\n\n"
             "The benchmark is intentionally lightweight and comparative. It is useful "
             "for spotting representation-level trends, not for publishing stable "
-            "machine-independent numbers. All charts use a linear throughput axis, "
+            "machine-independent numbers. All charts use a log throughput axis, "
             "so higher is better."
         ),
         code_cell(
