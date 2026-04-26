@@ -50,6 +50,30 @@ def fmt_ns(ns: float) -> str:
     return f"{ns:.0f} ns"
 
 
+def fmt_ops(ops: float) -> str:
+    if ops >= 1_000_000:
+        return f"{ops / 1_000_000:.2f}M"
+    if ops >= 1_000:
+        return f"{ops / 1_000:.1f}k"
+    return f"{ops:.1f}"
+
+
+def ops_per_second(record: Record) -> float:
+    if "ops_per_second" in record:
+        return float(record["ops_per_second"])
+    return 1_000_000_000.0 / float(record["ns_per_iter"])
+
+
+def order_category(order: int) -> str:
+    primes = {5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 43, 53, 61, 71, 83, 97}
+    powers_of_two = {4, 8, 16, 32, 64}
+    if order in primes:
+        return "prime"
+    if order in powers_of_two:
+        return "power of two"
+    return "composite"
+
+
 def select(
     records: list[Record],
     *,
@@ -93,7 +117,6 @@ def line_chart(
     *,
     width: int = 860,
     height: int = 470,
-    log_y: bool = True,
 ) -> str:
     margin = {"left": 88, "right": 24, "top": 72, "bottom": 64}
     plot_w = width - margin["left"] - margin["right"]
@@ -102,20 +125,13 @@ def line_chart(
 
     points = [pt for values in series.values() for pt in values]
     xs = [x for x, _y in points]
-    raw_ys = [max(y, 1e-9) for _x, y in points]
+    raw_ys = [max(y, 0.0) for _x, y in points]
     min_x, max_x = min(xs), max(xs)
     if min_x == max_x:
         max_x = min_x + 1.0
-    if log_y:
-        ys = [math.log10(y) for y in raw_ys]
-        min_y, max_y = min(ys), max(ys)
-        y_transform = lambda y: math.log10(max(y, 1e-9))
-        y_tick_values = [10**v for v in range(math.floor(min_y), math.ceil(max_y) + 1)]
-    else:
-        min_y, max_y = min(raw_ys), max(raw_ys)
-        y_transform = lambda y: y
-        span = max_y - min_y or 1.0
-        y_tick_values = [min_y + span * i / 4 for i in range(5)]
+    min_y, max_y = 0.0, max(raw_ys)
+    span = max_y - min_y or 1.0
+    y_tick_values = [min_y + span * i / 4 for i in range(5)]
     if min_y == max_y:
         max_y = min_y + 1.0
 
@@ -123,8 +139,7 @@ def line_chart(
         return margin["left"] + (x - min_x) / (max_x - min_x) * plot_w
 
     def sy(y: float) -> float:
-        yv = y_transform(y)
-        return margin["top"] + (max_y - yv) / (max_y - min_y) * plot_h
+        return margin["top"] + (max_y - y) / (max_y - min_y) * plot_h
 
     x_ticks = sorted(set(xs))
     if len(x_ticks) > 8:
@@ -146,11 +161,9 @@ def line_chart(
         svg.append(f'<text x="{x:.1f}" y="{height - 38}" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#374151">{tick:g}</text>')
 
     for tick in y_tick_values:
-        if tick <= 0:
-            continue
         y = sy(tick)
         svg.append(f'<line x1="{margin["left"]}" y1="{y:.1f}" x2="{margin["left"] + plot_w}" y2="{y:.1f}" stroke="#e5e7eb" stroke-width="1"/>')
-        svg.append(f'<text x="{margin["left"] - 10}" y="{y + 4:.1f}" text-anchor="end" font-family="Arial, sans-serif" font-size="11" fill="#374151">{fmt_ns(tick)}</text>')
+        svg.append(f'<text x="{margin["left"] - 10}" y="{y + 4:.1f}" text-anchor="end" font-family="Arial, sans-serif" font-size="11" fill="#374151">{fmt_ops(tick)}</text>')
 
     for i, (name, values) in enumerate(series.items()):
         color = colors[i % len(colors)]
@@ -197,16 +210,16 @@ def summary_text(records: list[Record]) -> str:
         f"platform: {platform.platform()}",
         f"generated_at_utc: {_datetime.datetime.now(_datetime.UTC).replace(microsecond=0).isoformat()}",
         "",
-        "median ns/iter by representation and operation:",
+        "median throughput by representation and operation:",
     ]
     keys = sorted({(r["representation"], r["operation"]) for r in records})
     for representation, operation in keys:
         values = [
-            float(r["ns_per_iter"])
+            ops_per_second(r)
             for r in records
             if r["representation"] == representation and r["operation"] == operation
         ]
-        lines.append(f"  {representation:9s} {operation:11s} {fmt_ns(median(values))}")
+        lines.append(f"  {representation:9s} {operation:11s} {fmt_ops(median(values))} ops/s")
     return "\n".join(lines) + "\n"
 
 
@@ -215,128 +228,185 @@ def build_notebook(records: list[Record]) -> dict[str, object]:
         (
             "Dense vs sparse multiplication, low density",
             line_chart(
-                "Multiplication at 35% density",
-                "Lower is better; exact rug::Rational coefficients",
+                "Multiplication throughput at 25% density",
+                "Higher is better; exact rug::Rational coefficients",
                 "cyclotomic order n",
-                "time per operation, log scale",
+                "operations per second",
                 series_by(
-                    select(records, operation="mul", density=0.35, representations={"dense", "sparse"}),
+                    select(records, operation="mul", density=0.25, representations={"dense", "sparse"}),
                     lambda r: str(r["representation"]),
                     lambda r: float(r["order"]),
-                    lambda r: float(r["ns_per_iter"]),
+                    ops_per_second,
                 ),
             ),
         ),
         (
             "Dense vs sparse multiplication, full density",
             line_chart(
-                "Multiplication at 100% density",
+                "Multiplication throughput at 100% density",
                 "Dense currently pays O(n^2) over the full order; sparse pays map overhead",
                 "cyclotomic order n",
-                "time per operation, log scale",
+                "operations per second",
                 series_by(
                     select(records, operation="mul", density=1.0, representations={"dense", "sparse"}),
                     lambda r: str(r["representation"]),
                     lambda r: float(r["order"]),
-                    lambda r: float(r["ns_per_iter"]),
+                    ops_per_second,
                 ),
             ),
         ),
         (
             "Addition by order",
             line_chart(
-                "Addition at 100% density",
+                "Addition throughput at 100% density",
                 "Dense vector addition versus sparse map insertion/update",
                 "cyclotomic order n",
-                "time per operation, log scale",
+                "operations per second",
                 series_by(
                     select(records, operation="add", density=1.0, representations={"dense", "sparse"}),
                     lambda r: str(r["representation"]),
                     lambda r: float(r["order"]),
-                    lambda r: float(r["ns_per_iter"]),
+                    ops_per_second,
                 ),
             ),
         ),
         (
             "Scalar multiplication by order",
             line_chart(
-                "Scalar multiplication at 100% density",
+                "Scalar multiplication throughput at 100% density",
                 "Dense mutates all coefficients; sparse iterates stored terms",
                 "cyclotomic order n",
-                "time per operation, log scale",
+                "operations per second",
                 series_by(
                     select(records, operation="scalar_mul", density=1.0, representations={"dense", "sparse"}),
                     lambda r: str(r["representation"]),
                     lambda r: float(r["order"]),
-                    lambda r: float(r["ns_per_iter"]),
+                    ops_per_second,
                 ),
             ),
         ),
         (
             "Sparse multiplication by density",
             line_chart(
-                "Sparse multiplication sensitivity to density",
+                "Sparse multiplication throughput by density",
                 "Each line fixes the field order",
                 "input density",
-                "time per operation, log scale",
+                "operations per second",
                 series_by(
                     [
                         r
                         for r in select(records, operation="mul", representations={"sparse"})
-                        if r["order"] in {8, 12, 20, 24}
+                        if r["order"] in {16, 32, 64, 100}
                     ],
                     lambda r: f"n={r['order']}",
                     lambda r: float(r["density"]),
-                    lambda r: float(r["ns_per_iter"]),
+                    ops_per_second,
                 ),
             ),
         ),
         (
             "Dense multiplication by density",
             line_chart(
-                "Dense multiplication sensitivity to density",
+                "Dense multiplication throughput by density",
                 "The current dense loop still scans the whole coefficient vector",
                 "input density",
-                "time per operation, log scale",
+                "operations per second",
                 series_by(
                     [
                         r
                         for r in select(records, operation="mul", representations={"dense"})
-                        if r["order"] in {8, 12, 20, 24}
+                        if r["order"] in {16, 32, 64, 100}
                     ],
                     lambda r: f"n={r['order']}",
                     lambda r: float(r["density"]),
-                    lambda r: float(r["ns_per_iter"]),
+                    ops_per_second,
+                ),
+            ),
+        ),
+        (
+            "Prime-order multiplication",
+            line_chart(
+                "Multiplication throughput for sampled primes",
+                "Prime cyclotomic orders up to 97",
+                "cyclotomic order n",
+                "operations per second",
+                series_by(
+                    [
+                        r
+                        for r in select(records, operation="mul", density=1.0, representations={"dense", "sparse"})
+                        if order_category(int(r["order"])) == "prime"
+                    ],
+                    lambda r: str(r["representation"]),
+                    lambda r: float(r["order"]),
+                    ops_per_second,
+                ),
+            ),
+        ),
+        (
+            "Power-of-two multiplication",
+            line_chart(
+                "Multiplication throughput for powers of two",
+                "Orders 4, 8, 16, 32, and 64 at full density",
+                "cyclotomic order n",
+                "operations per second",
+                series_by(
+                    [
+                        r
+                        for r in select(records, operation="mul", density=1.0, representations={"dense", "sparse"})
+                        if order_category(int(r["order"])) == "power of two"
+                    ],
+                    lambda r: str(r["representation"]),
+                    lambda r: float(r["order"]),
+                    ops_per_second,
+                ),
+            ),
+        ),
+        (
+            "Composite-order multiplication",
+            line_chart(
+                "Multiplication throughput for composite orders",
+                "Highly factorizable and mixed composite orders up to 100",
+                "cyclotomic order n",
+                "operations per second",
+                series_by(
+                    [
+                        r
+                        for r in select(records, operation="mul", density=1.0, representations={"dense", "sparse"})
+                        if order_category(int(r["order"])) == "composite"
+                    ],
+                    lambda r: str(r["representation"]),
+                    lambda r: float(r["order"]),
+                    ops_per_second,
                 ),
             ),
         ),
         (
             "Structure constant construction",
             line_chart(
-                "Structure-constant precomputation cost",
-                "Construction is measured separately from steady-state multiplication",
+                "Structure-constant construction throughput",
+                "Higher means more fields constructed per second",
                 "phi(n)",
-                "construction time, log scale",
+                "field constructions per second",
                 series_by(
                     select(records, operation="construct", representations={"structure"}),
                     lambda r: "structure",
                     lambda r: float(r["phi"]),
-                    lambda r: float(r["ns_per_iter"]),
+                    ops_per_second,
                 ),
             ),
         ),
         (
             "Structure multiplication comparison",
             line_chart(
-                "Multiplication at 100% density, common orders",
-                "Structure constants are only measured for smaller orders in this sweep",
+                "Multiplication throughput at 100% density",
+                "Structure constants are sampled separately because construction is expensive",
                 "cyclotomic order n",
-                "time per operation, log scale",
+                "operations per second",
                 series_by(
-                    select(records, operation="mul", density=1.0, max_order=16),
+                    select(records, operation="mul", density=1.0, max_order=100),
                     lambda r: str(r["representation"]),
                     lambda r: float(r["order"]),
-                    lambda r: float(r["ns_per_iter"]),
+                    ops_per_second,
                 ),
             ),
         ),
@@ -351,7 +421,8 @@ def build_notebook(records: list[Record]) -> dict[str, object]:
             "benchmarks.\n\n"
             "The benchmark is intentionally lightweight and comparative. It is useful "
             "for spotting representation-level trends, not for publishing stable "
-            "machine-independent numbers."
+            "machine-independent numbers. All charts use a linear throughput axis, "
+            "so higher is better."
         ),
         code_cell(
             "import json\n"
@@ -385,7 +456,9 @@ def build_notebook(records: list[Record]) -> dict[str, object]:
             "operation so the benchmark reflects the current mutating API shape.\n"
             "- Structure-constant construction is separated from multiplication "
             "because it is a one-time field setup cost.\n"
-            "- The current results use exact `rug::Rational` coefficients."
+            "- The current results use exact `rug::Rational` coefficients.\n"
+            "- The order sample includes primes, powers of two, and mixed composite "
+            "orders up to 100."
         )
     )
 
