@@ -16,7 +16,6 @@ combinations = "0.1.0"
 quickcheck = "0.9"
 quickcheck_macros = "0.9"
 rand = "0.7.3"
-divisors = "0.2.1"
 rand_chacha = "0.2.2"
 rustc-hash = "1.1.0"
 clap = { version = "3.2.17", features = ["derive"] }

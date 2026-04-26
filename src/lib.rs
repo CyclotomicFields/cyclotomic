@@ -6,12 +6,7 @@ extern crate quickcheck;
 #[macro_use(quickcheck)]
 extern crate quickcheck_macros;
 
-mod coprime_counter;
-mod divisors;
 mod polynomial;
-mod prime_counter;
-mod prime_factors;
-mod primes;
 
 /// Implementations of field operations in cyclotomic fields.
 ///

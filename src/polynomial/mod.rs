@@ -2,7 +2,6 @@ pub mod add;
 pub mod construct;
 pub mod display;
 pub mod divide;
-pub mod is_irreducible;
 pub mod multiply;
 pub mod negate;
 pub mod polynomial;
