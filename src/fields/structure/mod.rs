@@ -19,6 +19,13 @@ pub struct CyclotomicField {
     // passing.
     structure_constants: Vec<Vec<Vec<Q>>>,
 
+    /// The same constants as `structure_constants`, but in one contiguous
+    /// allocation indexed by `(i * phi_n + j) * phi_n + k`.
+    structure_constants_flat: Vec<Q>,
+
+    /// For each basis product `(i, j)`, store only nonzero `(k, c_ijk)` terms.
+    structure_constants_sparse: Vec<Vec<(usize, Q)>>,
+
     /// The basis we are using for the field is: { \zeta_n^{basis[i]} : 0 \leq
     /// i \leq \phi(n) }
     pub basis: Vec<i64>,
@@ -68,6 +75,40 @@ fn make_structure_constants(order: i64, basis: &Vec<i64>) -> Vec<Vec<Vec<Q>>> {
     structure_constants
 }
 
+fn flatten_structure_constants(structure_constants: &Vec<Vec<Vec<Q>>>) -> Vec<Q> {
+    let phi_n = structure_constants.len();
+    let mut result = Vec::with_capacity(phi_n * phi_n * phi_n);
+
+    for i in 0..phi_n {
+        for j in 0..phi_n {
+            for k in 0..phi_n {
+                result.push(structure_constants[i][j][k].clone());
+            }
+        }
+    }
+
+    result
+}
+
+fn sparsify_structure_constants(structure_constants: &Vec<Vec<Vec<Q>>>) -> Vec<Vec<(usize, Q)>> {
+    let phi_n = structure_constants.len();
+    let mut result = vec![vec![]; phi_n * phi_n];
+
+    for i in 0..phi_n {
+        for j in 0..phi_n {
+            let row = &mut result[i * phi_n + j];
+            for k in 0..phi_n {
+                let coeff = &structure_constants[i][j][k];
+                if *coeff != 0 {
+                    row.push((k, coeff.clone()));
+                }
+            }
+        }
+    }
+
+    result
+}
+
 fn zumbroich_basis(order: i64) -> Vec<i64> {
     let n_div_powers = Exponent::factorise(&order);
 
@@ -110,9 +151,14 @@ fn print_rat_vec(v: &Vec<Q>) -> String {
 impl CyclotomicField {
     pub fn new(order: i64) -> Self {
         let basis = zumbroich_basis(order);
+        let structure_constants = make_structure_constants(order, &basis);
+        let structure_constants_flat = flatten_structure_constants(&structure_constants);
+        let structure_constants_sparse = sparsify_structure_constants(&structure_constants);
         CyclotomicField {
             order: order,
-            structure_constants: make_structure_constants(order, &basis),
+            structure_constants: structure_constants,
+            structure_constants_flat: structure_constants_flat,
+            structure_constants_sparse: structure_constants_sparse,
             basis: basis.clone(),
             phi_n: Exponent::phi(&order),
             factors: Exponent::factorise(&order),
@@ -140,6 +186,75 @@ impl CyclotomicField {
                         * &self.structure_constants[i as usize][j as usize][k as usize])
                         .into();
                     result[k as usize] += prod2;
+                }
+            }
+        }
+
+        result
+    }
+
+    pub fn mul_flat(&self, z1: &Vec<Q>, z2: &Vec<Q>) -> Vec<Q> {
+        let phi_n = self.phi_n as usize;
+        let mut result = vec![Q::from(0); phi_n];
+
+        for i in 0..phi_n {
+            for j in 0..phi_n {
+                let prod1: Q = (&z1[i] * &z2[j]).into();
+                let row_start = (i * phi_n + j) * phi_n;
+                for k in 0..phi_n {
+                    let prod2: Q = (&prod1 * &self.structure_constants_flat[row_start + k]).into();
+                    result[k] += prod2;
+                }
+            }
+        }
+
+        result
+    }
+
+    pub fn mul_sparse_constants(&self, z1: &Vec<Q>, z2: &Vec<Q>) -> Vec<Q> {
+        let phi_n = self.phi_n as usize;
+        let mut result = vec![Q::from(0); phi_n];
+
+        for i in 0..phi_n {
+            for j in 0..phi_n {
+                let row = &self.structure_constants_sparse[i * phi_n + j];
+                if row.is_empty() {
+                    continue;
+                }
+
+                let prod1: Q = (&z1[i] * &z2[j]).into();
+                for (k, constant) in row {
+                    let prod2: Q = (&prod1 * constant).into();
+                    result[*k] += prod2;
+                }
+            }
+        }
+
+        result
+    }
+
+    pub fn mul_sparse_constants_skip_zero_inputs(&self, z1: &Vec<Q>, z2: &Vec<Q>) -> Vec<Q> {
+        let phi_n = self.phi_n as usize;
+        let mut result = vec![Q::from(0); phi_n];
+
+        for i in 0..phi_n {
+            if z1[i] == 0 {
+                continue;
+            }
+            for j in 0..phi_n {
+                if z2[j] == 0 {
+                    continue;
+                }
+
+                let row = &self.structure_constants_sparse[i * phi_n + j];
+                if row.is_empty() {
+                    continue;
+                }
+
+                let prod1: Q = (&z1[i] * &z2[j]).into();
+                for (k, constant) in row {
+                    let prod2: Q = (&prod1 * constant).into();
+                    result[*k] += prod2;
                 }
             }
         }
@@ -327,5 +442,29 @@ mod tests {
         let left = field.mul(&z1, &field.add(&z2, &z3));
         let right = field.add(&field.mul(&z1, &z2), &field.mul(&z1, &z3));
         left == right
+    }
+
+    #[quickcheck]
+    fn flat_constants_match_nested_constants(small_order: SmallOrder) -> bool {
+        let field = CyclotomicField::new(small_order.0);
+        let z1 = random_cyc(&field);
+        let z2 = random_cyc(&field);
+        field.mul(&z1, &z2) == field.mul_flat(&z1, &z2)
+    }
+
+    #[quickcheck]
+    fn sparse_constants_match_nested_constants(small_order: SmallOrder) -> bool {
+        let field = CyclotomicField::new(small_order.0);
+        let z1 = random_cyc(&field);
+        let z2 = random_cyc(&field);
+        field.mul(&z1, &z2) == field.mul_sparse_constants(&z1, &z2)
+    }
+
+    #[quickcheck]
+    fn sparse_constants_skip_zero_inputs_match_nested_constants(small_order: SmallOrder) -> bool {
+        let field = CyclotomicField::new(small_order.0);
+        let z1 = random_cyc(&field);
+        let z2 = random_cyc(&field);
+        field.mul(&z1, &z2) == field.mul_sparse_constants_skip_zero_inputs(&z1, &z2)
     }
 }

@@ -77,10 +77,7 @@ where
         }
         let elapsed = start.elapsed();
         if elapsed >= min_duration || iterations >= max_iters {
-            return (
-                iterations,
-                elapsed.as_nanos() as f64 / iterations as f64,
-            );
+            return (iterations, elapsed.as_nanos() as f64 / iterations as f64);
         }
         iterations = (iterations * 2).min(max_iters);
     }
@@ -107,7 +104,12 @@ fn push_record(
     });
 }
 
-fn benchmark_dense(records: &mut Vec<Record>, orders: &[i64], densities: &[f64], min_duration: Duration) {
+fn benchmark_dense(
+    records: &mut Vec<Record>,
+    orders: &[i64],
+    densities: &[f64],
+    min_duration: Duration,
+) {
     for &order in orders {
         eprintln!("benchmarking dense order {}", order);
         for &density in densities {
@@ -126,7 +128,15 @@ fn benchmark_dense(records: &mut Vec<Record>, orders: &[i64], densities: &[f64],
                 let mut z = left.clone();
                 black_box(z.scalar_mul(&scalar));
             });
-            push_record(records, "dense", "scalar_mul", order, density, iterations, ns);
+            push_record(
+                records,
+                "dense",
+                "scalar_mul",
+                order,
+                density,
+                iterations,
+                ns,
+            );
 
             let (iterations, ns) = time_loop(min_duration, 1 << 18, || {
                 let mut z1 = left.clone();
@@ -138,7 +148,12 @@ fn benchmark_dense(records: &mut Vec<Record>, orders: &[i64], densities: &[f64],
     }
 }
 
-fn benchmark_sparse(records: &mut Vec<Record>, orders: &[i64], densities: &[f64], min_duration: Duration) {
+fn benchmark_sparse(
+    records: &mut Vec<Record>,
+    orders: &[i64],
+    densities: &[f64],
+    min_duration: Duration,
+) {
     for &order in orders {
         eprintln!("benchmarking sparse order {}", order);
         for &density in densities {
@@ -157,7 +172,15 @@ fn benchmark_sparse(records: &mut Vec<Record>, orders: &[i64], densities: &[f64]
                 let mut z = left.clone();
                 black_box(z.scalar_mul(&scalar));
             });
-            push_record(records, "sparse", "scalar_mul", order, density, iterations, ns);
+            push_record(
+                records,
+                "sparse",
+                "scalar_mul",
+                order,
+                density,
+                iterations,
+                ns,
+            );
 
             let (iterations, ns) = time_loop(min_duration, 1 << 18, || {
                 let mut z1 = left.clone();
@@ -169,13 +192,26 @@ fn benchmark_sparse(records: &mut Vec<Record>, orders: &[i64], densities: &[f64]
     }
 }
 
-fn benchmark_structure(records: &mut Vec<Record>, orders: &[i64], densities: &[f64], min_duration: Duration) {
+fn benchmark_structure(
+    records: &mut Vec<Record>,
+    orders: &[i64],
+    densities: &[f64],
+    min_duration: Duration,
+) {
     for &order in orders {
         eprintln!("benchmarking structure order {}", order);
         let (iterations, ns) = time_loop(min_duration, 1 << 14, || {
             black_box(CyclotomicField::new(order));
         });
-        push_record(records, "structure", "construct", order, 1.0, iterations, ns);
+        push_record(
+            records,
+            "structure",
+            "construct",
+            order,
+            1.0,
+            iterations,
+            ns,
+        );
 
         let field = CyclotomicField::new(order);
         for &density in densities {
@@ -186,6 +222,45 @@ fn benchmark_structure(records: &mut Vec<Record>, orders: &[i64], densities: &[f
                 black_box(field.mul(&left, &right));
             });
             push_record(records, "structure", "mul", order, density, iterations, ns);
+
+            let (iterations, ns) = time_loop(min_duration, 1 << 18, || {
+                black_box(field.mul_flat(&left, &right));
+            });
+            push_record(
+                records,
+                "structure_flat",
+                "mul",
+                order,
+                density,
+                iterations,
+                ns,
+            );
+
+            let (iterations, ns) = time_loop(min_duration, 1 << 18, || {
+                black_box(field.mul_sparse_constants(&left, &right));
+            });
+            push_record(
+                records,
+                "structure_sparse",
+                "mul",
+                order,
+                density,
+                iterations,
+                ns,
+            );
+
+            let (iterations, ns) = time_loop(min_duration, 1 << 18, || {
+                black_box(field.mul_sparse_constants_skip_zero_inputs(&left, &right));
+            });
+            push_record(
+                records,
+                "structure_sparse_skip_zero",
+                "mul",
+                order,
+                density,
+                iterations,
+                ns,
+            );
         }
     }
 }
@@ -222,12 +297,9 @@ fn main() {
     } else {
         vec![
             // Small primes.
-            5, 7, 11, 13, 17, 19,
-            // Larger primes up to 100.
-            23, 29, 31, 37, 43, 53, 61, 71, 83, 97,
-            // Powers of two.
-            4, 8, 16, 32, 64,
-            // Highly factorizable and mixed composite orders.
+            5, 7, 11, 13, 17, 19, // Larger primes up to 100.
+            23, 29, 31, 37, 43, 53, 61, 71, 83, 97, // Powers of two.
+            4, 8, 16, 32, 64, // Highly factorizable and mixed composite orders.
             12, 18, 24, 30, 36, 40, 48, 60, 72, 84, 90, 96, 100,
         ]
     };
