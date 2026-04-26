@@ -75,8 +75,9 @@ TODO: some graphs to show this
 
 ## Quick start
 
-TODO: you also need to have the antic and flint libraries installed,
-add some instructions for that.
+The core library only needs a Rust toolchain. The ANTIC and FLINT
+native libraries are optional and are only needed for the benchmark
+binary that compares against ANTIC.
 
 ### Use cyclotomic in a Rust program
 
@@ -106,22 +107,41 @@ full API documentation, along with code examples.
 ## Quick start for devs
 
 1. Install Rust using the instructions on their
-[website](https://www.rust-lang.org/tools/install)
+[website](https://www.rust-lang.org/tools/install). On macOS with
+Homebrew, you can also run `brew install rust`.
 2. Check that Cargo is on your PATH by running `cargo --version` in the
 terminal
 3. Clone this repository using
 `git clone https://github.com/CyclotomicFields/cyclotomic.git`
-4. Download the prime tables by running the bash script
-`./download_prime_tables.sh`. You may then optionally convert it to a CSV using
-the J script `./convert_prime_tables_to_csv.ijs`, which will enable the program
-to load the primes into memory faster
-5. Check that all the tests pass using `cargo test`
+4. Check that all the tests pass using `cargo test`
+5. Optionally download the prime tables by running the bash script
+`./download_prime_tables.sh`. You may then convert it to a CSV using the J
+script `./convert_prime_tables_to_csv.ijs`, which will enable the program to
+load the primes into memory faster.
 6. Add your name to the contributors list in this README and push, to confirm
 that you have push permissions
 7. Check that your push has triggered a pipeline build on
 [Travis](https://travis-ci.com/github/CyclotomicFields/cyclotomic/builds)
-8. Run the benchmark by first installing nightly rust with
-`rustup install nightly` and then running `cargo +nightly bench`.
+
+### Optional ANTIC benchmark dependencies on macOS
+
+The default build does not require ANTIC or FLINT. To build the `cyclobench`
+binary with ANTIC support, install compatible native libraries and enable the
+`bench-antic` feature:
+
+```sh
+cargo build --features bench-antic --bin cyclobench
+```
+
+Homebrew provides FLINT, GMP, and MPFR:
+
+```sh
+brew install flint gmp mpfr
+```
+
+ANTIC is not currently packaged in Homebrew. If you need the ANTIC benchmark,
+build ANTIC from source against a FLINT version compatible with ANTIC. The
+library tests do not need this.
 
 ## Building the documentation
 
