@@ -1,0 +1,18 @@
+[package]
+name = "gap-cyclotom-reference"
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "GPL-2.0-or-later"
+description = "Standalone GAP-derived cyclotomic arithmetic reference for benchmarks"
+
+[build-dependencies]
+cc = "1"
+
+[dev-dependencies]
+cyclotomic = { path = "../.." }
+rug = { version = "=1.17.0", default-features = false, features = ["integer", "rational"] }
+
+[[example]]
+name = "like_for_like"
+path = "examples/like_for_like.rs"
