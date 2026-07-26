@@ -61,7 +61,10 @@ impl PreparedCharacterTable {
             for (sum, irreducible) in sums.iter_mut().zip(&self.weighted_conjugates) {
                 let term = context.mul(&product, &irreducible[class])?;
                 *sum = Some(match sum.take() {
-                    Some(sum) => context.add(&sum, &term)?,
+                    Some(mut sum) => {
+                        context.add_assign(&mut sum, &term)?;
+                        sum
+                    }
                     None => term,
                 });
             }

@@ -87,6 +87,25 @@ fn tagged_fraction_scaling_promotes_without_changing_the_packed_value() {
     assert_eq!(terms, vec![(1, (3, 1)), (2, (-2, 1))]);
 }
 
+#[test]
+fn tagged_in_place_addition_reuses_small_values_and_preserves_overflow_fallback() {
+    let mut tagged = TaggedContext::new();
+    let mut small = tagged.from_integer_terms(5, &[(1, 2)]).unwrap();
+    let increment = tagged.from_integer_terms(5, &[(1, 3)]).unwrap();
+    tagged.add_assign(&mut small, &increment).unwrap();
+    assert!(small.terms()[0].1.is_small());
+    assert_eq!(small.terms()[0].1.numerator(), 5);
+
+    let mut overflowing = tagged.from_integer_terms(1, &[(0, i64::MAX)]).unwrap();
+    let one = tagged.from_integer_terms(1, &[(0, 1)]).unwrap();
+    tagged.add_assign(&mut overflowing, &one).unwrap();
+    assert_eq!(
+        overflowing.terms()[0].1.numerator(),
+        Integer::from(i64::MAX) + 1
+    );
+    assert!(!overflowing.terms()[0].1.is_small());
+}
+
 #[cfg(feature = "libgap")]
 #[test]
 fn tagged_rational_products_equal_unmodified_gap() {

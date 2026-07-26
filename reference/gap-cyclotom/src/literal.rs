@@ -259,7 +259,12 @@ impl<C: Coefficient> KernelContext<C> {
 
     // Direct translation of GAP's Cyclotomic packing and minimal-conductor
     // reduction. `hint` contains prime divisors which may not be removed.
-    fn cyclotomic(&mut self, mut n: u32, hint: u32) -> Result<KernelCyclotomic<C>, Error> {
+    fn cyclotomic_into(
+        &mut self,
+        mut n: u32,
+        hint: u32,
+        terms: &mut Vec<(u32, C)>,
+    ) -> Result<u32, Error> {
         let mut len = 0_usize;
         let mut exponent_gcd = n;
         let mut coefficients_equal = true;
@@ -362,7 +367,8 @@ impl<C: Coefficient> KernelContext<C> {
             p += 2;
         }
 
-        let mut terms = Vec::with_capacity(len);
+        terms.clear();
+        terms.reserve(len);
         for i in 0..n {
             let coefficient = self.result_cyc[i as usize].clone();
             if coefficient.is_zero() {
@@ -371,7 +377,13 @@ impl<C: Coefficient> KernelContext<C> {
             terms.push((i, coefficient));
             self.result_cyc[i as usize] = C::zero();
         }
-        Ok(KernelCyclotomic { order: n, terms })
+        Ok(n)
+    }
+
+    fn cyclotomic(&mut self, n: u32, hint: u32) -> Result<KernelCyclotomic<C>, Error> {
+        let mut terms = Vec::new();
+        let order = self.cyclotomic_into(n, hint, &mut terms)?;
+        Ok(KernelCyclotomic { order, terms })
     }
 
     fn find_common_field(&mut self, nl: u32, nr: u32) -> Result<(u32, u32, u32), Error> {
@@ -408,6 +420,15 @@ impl<C: Coefficient> KernelContext<C> {
         lhs: &KernelCyclotomic<C>,
         rhs: &KernelCyclotomic<C>,
     ) -> Result<KernelCyclotomic<C>, Error> {
+        let (n, hint) = self.add_to_result(lhs, rhs)?;
+        self.cyclotomic(n, hint)
+    }
+
+    fn add_to_result(
+        &mut self,
+        lhs: &KernelCyclotomic<C>,
+        rhs: &KernelCyclotomic<C>,
+    ) -> Result<(u32, u32), Error> {
         let (ml, mr, n) = self.find_common_field(lhs.order, rhs.order)?;
         self.result_cyc[..n as usize].fill(C::zero());
 
@@ -422,7 +443,18 @@ impl<C: Coefficient> KernelContext<C> {
         if lhs.order % ml != 0 || rhs.order % mr != 0 {
             self.convert_to_base(n)?;
         }
-        self.cyclotomic(n, ml * mr)
+        Ok((n, ml * mr))
+    }
+
+    pub fn add_assign(
+        &mut self,
+        lhs: &mut KernelCyclotomic<C>,
+        rhs: &KernelCyclotomic<C>,
+    ) -> Result<(), Error> {
+        let (n, hint) = self.add_to_result(lhs, rhs)?;
+        let order = self.cyclotomic_into(n, hint, &mut lhs.terms)?;
+        lhs.order = order;
+        Ok(())
     }
 
     pub fn mul(

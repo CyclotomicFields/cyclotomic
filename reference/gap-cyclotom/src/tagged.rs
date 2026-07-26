@@ -372,6 +372,18 @@ impl Context {
         self.exact_kernel.add(&lhs, &rhs).map(Cyclotomic::Exact)
     }
 
+    pub fn add_assign(&mut self, lhs: &mut Cyclotomic, rhs: &Cyclotomic) -> Result<(), Error> {
+        if let (Cyclotomic::Small(left), Cyclotomic::Small(right)) = (&mut *lhs, rhs) {
+            if self.small_kernel.add_assign(left, right).is_ok() {
+                return Ok(());
+            }
+        }
+        let left = Self::promote(lhs);
+        let right = Self::promote(rhs);
+        *lhs = Cyclotomic::Exact(self.exact_kernel.add(&left, &right)?);
+        Ok(())
+    }
+
     pub fn mul(&mut self, lhs: &Cyclotomic, rhs: &Cyclotomic) -> Result<Cyclotomic, Error> {
         if let (Cyclotomic::Small(lhs), Cyclotomic::Small(rhs)) = (lhs, rhs) {
             if let Ok(value) = self.small_kernel.mul(lhs, rhs) {
