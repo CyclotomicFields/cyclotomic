@@ -492,6 +492,57 @@ impl<C: Coefficient> KernelContext<C> {
         self.cyclotomic(n, ml * mr)
     }
 
+    pub fn mul_add_assign(
+        &mut self,
+        accumulator: &mut KernelCyclotomic<C>,
+        lhs: &KernelCyclotomic<C>,
+        rhs: &KernelCyclotomic<C>,
+    ) -> Result<(), Error> {
+        let common_product =
+            u64::from(lhs.order) * u64::from(rhs.order / gcd(lhs.order, rhs.order));
+        let common_product = u32::try_from(common_product)
+            .map_err(|_| Error("common cyclotomic field exceeds uint32_t".into()))?;
+        let n = u64::from(common_product)
+            * u64::from(accumulator.order / gcd(common_product, accumulator.order));
+        let n = u32::try_from(n)
+            .map_err(|_| Error("common cyclotomic field exceeds uint32_t".into()))?;
+        self.grow_result_cyc(n);
+        self.result_cyc[..n as usize].fill(C::zero());
+
+        let accumulator_scale = n / accumulator.order;
+        for (exponent, coefficient) in &accumulator.terms {
+            self.result_cyc[(*exponent * accumulator_scale) as usize] = coefficient.clone();
+        }
+
+        let (left, right) = if lhs.terms.len() < rhs.terms.len() {
+            (rhs, lhs)
+        } else {
+            (lhs, rhs)
+        };
+        let left_scale = n / left.order;
+        let right_scale = n / right.order;
+        for (right_exponent, right_coefficient) in &right.terms {
+            let offset = u64::from(*right_exponent) * u64::from(right_scale) % u64::from(n);
+            for (left_exponent, left_coefficient) in &left.terms {
+                let exponent =
+                    (offset + u64::from(*left_exponent) * u64::from(left_scale)) % u64::from(n);
+                let slot = &mut self.result_cyc[exponent as usize];
+                if right_coefficient.is_one() {
+                    slot.add_assign(left_coefficient)?;
+                } else if right_coefficient.is_minus_one() {
+                    slot.sub_assign(left_coefficient)?;
+                } else {
+                    slot.add_assign(&left_coefficient.mul(right_coefficient)?)?;
+                }
+            }
+        }
+
+        self.convert_to_base(n)?;
+        let order = self.cyclotomic_into(n, 1, &mut accumulator.terms)?;
+        accumulator.order = order;
+        Ok(())
+    }
+
     pub fn conjugate(&mut self, value: &KernelCyclotomic<C>) -> Result<KernelCyclotomic<C>, Error> {
         let n = value.order;
         self.reset_result_cyc(n);
@@ -558,5 +609,22 @@ mod tests {
         let e4 = context.root(5, 4).unwrap();
         let product = context.mul(&e2, &e4).unwrap();
         assert_eq!(product, context.root(5, 1).unwrap());
+    }
+
+    #[test]
+    fn fused_multiply_add_matches_separate_operations() {
+        let mut context = Context::new();
+        for order in [5, 8, 12, 15, 20] {
+            let accumulator = context
+                .from_terms(order, &[(0, 3), (1, -2), (3, 1)])
+                .unwrap();
+            let lhs = context.from_terms(order, &[(1, 2), (4, -1)]).unwrap();
+            let rhs = context.from_terms(order, &[(0, -3), (2, 1)]).unwrap();
+            let product = context.mul(&lhs, &rhs).unwrap();
+            let expected = context.add(&accumulator, &product).unwrap();
+            let mut actual = accumulator;
+            context.mul_add_assign(&mut actual, &lhs, &rhs).unwrap();
+            assert_eq!(actual, expected, "order {order}");
+        }
     }
 }

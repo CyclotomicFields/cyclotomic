@@ -395,6 +395,32 @@ impl Context {
         self.exact_kernel.mul(&lhs, &rhs).map(Cyclotomic::Exact)
     }
 
+    pub fn mul_add_assign(
+        &mut self,
+        accumulator: &mut Cyclotomic,
+        lhs: &Cyclotomic,
+        rhs: &Cyclotomic,
+    ) -> Result<(), Error> {
+        if let (Cyclotomic::Small(accumulator), Cyclotomic::Small(left), Cyclotomic::Small(right)) =
+            (&mut *accumulator, lhs, rhs)
+        {
+            if self
+                .small_kernel
+                .mul_add_assign(accumulator, left, right)
+                .is_ok()
+            {
+                return Ok(());
+            }
+        }
+        let mut exact_accumulator = Self::promote(accumulator);
+        let left = Self::promote(lhs);
+        let right = Self::promote(rhs);
+        self.exact_kernel
+            .mul_add_assign(&mut exact_accumulator, &left, &right)?;
+        *accumulator = Cyclotomic::Exact(exact_accumulator);
+        Ok(())
+    }
+
     pub fn conjugate(&mut self, value: &Cyclotomic) -> Result<Cyclotomic, Error> {
         match value {
             Cyclotomic::Small(value) => self.small_kernel.conjugate(value).map(Cyclotomic::Small),

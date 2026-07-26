@@ -106,6 +106,19 @@ fn tagged_in_place_addition_reuses_small_values_and_preserves_overflow_fallback(
     assert!(!overflowing.terms()[0].1.is_small());
 }
 
+#[test]
+fn tagged_fused_multiply_add_preserves_overflow_fallback() {
+    let mut tagged = TaggedContext::new();
+    let mut accumulator = tagged.from_integer_terms(1, &[(0, i64::MAX)]).unwrap();
+    let one = tagged.from_integer_terms(1, &[(0, 1)]).unwrap();
+    tagged.mul_add_assign(&mut accumulator, &one, &one).unwrap();
+    assert_eq!(
+        accumulator.terms()[0].1.numerator(),
+        Integer::from(i64::MAX) + 1
+    );
+    assert!(!accumulator.terms()[0].1.is_small());
+}
+
 #[cfg(feature = "libgap")]
 #[test]
 fn tagged_rational_products_equal_unmodified_gap() {

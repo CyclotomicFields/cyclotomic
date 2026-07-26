@@ -59,14 +59,14 @@ impl PreparedCharacterTable {
         for class in 0..self.rows[lhs].len() {
             let product = context.mul(&self.rows[lhs][class], &self.rows[rhs][class])?;
             for (sum, irreducible) in sums.iter_mut().zip(&self.weighted_conjugates) {
-                let term = context.mul(&product, &irreducible[class])?;
-                *sum = Some(match sum.take() {
-                    Some(mut sum) => {
-                        context.add_assign(&mut sum, &term)?;
-                        sum
+                match sum {
+                    Some(sum) => {
+                        context.mul_add_assign(sum, &product, &irreducible[class])?;
                     }
-                    None => term,
-                });
+                    None => {
+                        *sum = Some(context.mul(&product, &irreducible[class])?);
+                    }
+                }
             }
         }
 
