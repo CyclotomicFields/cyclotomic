@@ -506,6 +506,17 @@ impl<C: Coefficient> KernelCyclotomic<C> {
             .zip(self.coefficients.iter().cloned())
             .collect()
     }
+
+    pub(crate) fn map_coefficients<D: Coefficient>(
+        &self,
+        mut map: impl FnMut(&C) -> D,
+    ) -> KernelCyclotomic<D> {
+        KernelCyclotomic {
+            order: self.order,
+            coefficients: self.coefficients.iter().map(&mut map).collect(),
+            exponents: self.exponents.clone(),
+        }
+    }
 }
 
 pub type Context = KernelContext<i64>;

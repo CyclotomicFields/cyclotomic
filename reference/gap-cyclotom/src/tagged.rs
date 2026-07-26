@@ -423,15 +423,7 @@ impl Context {
     fn promote(value: &Cyclotomic) -> KernelCyclotomic<TaggedRational> {
         match value {
             Cyclotomic::Small(value) => {
-                let mut kernel = KernelContext::new();
-                let terms: Vec<_> = value
-                    .terms()
-                    .into_iter()
-                    .map(|(exponent, coefficient)| (exponent, TaggedRational::from(coefficient)))
-                    .collect();
-                kernel
-                    .from_terms(value.order(), &terms)
-                    .expect("promoting i64 coefficients cannot fail")
+                value.map_coefficients(|coefficient| TaggedRational::from(*coefficient))
             }
             Cyclotomic::Exact(value) => value.clone(),
         }

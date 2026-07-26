@@ -65,6 +65,28 @@ fn tagged_kernel_promotes_overflowing_cyclotomic_coefficients() {
     assert_eq!(terms[0].1.denominator(), 1);
 }
 
+#[test]
+fn tagged_fraction_scaling_promotes_without_changing_the_packed_value() {
+    let mut tagged = TaggedContext::new();
+    let value = tagged.from_integer_terms(5, &[(1, 6), (2, -4)]).unwrap();
+    let scaled = tagged.scale_fraction(&value, 1, 2).unwrap();
+    let terms: Vec<_> = scaled
+        .rational_terms()
+        .into_iter()
+        .map(|(exponent, coefficient)| {
+            (
+                exponent,
+                (
+                    coefficient.numer().to_i64().unwrap(),
+                    coefficient.denom().to_i64().unwrap(),
+                ),
+            )
+        })
+        .collect();
+    assert_eq!(scaled.order(), value.order());
+    assert_eq!(terms, vec![(1, (3, 1)), (2, (-2, 1))]);
+}
+
 #[cfg(feature = "libgap")]
 #[test]
 fn tagged_rational_products_equal_unmodified_gap() {
