@@ -3,10 +3,83 @@ use crate::fields::sparse::basis::{convert_to_base, try_reduce};
 use crate::fields::sparse::*;
 use crate::fields::{CyclotomicFieldElement, MultiplicativeGroupElement, Q};
 use galois::apply_automorphism;
-use std::convert::TryInto;
+use std::convert::TryFrom;
 use crate::fields::util::Sign;
 use crate::fields::exponent::Exponent;
 use crate::fields::rational::Rational;
+
+/// Reusable dense accumulator for sparse products. Only touched slots are
+/// cleared between calls, so callers can amortize allocation across a workload.
+pub struct PackedMulScratch<Q: Rational> {
+    coefficients: Vec<Q>,
+    touched: Vec<usize>,
+}
+
+impl<Q: Rational> PackedMulScratch<Q> {
+    pub fn new() -> Self {
+        Self {
+            coefficients: Vec::new(),
+            touched: Vec::new(),
+        }
+    }
+
+    fn prepare(&mut self, order: usize) {
+        for index in self.touched.drain(..) {
+            self.coefficients[index] = Q::zero();
+        }
+        if self.coefficients.len() < order {
+            self.coefficients.resize_with(order, Q::zero);
+        }
+    }
+}
+
+impl<Q: Rational> Default for PackedMulScratch<Q> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<Q: Rational> Number<i64, Q> {
+    pub fn mul_packed(&self, rhs: &Self, scratch: &mut PackedMulScratch<Q>) -> Self {
+        if self.order == rhs.order {
+            return Self::mul_packed_same_order(self, rhs, scratch);
+        }
+
+        let mut left = self.clone();
+        let mut right = rhs.clone();
+        Self::match_orders(&mut left, &mut right);
+        Self::mul_packed_same_order(&left, &right, scratch)
+    }
+
+    fn mul_packed_same_order(
+        left: &Self,
+        right: &Self,
+        scratch: &mut PackedMulScratch<Q>,
+    ) -> Self {
+        let order = usize::try_from(left.order).expect("cyclotomic order fits usize");
+        scratch.prepare(order);
+        for (left_exp, left_coeff) in &left.coeffs {
+            for (right_exp, right_coeff) in &right.coeffs {
+                let exponent = (left_exp + right_exp).rem_euclid(left.order) as usize;
+                let mut product = left_coeff.clone();
+                product.mul(&mut right_coeff.clone());
+                if scratch.coefficients[exponent].is_zero() {
+                    scratch.touched.push(exponent);
+                }
+                scratch.coefficients[exponent].add(&mut product);
+            }
+        }
+
+        let mut coefficients = ExpCoeffMap::default();
+        for &index in &scratch.touched {
+            let coefficient = &scratch.coefficients[index];
+            if !coefficient.is_zero() {
+                coefficients.insert(index as i64, coefficient.clone());
+            }
+        }
+        Number::new(&left.order, &coefficients)
+    }
+}
 
 impl<E, Q> MultiplicativeGroupElement for Number<E, Q> where E: Exponent, Q: Rational {
     /// Multiplies term by term, not bothering to do anything interesting.
@@ -76,5 +149,40 @@ impl<E, Q> MultiplicativeGroupElement for Number<E, Q> where E: Exponent, Q: Rat
         let z_inv = x.scalar_mul(q_rat);
         *self = z_inv.clone();
         self
+    }
+}
+
+#[cfg(test)]
+mod packed_tests {
+    use super::*;
+    use crate::fields::rational::HybridRational;
+
+    #[test]
+    fn packed_products_match_the_general_implementation_and_reuse_scratch() {
+        let left = Number::<i64, HybridRational>::new(
+            &5,
+            &[(1, 2.into()), (4, (-3).into())]
+                .iter()
+                .cloned()
+                .collect(),
+        );
+        let right = Number::<i64, HybridRational>::new(
+            &3,
+            &[(0, 7.into()), (2, 1.into())]
+                .iter()
+                .cloned()
+                .collect(),
+        );
+        let mut expected = left.clone();
+        expected.mul(&mut right.clone());
+
+        let mut scratch = PackedMulScratch::new();
+        let mut actual = left.mul_packed(&right, &mut scratch);
+        assert!(actual.eq(&mut expected));
+
+        let mut second = right.mul_packed(&right, &mut scratch);
+        let mut expected_second = right.clone();
+        expected_second.mul(&mut right.clone());
+        assert!(second.eq(&mut expected_second));
     }
 }

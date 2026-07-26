@@ -1,7 +1,7 @@
 use cyclotomic::fields::dense;
 use cyclotomic::fields::rational::{HybridRational, Rational as RationalCoefficient};
 use cyclotomic::fields::sparse;
-use cyclotomic::fields::{CyclotomicFieldElement, GenericCyclotomic};
+use cyclotomic::fields::{AdditiveGroupElement, CyclotomicFieldElement, GenericCyclotomic};
 use gap_cyclotom_reference::libgap::{CharacterTable, CharacterTableCase, Context, Cyclotomic};
 use rug::Integer;
 use std::hint::black_box;
@@ -84,6 +84,41 @@ where
         .collect()
 }
 
+fn tensor_decomposition_packed(
+    rows: &[Vec<sparse::Number<i64, HybridRational>>],
+    class_sizes: &[i64],
+    group_order: i64,
+    lhs: usize,
+    rhs: usize,
+    scratch: &mut sparse::mul::PackedMulScratch<HybridRational>,
+) -> Vec<sparse::Number<i64, HybridRational>> {
+    let product: Vec<_> = rows[lhs]
+        .iter()
+        .zip(&rows[rhs])
+        .map(|(left, right)| left.mul_packed(right, scratch))
+        .collect();
+
+    rows.iter()
+        .map(|irreducible| {
+            let mut sum: Option<sparse::Number<i64, HybridRational>> = None;
+            for ((value, character), class_size) in product.iter().zip(irreducible).zip(class_sizes)
+            {
+                let conjugate = character.complex_conjugate();
+                let mut term = value.mul_packed(&conjugate, scratch);
+                term.scalar_mul(&HybridRational::from(*class_size));
+                if let Some(sum) = &mut sum {
+                    sum.add(&mut term);
+                } else {
+                    sum = Some(term);
+                }
+            }
+            let mut sum = sum.expect("character tables have at least one class");
+            sum.scalar_mul(&HybridRational::from((1, group_order as u64)));
+            sum
+        })
+        .collect()
+}
+
 fn integer(value: i64) -> GenericCyclotomic {
     GenericCyclotomic {
         order: Integer::from(1),
@@ -157,14 +192,16 @@ fn main() {
         let sparse_rows: Vec<Vec<sparse::Number<i64, HybridRational>>> =
             convert_table(&table);
         let dense_rows: Vec<Vec<dense::Number>> = convert_table(&table);
+        let mut sparse_scratch = sparse::mul::PackedMulScratch::new();
 
         assert_decomposition(
-            &tensor_decomposition(
+            &tensor_decomposition_packed(
                 &sparse_rows,
                 &table.class_sizes,
                 table.group_order,
                 lhs,
                 rhs,
+                &mut sparse_scratch,
             ),
             &expected,
         );
@@ -181,12 +218,13 @@ fn main() {
             );
         });
         let (sparse_iterations, sparse_ns) = measure(|| {
-            black_box(tensor_decomposition(
+            black_box(tensor_decomposition_packed(
                 &sparse_rows,
                 &table.class_sizes,
                 table.group_order,
                 lhs,
                 rhs,
+                &mut sparse_scratch,
             ));
         });
         let (dense_iterations, dense_ns) = measure(|| {
@@ -201,7 +239,7 @@ fn main() {
 
         for (implementation, iterations, ns) in [
             ("gap_unmodified_libgap", gap_iterations, gap_ns),
-            ("rust_sparse_hybrid_rational", sparse_iterations, sparse_ns),
+            ("rust_sparse_packed_hybrid", sparse_iterations, sparse_ns),
             ("rust_dense_rational", dense_iterations, dense_ns),
         ] {
             if !first_record {
