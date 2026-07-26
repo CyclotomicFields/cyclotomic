@@ -287,6 +287,31 @@ fn main() {
                 rhs,
             ));
         });
+        let (sparse_alloc_iterations, sparse_alloc_ns) = measure(|| {
+            let rows: Vec<Vec<sparse::Number<i64, HybridRational>>> =
+                convert_table(&table);
+            let conjugates = weighted_conjugates(&rows, &table.class_sizes);
+            let mut scratch = sparse::mul::PackedMulScratch::new();
+            black_box(sparse_multiplicities(
+                &rows,
+                &conjugates,
+                table.group_order,
+                lhs,
+                rhs,
+                &mut scratch,
+            ));
+        });
+        let (dense_alloc_iterations, dense_alloc_ns) = measure(|| {
+            let rows: Vec<Vec<dense::Number>> = convert_table(&table);
+            let conjugates = weighted_conjugates(&rows, &table.class_sizes);
+            black_box(dense_multiplicities(
+                &rows,
+                &conjugates,
+                table.group_order,
+                lhs,
+                rhs,
+            ));
+        });
 
         for (implementation, mode, iterations, ns) in [
             (
@@ -297,15 +322,27 @@ fn main() {
             ),
             (
                 "rust_sparse_packed_hybrid",
-                "precomputed_canonical_integer",
+                "prepared_arithmetic_only",
                 sparse_iterations,
                 sparse_ns,
             ),
             (
                 "rust_dense_rational",
-                "precomputed_canonical_integer",
+                "prepared_arithmetic_only",
                 dense_iterations,
                 dense_ns,
+            ),
+            (
+                "rust_sparse_packed_hybrid",
+                "allocation_inclusive_end_to_end",
+                sparse_alloc_iterations,
+                sparse_alloc_ns,
+            ),
+            (
+                "rust_dense_rational",
+                "allocation_inclusive_end_to_end",
+                dense_alloc_iterations,
+                dense_alloc_ns,
             ),
         ] {
             if !first_record {

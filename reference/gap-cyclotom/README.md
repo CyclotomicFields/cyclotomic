@@ -89,11 +89,14 @@ tensor product of two non-rational irreducible characters: it pointwise
 multiplies their character values, takes the weighted scalar product with
 every irreducible character, and returns the integer multiplicities. Every
 Rust result is checked exactly against GAP before measurements are emitted.
-Table construction and conversion are deliberately outside the timed region.
-This first benchmark is labeled `native_representation`: GAP returns canonical
-integer multiplicities, while the Rust implementations retain their normal
-lazy cyclotomic representation. A separately labeled canonical-result mode
-remains planned below.
+The Rust records expose both `prepared_arithmetic_only`, where table conversion
+and invariant weighted conjugates are prepared before timing, and
+`allocation_inclusive_end_to_end`, where conversion, precomputation, scratch
+construction, arithmetic, and canonical integer output all occur inside each
+iteration. “Arithmetic only” excludes setup allocation but still includes
+temporary and result allocation intrinsic to the current arithmetic API. The
+GAP record is labeled `native_representation`; its public libgap call includes
+GAP's own scalar-product work and result-list construction.
 
 The stress benchmark uses a 10 ms calibration target. It omits the structure
 implementation at large orders because that implementation eagerly constructs
@@ -108,9 +111,9 @@ per operand, and emits JSON records for:
   minimal-conductor result on every operation.
 - `gap_unmodified_libgap` uses original GAP objects, automatic small/big
   integer and rational arithmetic, and the original cyclotomic kernel.
-- `rust_sparse_rational` uses GMP-backed `rug::Rational`, clones operands to
-  satisfy its mutating API, and leaves multiplication in its normal
-  noncanonical internal representation.
+- `rust_sparse_packed_hybrid` keeps machine-size integers inline, promotes
+  exactly to GMP rationals when necessary, and reuses a packed multiplication
+  scratchpad.
 - `rust_dense_rational` uses the dense root-of-unity representation.
 - `rust_structure_rational` uses the nested structure-constant implementation.
 
@@ -168,4 +171,5 @@ multiplicities.
 2. Add subtraction, scalar multiplication, Galois action, and inversion there.
 3. Extend differential tests to more GAP edge cases and large coefficients.
 4. Continue the representative workload plan above.
-5. Split arithmetic-only, allocation-inclusive, and batch-workload benchmarks.
+5. Add batch-workload benchmarks on top of the implemented prepared-arithmetic
+   and allocation-inclusive modes.
