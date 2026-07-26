@@ -70,6 +70,12 @@ impl PreparedCharacterTable {
         sums.into_iter()
             .map(|sum| {
                 let sum = sum.ok_or_else(|| Error("character table has no classes".into()))?;
+                if matches!(&sum, Cyclotomic::Small(_)) {
+                    let numerator = integer_value(&sum)?;
+                    if numerator % self.group_order == 0 {
+                        return Ok(numerator / self.group_order);
+                    }
+                }
                 let multiplicity = context.scale_fraction(&sum, 1, self.group_order)?;
                 integer_value(&multiplicity)
             })
