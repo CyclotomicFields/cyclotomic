@@ -113,6 +113,25 @@ promotion to arbitrary integers and rationals. Consequently the two paths run
 the same mathematical control flow but need not have identical allocation and
 coefficient-operation costs.
 
+For the adaptive coefficient implementation:
+
+```sh
+LIBGAP_ROOT="$PWD/reference/gap-cyclotom/target/libgap-d2134de71521c62512b8351c42ec16bfbac21744" \
+cargo run --release \
+  --manifest-path reference/gap-cyclotom/Cargo.toml \
+  --features libgap \
+  --example tagged_gap_vs_libgap > tagged-rust-vs-libgap.json
+```
+
+This path dispatches an all-integer cyclotomic to the checked packed `i64`
+kernel. An overflowing operation or rational input promotes transparently to
+the exact kernel. Its scalar `TaggedRational` is one machine word: the low bit
+marks an immediate signed integer, while an aligned pointer refers to a boxed
+`rug::Rational`. The hot accumulator mutates promoted rationals in place.
+This deliberately improves on a mechanically generic translation: integer
+workloads pay no per-coefficient enum or destructor cost, while arbitrary
+integers and fractions remain exact.
+
 This asks unmodified GAP to construct the character tables of `A5`, `SL(2,5)`,
 and `PSL(2,11)`. Before timing, it transfers the exact table entries and class
 sizes into both Rust representations. The timed operation decomposes the
