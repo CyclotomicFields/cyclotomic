@@ -8,6 +8,11 @@ use cyclotomic::fields::{
 use gap_cyclotom_reference::{Context, Cyclotomic};
 use rug::Integer;
 use std::collections::HashMap;
+#[cfg(feature = "libgap")]
+use std::sync::Mutex;
+
+#[cfg(feature = "libgap")]
+static LIBGAP_TEST_LOCK: Mutex<()> = Mutex::new(());
 
 #[cfg(feature = "libgap")]
 fn libgap_generic(value: &gap_cyclotom_reference::libgap::Cyclotomic) -> GenericCyclotomic {
@@ -179,6 +184,7 @@ fn mixed_field_sums_agree_with_rust() {
 fn real_gap_rational_arithmetic_agrees_with_rust() {
     use gap_cyclotom_reference::libgap::Context as LibgapContext;
 
+    let _guard = LIBGAP_TEST_LOCK.lock().unwrap();
     let context = LibgapContext::new().unwrap();
     for order in [7_u32, 8, 12, 15, 20] {
         let lhs_terms = [
@@ -268,5 +274,97 @@ fn real_gap_rational_arithmetic_agrees_with_rust() {
             )),
             "real GAP/structure rational product mismatch for order {order}"
         );
+    }
+}
+
+#[cfg(feature = "libgap")]
+#[test]
+fn stressed_real_gap_products_agree_with_rust() {
+    use gap_cyclotom_reference::libgap::Context as LibgapContext;
+
+    let _guard = LIBGAP_TEST_LOCK.lock().unwrap();
+    let context = LibgapContext::new().unwrap();
+    let cases = [
+        (97_u32, 1_u32, true),
+        (120, 100, true),
+        (1009, 1, false),
+        (2520, 1, false),
+    ];
+
+    for (order, density_percent, include_structure) in cases {
+        let count = (order * density_percent).div_ceil(100).max(1);
+        let make_terms = |salt: u32| {
+            (0..count)
+                .map(|index| {
+                    let exponent = (index * 37 + salt * 11) % order;
+                    let magnitude = 1_000_000_i64 + i64::from((index + salt * 3) % 97 + 1);
+                    let numerator = if (index + salt) % 2 == 0 {
+                        magnitude
+                    } else {
+                        -magnitude
+                    };
+                    let denominator = [2_i64, 3, 5, 7][((index + salt) % 4) as usize];
+                    (exponent, (numerator, denominator))
+                })
+                .collect::<Vec<_>>()
+        };
+        let left_terms = make_terms(1);
+        let right_terms = make_terms(2);
+        let generic = |terms: &[(u32, (i64, i64))]| GenericCyclotomic {
+            order: Integer::from(order),
+            exp_coeffs: terms
+                .iter()
+                .map(|&(exponent, (numerator, denominator))| {
+                    (
+                        Integer::from(exponent),
+                        (numerator, u64::try_from(denominator).unwrap()),
+                    )
+                })
+                .collect(),
+        };
+        let left_generic = generic(&left_terms);
+        let right_generic = generic(&right_terms);
+
+        let gap_left = context.from_terms(order, &left_terms).unwrap();
+        let gap_right = context.from_terms(order, &right_terms).unwrap();
+        let gap_product = context.mul(&gap_left, &gap_right).unwrap();
+        let gap_product_generic = libgap_generic(&gap_product);
+
+        let mut sparse_left: sparse::Number = sparse::Number::from_generic(&left_generic);
+        let mut sparse_right: sparse::Number = sparse::Number::from_generic(&right_generic);
+        let sparse_product = sparse_left.mul(&mut sparse_right).clone();
+        assert!(
+            sparse::Number::from_generic(&gap_product_generic).eq(&mut sparse_product.clone()),
+            "real GAP/sparse stress product mismatch for order {order}, density {density_percent}%"
+        );
+
+        let mut dense_left: dense::Number = dense::Number::from_generic(&left_generic);
+        let mut dense_right: dense::Number = dense::Number::from_generic(&right_generic);
+        let dense_product = dense_left.mul(&mut dense_right).clone();
+        assert!(
+            dense::Number::from_generic(&gap_product_generic).eq(&mut dense_product.clone()),
+            "real GAP/dense stress product mismatch for order {order}, density {density_percent}%"
+        );
+
+        if include_structure {
+            let field = CyclotomicField::new(i64::from(order));
+            let structure_left = write_dense_in_basis(
+                &mut dense::Number::from_generic(&left_generic),
+                &field.basis,
+            );
+            let structure_right = write_dense_in_basis(
+                &mut dense::Number::from_generic(&right_generic),
+                &field.basis,
+            );
+            let structure_product = field.mul(&structure_left, &structure_right);
+            assert!(
+                sparse::Number::from_generic(&gap_product_generic).eq(&mut structure_as_sparse(
+                    i64::from(order),
+                    &field,
+                    &structure_product,
+                )),
+                "real GAP/structure stress product mismatch for order {order}, density {density_percent}%"
+            );
+        }
     }
 }

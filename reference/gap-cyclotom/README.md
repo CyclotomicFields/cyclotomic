@@ -63,6 +63,21 @@ cargo run --release \
   --example rational_like_for_like > rational-results.json
 ```
 
+For a short, deliberately harsher run covering 1% and 100% density, high
+prime orders, highly composite orders, and trillion-scale numerators:
+
+```sh
+cargo run --release \
+  --manifest-path reference/gap-cyclotom/Cargo.toml \
+  --features libgap \
+  --example stress_like_for_like > stress-results.json
+```
+
+The stress benchmark uses a 10 ms calibration target. It omits the structure
+implementation at large orders because that implementation eagerly constructs
+and retains cubic-size structure-constant tables; order 10009 also omits the
+quadratic dense implementation.
+
 The benchmark takes roughly ten seconds after compilation, constructs identical
 deterministic integer inputs before timing, guarantees at least one nonzero term
 per operand, and emits JSON records for:

@@ -25,3 +25,8 @@ path = "examples/like_for_like.rs"
 name = "rational_like_for_like"
 path = "examples/rational_like_for_like.rs"
 required-features = ["libgap"]
+
+[[example]]
+name = "stress_like_for_like"
+path = "examples/stress_like_for_like.rs"
+required-features = ["libgap"]
