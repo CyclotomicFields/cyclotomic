@@ -121,6 +121,12 @@ cargo run --release \
   --manifest-path reference/gap-cyclotom/Cargo.toml \
   --features libgap \
   --example tagged_gap_vs_libgap > tagged-rust-vs-libgap.json
+
+LIBGAP_ROOT="$PWD/reference/gap-cyclotom/target/libgap-d2134de71521c62512b8351c42ec16bfbac21744" \
+cargo run --release \
+  --manifest-path reference/gap-cyclotom/Cargo.toml \
+  --features libgap \
+  --example tagged_character_tables > tagged-character-tables.json
 ```
 
 This path dispatches an all-integer cyclotomic to the checked packed `i64`
@@ -131,6 +137,15 @@ marks an immediate signed integer, while an aligned pointer refers to a boxed
 This deliberately improves on a mechanically generic translation: integer
 workloads pay no per-coefficient enum or destructor cost, while arbitrary
 integers and fractions remain exact.
+
+`tagged_character_tables` imports GAP's exact character tables for `A5`,
+`SL(2,5)`, and `PSL(2,11)` into that adaptive kernel. It precomputes the
+class-size-weighted conjugates, then decomposes every unordered pair of
+irreducible characters. Before timing, every multiplicity vector is checked
+against GAP. Each short timing iteration is one complete sweep, and the JSON
+reports both time per sweep and time per tensor decomposition. Table import and
+the invariant weighted conjugates are outside both timings; result construction
+and all temporary cyclotomic arithmetic remain inside.
 
 This asks unmodified GAP to construct the character tables of `A5`, `SL(2,5)`,
 and `PSL(2,11)`. Before timing, it transfers the exact table entries and class

@@ -47,3 +47,8 @@ required-features = ["libgap"]
 name = "tagged_gap_vs_libgap"
 path = "examples/tagged_gap_vs_libgap.rs"
 required-features = ["libgap"]
+
+[[example]]
+name = "tagged_character_tables"
+path = "examples/tagged_character_tables.rs"
+required-features = ["libgap"]
