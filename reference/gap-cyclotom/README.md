@@ -147,6 +147,21 @@ reports both time per sweep and time per tensor decomposition. Table import and
 the invariant weighted conjugates are outside both timings; result construction
 and all temporary cyclotomic arithmetic remain inside.
 
+The same workload is also a proper Cargo benchmark target:
+
+```sh
+LIBGAP_ROOT="$PWD/reference/gap-cyclotom/target/libgap-d2134de71521c62512b8351c42ec16bfbac21744" \
+cargo bench \
+  --manifest-path reference/gap-cyclotom/Cargo.toml \
+  --features libgap \
+  --bench tagged_character_tables
+```
+
+It reports median and range over 15 calibrated samples per table and
+implementation. `CYCLOTOMIC_BENCH_TABLE`, `CYCLOTOMIC_BENCH_IMPL`,
+`CYCLOTOMIC_BENCH_SAMPLE_MS`, and `CYCLOTOMIC_BENCH_SAMPLES` filter or extend
+the run for profiling.
+
 This asks unmodified GAP to construct the character tables of `A5`, `SL(2,5)`,
 and `PSL(2,11)`. Before timing, it transfers the exact table entries and class
 sizes into both Rust representations. The timed operation decomposes the

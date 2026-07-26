@@ -52,3 +52,9 @@ required-features = ["libgap"]
 name = "tagged_character_tables"
 path = "examples/tagged_character_tables.rs"
 required-features = ["libgap"]
+
+[[bench]]
+name = "tagged_character_tables"
+path = "benches/tagged_character_tables.rs"
+harness = false
+required-features = ["libgap"]
