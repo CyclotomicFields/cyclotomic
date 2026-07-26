@@ -5,6 +5,7 @@ use basis::{convert_to_base, try_reduce};
 use galois::apply_automorphism;
 use crate::fields::exponent::Exponent;
 use crate::fields::util::Sign;
+use crate::fields::rational::Rational;
 
 impl MultiplicativeGroupElement for Number {
     /// Multiplies term by term, not bothering to do anything interesting.
@@ -19,9 +20,15 @@ impl MultiplicativeGroupElement for Number {
         // TODO: make it gooder
         result.order = z1.order;
         for i in 0..z1.order {
+            if z1.coeffs[i as usize].is_zero() {
+                continue;
+            }
             for j in 0..z2.order {
+                if z2.coeffs[j as usize].is_zero() {
+                    continue;
+                }
                 let new_exp = (i + j) % z1.order;
-                let new_coeff = (&z1.coeffs[i as usize] * &z2.coeffs[j as usize]).into();
+                let new_coeff = z1.coeffs[i as usize].product(&z2.coeffs[j as usize]);
                 add_single(&mut result.coeffs, new_exp, &new_coeff, Sign::Plus);
             }
         }

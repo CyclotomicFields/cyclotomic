@@ -14,6 +14,39 @@ pub trait Rational:
 
     fn is_zero(&self) -> bool;
 
+    fn is_one(&self) -> bool {
+        self.numer() == Z::from(1) && self.denom() == Z::from(1)
+    }
+
+    fn is_minus_one(&self) -> bool {
+        self.numer() == Z::from(-1) && self.denom() == Z::from(1)
+    }
+
+    fn product(&self, other: &Self) -> Self {
+        if self.is_zero() || other.is_zero() {
+            return Self::zero();
+        }
+        if self.is_one() {
+            return other.clone();
+        }
+        if other.is_one() {
+            return self.clone();
+        }
+        if self.is_minus_one() {
+            let mut result = other.clone();
+            result.add_invert();
+            return result;
+        }
+        if other.is_minus_one() {
+            let mut result = self.clone();
+            result.add_invert();
+            return result;
+        }
+        let mut result = self.clone();
+        result.mul(&mut other.clone());
+        result
+    }
+
     fn numer(&self) -> Z;
 
     fn denom(&self) -> Z;
@@ -58,6 +91,14 @@ impl Rational for rug::Rational {
 
     fn is_zero(&self) -> bool {
         *self.numer() == Z::from(0)
+    }
+
+    fn is_one(&self) -> bool {
+        self == &1
+    }
+
+    fn is_minus_one(&self) -> bool {
+        self == &-1
     }
 
     fn numer(&self) -> Z {
@@ -196,6 +237,14 @@ impl Rational for HybridRational {
         matches!(self.0, HybridRationalRepr::Small(0))
     }
 
+    fn is_one(&self) -> bool {
+        matches!(self.0, HybridRationalRepr::Small(1))
+    }
+
+    fn is_minus_one(&self) -> bool {
+        matches!(self.0, HybridRationalRepr::Small(-1))
+    }
+
     fn numer(&self) -> Z {
         match &self.0 {
             HybridRationalRepr::Small(value) => Z::from(*value),
@@ -298,6 +347,14 @@ impl Rational for FixedSizeRational {
 
     fn is_zero(&self) -> bool {
         self.num == 0
+    }
+
+    fn is_one(&self) -> bool {
+        self.num == 1 && self.denom == 1
+    }
+
+    fn is_minus_one(&self) -> bool {
+        self.num == -1 && self.denom == 1
     }
 
     fn numer(&self) -> Z {
@@ -404,6 +461,14 @@ impl Rational for FloatRational {
 
     fn is_zero(&self) -> bool {
         self.0 == 0_f64
+    }
+
+    fn is_one(&self) -> bool {
+        self.0 == 1_f64
+    }
+
+    fn is_minus_one(&self) -> bool {
+        self.0 == -1_f64
     }
 
     // TODO: fix the API so I don't have to lie here

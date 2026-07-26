@@ -61,8 +61,7 @@ impl<Q: Rational> Number<i64, Q> {
         for (left_exp, left_coeff) in &left.coeffs {
             for (right_exp, right_coeff) in &right.coeffs {
                 let exponent = (left_exp + right_exp).rem_euclid(left.order) as usize;
-                let mut product = left_coeff.clone();
-                product.mul(&mut right_coeff.clone());
+                let mut product = left_coeff.product(right_coeff);
                 if scratch.coefficients[exponent].is_zero() {
                     scratch.touched.push(exponent);
                 }
@@ -96,7 +95,7 @@ impl<E, Q> MultiplicativeGroupElement for Number<E, Q> where E: Exponent, Q: Rat
         for (exp1, coeff1) in &mut z1.coeffs {
             for (exp2, coeff2) in &mut z2.coeffs {
                 let new_exp = (exp1.clone() + exp2.clone()) % z1.order.clone();
-                let new_coeff = coeff1.clone().mul(coeff2).clone();
+                let new_coeff = coeff1.product(coeff2);
                 add_single(&mut result.coeffs, &new_exp, &new_coeff, Sign::Plus);
             }
         }
