@@ -13,6 +13,8 @@ use std::rc::Rc;
 #[cfg(feature = "libgap")]
 pub mod libgap;
 
+pub mod literal;
+
 mod ffi {
     use super::c_char;
 
