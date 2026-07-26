@@ -15,6 +15,8 @@ pub mod libgap;
 
 pub mod literal;
 pub mod tagged;
+#[cfg(feature = "libgap")]
+pub mod tagged_character;
 
 mod ffi {
     use super::c_char;

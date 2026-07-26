@@ -468,6 +468,30 @@ impl<C: Coefficient> KernelContext<C> {
         self.convert_to_base(n)?;
         self.cyclotomic(n, ml * mr)
     }
+
+    pub fn conjugate(&mut self, value: &KernelCyclotomic<C>) -> Result<KernelCyclotomic<C>, Error> {
+        let n = value.order;
+        self.reset_result_cyc(n);
+        for (&exponent, coefficient) in value.exponents.iter().zip(&value.coefficients) {
+            self.result_cyc[((n - exponent) % n) as usize] = coefficient.clone();
+        }
+        self.convert_to_base(n)?;
+        self.cyclotomic(n, 1)
+    }
+
+    pub fn scale(
+        &mut self,
+        value: &KernelCyclotomic<C>,
+        scalar: &C,
+    ) -> Result<KernelCyclotomic<C>, Error> {
+        let n = value.order;
+        self.reset_result_cyc(n);
+        for (&exponent, coefficient) in value.exponents.iter().zip(&value.coefficients) {
+            self.result_cyc[exponent as usize] = coefficient.mul(scalar)?;
+        }
+        // Scalar multiplication preserves a canonical basis representation.
+        self.cyclotomic(n, n)
+    }
 }
 
 impl<C: Coefficient> KernelCyclotomic<C> {

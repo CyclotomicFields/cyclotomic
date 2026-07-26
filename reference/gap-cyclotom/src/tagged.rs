@@ -383,6 +383,43 @@ impl Context {
         self.exact_kernel.mul(&lhs, &rhs).map(Cyclotomic::Exact)
     }
 
+    pub fn conjugate(&mut self, value: &Cyclotomic) -> Result<Cyclotomic, Error> {
+        match value {
+            Cyclotomic::Small(value) => self.small_kernel.conjugate(value).map(Cyclotomic::Small),
+            Cyclotomic::Exact(value) => self.exact_kernel.conjugate(value).map(Cyclotomic::Exact),
+        }
+    }
+
+    pub fn scale_integer(&mut self, value: &Cyclotomic, scalar: i64) -> Result<Cyclotomic, Error> {
+        if let Cyclotomic::Small(value) = value {
+            if let Ok(result) = self.small_kernel.scale(value, &scalar) {
+                return Ok(Cyclotomic::Small(result));
+            }
+        }
+        let value = Self::promote(value);
+        self.exact_kernel
+            .scale(&value, &TaggedRational::from(scalar))
+            .map(Cyclotomic::Exact)
+    }
+
+    pub fn scale_fraction(
+        &mut self,
+        value: &Cyclotomic,
+        numerator: i64,
+        denominator: i64,
+    ) -> Result<Cyclotomic, Error> {
+        if denominator == 1 {
+            return self.scale_integer(value, numerator);
+        }
+        let value = Self::promote(value);
+        self.exact_kernel
+            .scale(
+                &value,
+                &TaggedRational::from_fraction(numerator, denominator),
+            )
+            .map(Cyclotomic::Exact)
+    }
+
     fn promote(value: &Cyclotomic) -> KernelCyclotomic<TaggedRational> {
         match value {
             Cyclotomic::Small(value) => {

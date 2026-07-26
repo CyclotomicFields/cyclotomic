@@ -105,3 +105,34 @@ fn tagged_rational_products_equal_unmodified_gap() {
         );
     }
 }
+
+#[cfg(feature = "libgap")]
+#[test]
+fn tagged_character_tensor_decompositions_equal_unmodified_gap() {
+    use gap_cyclotom_reference::libgap::{CharacterTableCase, Context as LibgapContext};
+    use gap_cyclotom_reference::tagged_character::PreparedCharacterTable;
+
+    let gap = LibgapContext::new().unwrap();
+    let mut tagged = TaggedContext::new();
+    for case in CharacterTableCase::ALL {
+        let table = gap.character_table(case).unwrap();
+        let prepared = PreparedCharacterTable::import(&mut tagged, &table).unwrap();
+
+        for lhs in 0..table.rows.len() {
+            for rhs in lhs..table.rows.len() {
+                let expected = gap
+                    .character_tensor_decomposition(case, lhs, rhs, table.rows.len())
+                    .unwrap();
+                let actual = prepared
+                    .tensor_multiplicities(&mut tagged, lhs, rhs)
+                    .unwrap();
+                assert_eq!(
+                    actual,
+                    expected,
+                    "{} tensor rows {lhs} and {rhs}",
+                    case.name()
+                );
+            }
+        }
+    }
+}
