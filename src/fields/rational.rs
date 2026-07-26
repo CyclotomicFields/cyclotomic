@@ -69,6 +69,148 @@ impl Rational for rug::Rational {
     }
 }
 
+/// An exact rational that keeps the overwhelmingly common integral case
+/// inline and promotes to GMP only when a fraction or an overflowing operation
+/// requires it.
+#[derive(Clone, Eq, PartialEq, Debug, Hash)]
+pub struct HybridRational(HybridRationalRepr);
+
+#[derive(Clone, Eq, PartialEq, Debug, Hash)]
+enum HybridRationalRepr {
+    Small(i64),
+    Big(rug::Rational),
+}
+
+impl HybridRational {
+    fn from_big(value: rug::Rational) -> Self {
+        if value.is_integer() {
+            if let Some(value) = value.numer().to_i64() {
+                return Self(HybridRationalRepr::Small(value));
+            }
+        }
+        Self(HybridRationalRepr::Big(value))
+    }
+
+    fn to_big(&self) -> rug::Rational {
+        match &self.0 {
+            HybridRationalRepr::Small(value) => rug::Rational::from(*value),
+            HybridRationalRepr::Big(value) => value.clone(),
+        }
+    }
+}
+
+impl From<i64> for HybridRational {
+    fn from(value: i64) -> Self {
+        Self(HybridRationalRepr::Small(value))
+    }
+}
+
+impl From<(i64, u64)> for HybridRational {
+    fn from((numerator, denominator): (i64, u64)) -> Self {
+        assert_ne!(denominator, 0, "rational denominator must be nonzero");
+        if denominator == 1 {
+            Self::from(numerator)
+        } else {
+            Self::from_big(rug::Rational::from((numerator, denominator)))
+        }
+    }
+}
+
+impl Display for HybridRational {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.0 {
+            HybridRationalRepr::Small(value) => Display::fmt(value, f),
+            HybridRationalRepr::Big(value) => Display::fmt(value, f),
+        }
+    }
+}
+
+impl AdditiveGroupElement for HybridRational {
+    fn add(&mut self, other: &mut Self) -> &mut Self {
+        if let (HybridRationalRepr::Small(left), HybridRationalRepr::Small(right)) =
+            (&self.0, &other.0)
+        {
+            if let Some(sum) = left.checked_add(*right) {
+                self.0 = HybridRationalRepr::Small(sum);
+                return self;
+            }
+        }
+        *self = Self::from_big(self.to_big() + other.to_big());
+        self
+    }
+
+    fn add_invert(&mut self) -> &mut Self {
+        match &self.0 {
+            HybridRationalRepr::Small(value) => {
+                if let Some(value) = value.checked_neg() {
+                    self.0 = HybridRationalRepr::Small(value);
+                } else {
+                    *self = Self::from_big(-self.to_big());
+                }
+            }
+            HybridRationalRepr::Big(_) => *self = Self::from_big(-self.to_big()),
+        }
+        self
+    }
+}
+
+impl MultiplicativeGroupElement for HybridRational {
+    fn mul(&mut self, other: &mut Self) -> &mut Self {
+        if let (HybridRationalRepr::Small(left), HybridRationalRepr::Small(right)) =
+            (&self.0, &other.0)
+        {
+            if let Some(product) = left.checked_mul(*right) {
+                self.0 = HybridRationalRepr::Small(product);
+                return self;
+            }
+        }
+        *self = Self::from_big(self.to_big() * other.to_big());
+        self
+    }
+
+    fn mul_invert(&mut self) -> &mut Self {
+        match &self.0 {
+            HybridRationalRepr::Small(1) | HybridRationalRepr::Small(-1) => {}
+            _ => {
+                let mut value = self.to_big();
+                value.recip_mut();
+                *self = Self::from_big(value);
+            }
+        }
+        self
+    }
+}
+
+impl FieldElement for HybridRational {
+    fn eq(&mut self, other: &mut Self) -> bool {
+        *self == *other
+    }
+}
+
+impl Rational for HybridRational {
+    fn zero() -> Self {
+        Self::from(0)
+    }
+
+    fn is_zero(&self) -> bool {
+        matches!(self.0, HybridRationalRepr::Small(0))
+    }
+
+    fn numer(&self) -> Z {
+        match &self.0 {
+            HybridRationalRepr::Small(value) => Z::from(*value),
+            HybridRationalRepr::Big(value) => value.numer().clone(),
+        }
+    }
+
+    fn denom(&self) -> Z {
+        match &self.0 {
+            HybridRationalRepr::Small(_) => Z::from(1),
+            HybridRationalRepr::Big(value) => value.denom().clone(),
+        }
+    }
+}
+
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 pub struct FixedSizeRational {
     pub num: i64,
@@ -155,7 +297,7 @@ impl Rational for FixedSizeRational {
     }
 
     fn is_zero(&self) -> bool {
-        self.is_zero()
+        self.num == 0
     }
 
     fn numer(&self) -> Z {
@@ -164,6 +306,32 @@ impl Rational for FixedSizeRational {
 
     fn denom(&self) -> Z {
         Z::from(self.denom)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hybrid_stays_small_for_integral_arithmetic() {
+        let mut value = HybridRational::from(6);
+        value.mul(&mut HybridRational::from(7));
+        value.add(&mut HybridRational::from(-2));
+        assert_eq!(value, HybridRational::from(40));
+    }
+
+    #[test]
+    fn hybrid_promotes_for_fractions_and_overflow() {
+        let mut fraction = HybridRational::from((1, 3));
+        fraction.add(&mut HybridRational::from((1, 6)));
+        assert_eq!(fraction.numer(), Z::from(1));
+        assert_eq!(fraction.denom(), Z::from(2));
+
+        let mut large = HybridRational::from(i64::MAX);
+        large.add(&mut HybridRational::from(1));
+        assert_eq!(large.numer(), Z::from(i64::MAX) + 1);
+        assert_eq!(large.denom(), Z::from(1));
     }
 }
 

@@ -1,8 +1,9 @@
 use cyclotomic::fields::dense;
+use cyclotomic::fields::rational::{HybridRational, Rational as RationalCoefficient};
 use cyclotomic::fields::sparse;
 use cyclotomic::fields::{CyclotomicFieldElement, GenericCyclotomic};
 use gap_cyclotom_reference::libgap::{CharacterTable, CharacterTableCase, Context, Cyclotomic};
-use rug::{Integer, Rational};
+use rug::Integer;
 use std::hint::black_box;
 use std::time::{Duration, Instant};
 
@@ -25,9 +26,10 @@ fn generic(value: &Cyclotomic) -> GenericCyclotomic {
     }
 }
 
-fn convert_table<T>(table: &CharacterTable) -> Vec<Vec<T>>
+fn convert_table<T, Q>(table: &CharacterTable) -> Vec<Vec<T>>
 where
-    T: CyclotomicFieldElement<i64, Rational>,
+    T: CyclotomicFieldElement<i64, Q>,
+    Q: RationalCoefficient,
 {
     table
         .rows
@@ -40,7 +42,7 @@ where
         .collect()
 }
 
-fn tensor_decomposition<T>(
+fn tensor_decomposition<T, Q>(
     rows: &[Vec<T>],
     class_sizes: &[i64],
     group_order: i64,
@@ -48,7 +50,8 @@ fn tensor_decomposition<T>(
     rhs: usize,
 ) -> Vec<T>
 where
-    T: CyclotomicFieldElement<i64, Rational>,
+    T: CyclotomicFieldElement<i64, Q>,
+    Q: RationalCoefficient,
 {
     let product: Vec<_> = rows[lhs]
         .iter()
@@ -67,7 +70,7 @@ where
             {
                 let mut term = value.clone();
                 term.mul(&mut character.complex_conjugate());
-                term.scalar_mul(&Rational::from(*class_size));
+                term.scalar_mul(&Q::from(*class_size));
                 if let Some(sum) = &mut sum {
                     sum.add(&mut term);
                 } else {
@@ -75,7 +78,7 @@ where
                 }
             }
             let mut sum = sum.expect("character tables have at least one class");
-            sum.scalar_mul(&Rational::from((1, group_order as u64)));
+            sum.scalar_mul(&Q::from((1, group_order as u64)));
             sum
         })
         .collect()
@@ -88,9 +91,10 @@ fn integer(value: i64) -> GenericCyclotomic {
     }
 }
 
-fn assert_decomposition<T>(actual: &[T], expected: &[i64])
+fn assert_decomposition<T, Q>(actual: &[T], expected: &[i64])
 where
-    T: CyclotomicFieldElement<i64, Rational>,
+    T: CyclotomicFieldElement<i64, Q>,
+    Q: RationalCoefficient,
 {
     assert_eq!(actual.len(), expected.len());
     for (actual, expected) in actual.iter().zip(expected) {
@@ -150,7 +154,8 @@ fn main() {
         let expected = context
             .character_tensor_decomposition(case, lhs, rhs, table.rows.len())
             .expect("decompose tensor product in GAP");
-        let sparse_rows: Vec<Vec<sparse::Number>> = convert_table(&table);
+        let sparse_rows: Vec<Vec<sparse::Number<i64, HybridRational>>> =
+            convert_table(&table);
         let dense_rows: Vec<Vec<dense::Number>> = convert_table(&table);
 
         assert_decomposition(
@@ -196,7 +201,7 @@ fn main() {
 
         for (implementation, iterations, ns) in [
             ("gap_unmodified_libgap", gap_iterations, gap_ns),
-            ("rust_sparse_rational", sparse_iterations, sparse_ns),
+            ("rust_sparse_hybrid_rational", sparse_iterations, sparse_ns),
             ("rust_dense_rational", dense_iterations, dense_ns),
         ] {
             if !first_record {
