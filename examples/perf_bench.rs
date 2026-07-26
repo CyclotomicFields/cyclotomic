@@ -261,6 +261,82 @@ fn benchmark_structure(
                 iterations,
                 ns,
             );
+
+            let (iterations, ns) = time_loop(min_duration, 1 << 18, || {
+                black_box(field.mul_i64_flat_shared_den(&left, &right).unwrap());
+            });
+            push_record(
+                records,
+                "structure_i64_flat_shared_den",
+                "mul",
+                order,
+                density,
+                iterations,
+                ns,
+            );
+
+            let (iterations, ns) = time_loop(min_duration, 1 << 18, || {
+                black_box(field.mul_i64_sparse_shared_den(&left, &right).unwrap());
+            });
+            push_record(
+                records,
+                "structure_i64_sparse_shared_den",
+                "mul",
+                order,
+                density,
+                iterations,
+                ns,
+            );
+
+            let (iterations, ns) = time_loop(min_duration, 1 << 18, || {
+                black_box(field.mul_i64_output_grouped_shared_den(&left, &right).unwrap());
+            });
+            push_record(
+                records,
+                "structure_i64_output_grouped_shared_den",
+                "mul",
+                order,
+                density,
+                iterations,
+                ns,
+            );
+
+            let left_i64 = field.to_i64_shared_den_element(&left).unwrap();
+            let right_i64 = field.to_i64_shared_den_element(&right).unwrap();
+
+            let (iterations, ns) = time_loop(min_duration, 1 << 18, || {
+                black_box(
+                    field
+                        .mul_i64_sparse_preconverted(&left_i64, &right_i64)
+                        .unwrap(),
+                );
+            });
+            push_record(
+                records,
+                "structure_i64_sparse_preconverted",
+                "mul",
+                order,
+                density,
+                iterations,
+                ns,
+            );
+
+            let (iterations, ns) = time_loop(min_duration, 1 << 18, || {
+                black_box(
+                    field
+                        .mul_i64_output_grouped_preconverted(&left_i64, &right_i64)
+                        .unwrap(),
+                );
+            });
+            push_record(
+                records,
+                "structure_i64_output_grouped_preconverted",
+                "mul",
+                order,
+                density,
+                iterations,
+                ns,
+            );
         }
     }
 }

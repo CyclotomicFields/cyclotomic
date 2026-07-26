@@ -6,6 +6,7 @@ use crate::fields::exponent::Exponent;
 use num::Zero;
 use quickcheck::{Arbitrary, Gen};
 use rand::RngExt;
+use std::convert::TryFrom;
 
 /// This doesn't really fit the same interface as the rest of the fields module,
 /// since we don't just have elements on their own, we have structs representing
@@ -26,6 +27,16 @@ pub struct CyclotomicField {
     /// For each basis product `(i, j)`, store only nonzero `(k, c_ijk)` terms.
     structure_constants_sparse: Vec<Vec<(usize, Q)>>,
 
+    /// Integer copy of the flattened structure constants, if all constants fit
+    /// in i64.
+    structure_constants_i64_flat: Option<Vec<i64>>,
+
+    /// Integer sparse constants grouped by input pair `(i, j)`.
+    structure_constants_i64_sparse: Option<Vec<Vec<(usize, i64)>>>,
+
+    /// Integer sparse constants grouped by output coordinate `k`.
+    structure_constants_i64_by_output: Option<Vec<Vec<(usize, usize, i64)>>>,
+
     /// The basis we are using for the field is: { \zeta_n^{basis[i]} : 0 \leq
     /// i \leq \phi(n) }
     pub basis: Vec<i64>,
@@ -40,6 +51,11 @@ pub struct CyclotomicField {
     zero: Vec<Q>,
 
     one: Vec<Q>,
+}
+
+pub struct I64SharedDenElement {
+    numerators: Vec<i64>,
+    denominator: i128,
 }
 
 pub fn write_dense_in_basis(dense: &mut Number, basis: &Vec<i64>) -> Vec<Q> {
@@ -109,6 +125,115 @@ fn sparsify_structure_constants(structure_constants: &Vec<Vec<Vec<Q>>>) -> Vec<V
     result
 }
 
+fn q_to_i64(q: &Q) -> Option<i64> {
+    if *q.denom() != 1 {
+        return None;
+    }
+    q.numer().to_i64()
+}
+
+fn integer_flatten_structure_constants(structure_constants: &Vec<Vec<Vec<Q>>>) -> Option<Vec<i64>> {
+    let phi_n = structure_constants.len();
+    let mut result = Vec::with_capacity(phi_n * phi_n * phi_n);
+
+    for i in 0..phi_n {
+        for j in 0..phi_n {
+            for k in 0..phi_n {
+                result.push(q_to_i64(&structure_constants[i][j][k])?);
+            }
+        }
+    }
+
+    Some(result)
+}
+
+fn sparsify_i64_by_input_pair(
+    flat_constants: &[i64],
+    phi_n: usize,
+) -> Vec<Vec<(usize, i64)>> {
+    let mut result = vec![vec![]; phi_n * phi_n];
+
+    for i in 0..phi_n {
+        for j in 0..phi_n {
+            let row = &mut result[i * phi_n + j];
+            let row_start = (i * phi_n + j) * phi_n;
+            for k in 0..phi_n {
+                let coeff = flat_constants[row_start + k];
+                if coeff != 0 {
+                    row.push((k, coeff));
+                }
+            }
+        }
+    }
+
+    result
+}
+
+fn sparsify_i64_by_output(flat_constants: &[i64], phi_n: usize) -> Vec<Vec<(usize, usize, i64)>> {
+    let mut result = vec![vec![]; phi_n];
+
+    for i in 0..phi_n {
+        for j in 0..phi_n {
+            let row_start = (i * phi_n + j) * phi_n;
+            for k in 0..phi_n {
+                let coeff = flat_constants[row_start + k];
+                if coeff != 0 {
+                    result[k].push((i, j, coeff));
+                }
+            }
+        }
+    }
+
+    result
+}
+
+fn gcd_i128(mut a: i128, mut b: i128) -> i128 {
+    a = a.abs();
+    b = b.abs();
+    while b != 0 {
+        let next = a % b;
+        a = b;
+        b = next;
+    }
+    a
+}
+
+fn lcm_i128(a: i128, b: i128) -> Option<i128> {
+    if a == 0 || b == 0 {
+        return Some(0);
+    }
+    (a / gcd_i128(a, b)).checked_mul(b)
+}
+
+fn rational_vector_to_shared_den_i64(z: &[Q]) -> Option<(Vec<i64>, i128)> {
+    let mut denominator = 1_i128;
+    for coeff in z {
+        let coeff_den = coeff.denom().to_i128()?;
+        denominator = lcm_i128(denominator, coeff_den)?;
+    }
+
+    let mut numerators = Vec::with_capacity(z.len());
+    for coeff in z {
+        let numerator = coeff.numer().to_i128()?;
+        let coeff_den = coeff.denom().to_i128()?;
+        let scaled = numerator.checked_mul(denominator / coeff_den)?;
+        numerators.push(i64::try_from(scaled).ok()?);
+    }
+
+    Some((numerators, denominator))
+}
+
+fn rational_from_i128(numerator: i128, denominator: i128) -> Q {
+    Q::from((Z::from(numerator), Z::from(denominator)))
+}
+
+fn i128_accumulators_to_rationals(accumulators: Vec<i128>, denominator: i128) -> Vec<Q> {
+    accumulators
+        .into_iter()
+        .map(|numerator| rational_from_i128(numerator, denominator))
+        .collect()
+}
+
 fn zumbroich_basis(order: i64) -> Vec<i64> {
     let n_div_powers = Exponent::factorise(&order);
 
@@ -154,11 +279,22 @@ impl CyclotomicField {
         let structure_constants = make_structure_constants(order, &basis);
         let structure_constants_flat = flatten_structure_constants(&structure_constants);
         let structure_constants_sparse = sparsify_structure_constants(&structure_constants);
+        let structure_constants_i64_flat =
+            integer_flatten_structure_constants(&structure_constants);
+        let structure_constants_i64_sparse = structure_constants_i64_flat
+            .as_ref()
+            .map(|constants| sparsify_i64_by_input_pair(constants, basis.len()));
+        let structure_constants_i64_by_output = structure_constants_i64_flat
+            .as_ref()
+            .map(|constants| sparsify_i64_by_output(constants, basis.len()));
         CyclotomicField {
             order: order,
             structure_constants: structure_constants,
             structure_constants_flat: structure_constants_flat,
             structure_constants_sparse: structure_constants_sparse,
+            structure_constants_i64_flat: structure_constants_i64_flat,
+            structure_constants_i64_sparse: structure_constants_i64_sparse,
+            structure_constants_i64_by_output: structure_constants_i64_by_output,
             basis: basis.clone(),
             phi_n: Exponent::phi(&order),
             factors: Exponent::factorise(&order),
@@ -260,6 +396,144 @@ impl CyclotomicField {
         }
 
         result
+    }
+
+    pub fn mul_i64_flat_shared_den(&self, z1: &Vec<Q>, z2: &Vec<Q>) -> Option<Vec<Q>> {
+        let constants = self.structure_constants_i64_flat.as_ref()?;
+        let phi_n = self.phi_n as usize;
+        let (z1_nums, z1_den) = rational_vector_to_shared_den_i64(z1)?;
+        let (z2_nums, z2_den) = rational_vector_to_shared_den_i64(z2)?;
+        let denominator = z1_den.checked_mul(z2_den)?;
+        let mut result = vec![0_i128; phi_n];
+
+        for i in 0..phi_n {
+            for j in 0..phi_n {
+                let pair_product = (z1_nums[i] as i128).checked_mul(z2_nums[j] as i128)?;
+                let row_start = (i * phi_n + j) * phi_n;
+                for k in 0..phi_n {
+                    let term = pair_product.checked_mul(constants[row_start + k] as i128)?;
+                    result[k] = result[k].checked_add(term)?;
+                }
+            }
+        }
+
+        Some(i128_accumulators_to_rationals(result, denominator))
+    }
+
+    pub fn mul_i64_sparse_shared_den(&self, z1: &Vec<Q>, z2: &Vec<Q>) -> Option<Vec<Q>> {
+        let constants = self.structure_constants_i64_sparse.as_ref()?;
+        let phi_n = self.phi_n as usize;
+        let (z1_nums, z1_den) = rational_vector_to_shared_den_i64(z1)?;
+        let (z2_nums, z2_den) = rational_vector_to_shared_den_i64(z2)?;
+        let denominator = z1_den.checked_mul(z2_den)?;
+        let mut result = vec![0_i128; phi_n];
+
+        for i in 0..phi_n {
+            if z1_nums[i] == 0 {
+                continue;
+            }
+            for j in 0..phi_n {
+                if z2_nums[j] == 0 {
+                    continue;
+                }
+                let pair_product = (z1_nums[i] as i128).checked_mul(z2_nums[j] as i128)?;
+                for (k, constant) in &constants[i * phi_n + j] {
+                    let term = pair_product.checked_mul(*constant as i128)?;
+                    result[*k] = result[*k].checked_add(term)?;
+                }
+            }
+        }
+
+        Some(i128_accumulators_to_rationals(result, denominator))
+    }
+
+    pub fn mul_i64_output_grouped_shared_den(&self, z1: &Vec<Q>, z2: &Vec<Q>) -> Option<Vec<Q>> {
+        let constants = self.structure_constants_i64_by_output.as_ref()?;
+        let phi_n = self.phi_n as usize;
+        let (z1_nums, z1_den) = rational_vector_to_shared_den_i64(z1)?;
+        let (z2_nums, z2_den) = rational_vector_to_shared_den_i64(z2)?;
+        let denominator = z1_den.checked_mul(z2_den)?;
+        let mut result = vec![0_i128; phi_n];
+
+        for k in 0..phi_n {
+            let mut acc = 0_i128;
+            for (i, j, constant) in &constants[k] {
+                if z1_nums[*i] == 0 || z2_nums[*j] == 0 {
+                    continue;
+                }
+                let pair_product = (z1_nums[*i] as i128).checked_mul(z2_nums[*j] as i128)?;
+                let term = pair_product.checked_mul(*constant as i128)?;
+                acc = acc.checked_add(term)?;
+            }
+            result[k] = acc;
+        }
+
+        Some(i128_accumulators_to_rationals(result, denominator))
+    }
+
+    pub fn to_i64_shared_den_element(&self, z: &Vec<Q>) -> Option<I64SharedDenElement> {
+        let (numerators, denominator) = rational_vector_to_shared_den_i64(z)?;
+        Some(I64SharedDenElement {
+            numerators,
+            denominator,
+        })
+    }
+
+    pub fn mul_i64_sparse_preconverted(
+        &self,
+        z1: &I64SharedDenElement,
+        z2: &I64SharedDenElement,
+    ) -> Option<Vec<Q>> {
+        let constants = self.structure_constants_i64_sparse.as_ref()?;
+        let phi_n = self.phi_n as usize;
+        let denominator = z1.denominator.checked_mul(z2.denominator)?;
+        let mut result = vec![0_i128; phi_n];
+
+        for i in 0..phi_n {
+            if z1.numerators[i] == 0 {
+                continue;
+            }
+            for j in 0..phi_n {
+                if z2.numerators[j] == 0 {
+                    continue;
+                }
+                let pair_product =
+                    (z1.numerators[i] as i128).checked_mul(z2.numerators[j] as i128)?;
+                for (k, constant) in &constants[i * phi_n + j] {
+                    let term = pair_product.checked_mul(*constant as i128)?;
+                    result[*k] = result[*k].checked_add(term)?;
+                }
+            }
+        }
+
+        Some(i128_accumulators_to_rationals(result, denominator))
+    }
+
+    pub fn mul_i64_output_grouped_preconverted(
+        &self,
+        z1: &I64SharedDenElement,
+        z2: &I64SharedDenElement,
+    ) -> Option<Vec<Q>> {
+        let constants = self.structure_constants_i64_by_output.as_ref()?;
+        let phi_n = self.phi_n as usize;
+        let denominator = z1.denominator.checked_mul(z2.denominator)?;
+        let mut result = vec![0_i128; phi_n];
+
+        for k in 0..phi_n {
+            let mut acc = 0_i128;
+            for (i, j, constant) in &constants[k] {
+                if z1.numerators[*i] == 0 || z2.numerators[*j] == 0 {
+                    continue;
+                }
+                let pair_product =
+                    (z1.numerators[*i] as i128).checked_mul(z2.numerators[*j] as i128)?;
+                let term = pair_product.checked_mul(*constant as i128)?;
+                acc = acc.checked_add(term)?;
+            }
+            result[k] = acc;
+        }
+
+        Some(i128_accumulators_to_rationals(result, denominator))
     }
 
     pub fn print(&self, z: &Vec<Q>) -> String {
@@ -466,5 +740,52 @@ mod tests {
         let z1 = random_cyc(&field);
         let z2 = random_cyc(&field);
         field.mul(&z1, &z2) == field.mul_sparse_constants_skip_zero_inputs(&z1, &z2)
+    }
+
+    #[quickcheck]
+    fn i64_flat_shared_den_matches_nested_constants(small_order: SmallOrder) -> bool {
+        let field = CyclotomicField::new(small_order.0);
+        let z1 = random_cyc(&field);
+        let z2 = random_cyc(&field);
+        field.mul(&z1, &z2) == field.mul_i64_flat_shared_den(&z1, &z2).unwrap()
+    }
+
+    #[quickcheck]
+    fn i64_sparse_shared_den_matches_nested_constants(small_order: SmallOrder) -> bool {
+        let field = CyclotomicField::new(small_order.0);
+        let z1 = random_cyc(&field);
+        let z2 = random_cyc(&field);
+        field.mul(&z1, &z2) == field.mul_i64_sparse_shared_den(&z1, &z2).unwrap()
+    }
+
+    #[quickcheck]
+    fn i64_output_grouped_shared_den_matches_nested_constants(small_order: SmallOrder) -> bool {
+        let field = CyclotomicField::new(small_order.0);
+        let z1 = random_cyc(&field);
+        let z2 = random_cyc(&field);
+        field.mul(&z1, &z2) == field.mul_i64_output_grouped_shared_den(&z1, &z2).unwrap()
+    }
+
+    #[quickcheck]
+    fn i64_sparse_preconverted_matches_nested_constants(small_order: SmallOrder) -> bool {
+        let field = CyclotomicField::new(small_order.0);
+        let z1 = random_cyc(&field);
+        let z2 = random_cyc(&field);
+        let z1_i64 = field.to_i64_shared_den_element(&z1).unwrap();
+        let z2_i64 = field.to_i64_shared_den_element(&z2).unwrap();
+        field.mul(&z1, &z2) == field.mul_i64_sparse_preconverted(&z1_i64, &z2_i64).unwrap()
+    }
+
+    #[quickcheck]
+    fn i64_output_grouped_preconverted_matches_nested_constants(small_order: SmallOrder) -> bool {
+        let field = CyclotomicField::new(small_order.0);
+        let z1 = random_cyc(&field);
+        let z2 = random_cyc(&field);
+        let z1_i64 = field.to_i64_shared_den_element(&z1).unwrap();
+        let z2_i64 = field.to_i64_shared_den_element(&z2).unwrap();
+        field.mul(&z1, &z2)
+            == field
+                .mul_i64_output_grouped_preconverted(&z1_i64, &z2_i64)
+                .unwrap()
     }
 }
