@@ -2,6 +2,9 @@ use gap_cyclotom_reference::literal::Context as I64Context;
 use gap_cyclotom_reference::tagged::Context as TaggedContext;
 use rug::Integer;
 
+#[cfg(feature = "libgap")]
+static LIBGAP_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 fn integer_terms(order: u32, count: u32, salt: u32) -> Vec<(u32, i64)> {
     (0..count)
         .map(|index| {
@@ -67,6 +70,7 @@ fn tagged_kernel_promotes_overflowing_cyclotomic_coefficients() {
 fn tagged_rational_products_equal_unmodified_gap() {
     use gap_cyclotom_reference::libgap::Context as LibgapContext;
 
+    let _guard = LIBGAP_TEST_LOCK.lock().unwrap();
     let gap = LibgapContext::new().unwrap();
     let mut tagged = TaggedContext::new();
     for order in [5_u32, 8, 12, 15, 20, 97] {
@@ -112,6 +116,7 @@ fn tagged_character_tensor_decompositions_equal_unmodified_gap() {
     use gap_cyclotom_reference::libgap::{CharacterTableCase, Context as LibgapContext};
     use gap_cyclotom_reference::tagged_character::PreparedCharacterTable;
 
+    let _guard = LIBGAP_TEST_LOCK.lock().unwrap();
     let gap = LibgapContext::new().unwrap();
     let mut tagged = TaggedContext::new();
     for case in CharacterTableCase::ALL {
