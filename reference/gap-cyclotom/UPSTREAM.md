@@ -18,9 +18,9 @@ handling, and global `ResultCyc` buffer have been replaced by:
 - checked `int64_t` coefficients;
 - a narrow C ABI used by the Rust ownership wrapper.
 
-This first milestone intentionally supports only small integer coefficients.
-GMP integer/rational promotion, inversion, Galois actions, and an unmodified
-libgap oracle remain follow-up work.
+The standalone extraction intentionally supports only small integer
+coefficients. The optional `libgap` feature separately binds this pinned,
+unmodified GAP revision as a full rational correctness and performance oracle.
 
 Because this is derived from GPL-licensed GAP code, this reference crate is
 isolated from the normal LGPL library build and is not published.

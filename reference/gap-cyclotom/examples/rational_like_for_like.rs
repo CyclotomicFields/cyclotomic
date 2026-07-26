@@ -2,42 +2,46 @@ use cyclotomic::fields::dense;
 use cyclotomic::fields::sparse::{self, ExpCoeffMap};
 use cyclotomic::fields::structure::{write_dense_in_basis, CyclotomicField};
 use cyclotomic::fields::MultiplicativeGroupElement;
-#[cfg(feature = "libgap")]
-use gap_cyclotom_reference::libgap::Context as LibgapContext;
-use gap_cyclotom_reference::Context;
+use gap_cyclotom_reference::libgap::Context;
 use std::hint::black_box;
 use std::time::{Duration, Instant};
 
-fn terms(order: u32, density_percent: u32, salt: u32) -> Vec<(u32, i64)> {
+type Term = (u32, (i64, i64));
+
+fn terms(order: u32, density_percent: u32, salt: u32) -> Vec<Term> {
     let count = (order * density_percent).div_ceil(100).max(1);
+    let denominators = [2_i64, 3, 5, 7];
     (0..count)
         .map(|index| {
-            // 37 is coprime to every benchmark order, so this visits distinct
-            // exponents before wrapping.
             let exponent = (index * 37 + salt * 11) % order;
             let magnitude = i64::from((index + salt * 3) % 5 + 1);
-            let coefficient = if (index + salt) % 2 == 0 {
+            let numerator = if (index + salt) % 2 == 0 {
                 magnitude
             } else {
                 -magnitude
             };
-            (exponent, coefficient)
+            let denominator = denominators[((index + salt) % 4) as usize];
+            (exponent, (numerator, denominator))
         })
         .collect()
 }
 
-fn sparse_number(order: u32, terms: &[(u32, i64)]) -> sparse::Number {
+fn rational(coefficient: (i64, i64)) -> rug::Rational {
+    rug::Rational::from((coefficient.0, coefficient.1 as u64))
+}
+
+fn sparse_number(order: u32, terms: &[Term]) -> sparse::Number {
     let mut coefficients = ExpCoeffMap::default();
     for &(exponent, coefficient) in terms {
-        coefficients.insert(i64::from(exponent), rug::Rational::from(coefficient));
+        coefficients.insert(i64::from(exponent), rational(coefficient));
     }
     sparse::Number::new(&i64::from(order), &coefficients)
 }
 
-fn dense_number(order: u32, terms: &[(u32, i64)]) -> dense::Number {
+fn dense_number(order: u32, terms: &[Term]) -> dense::Number {
     let mut coefficients = vec![rug::Rational::from(0); order as usize];
     for &(exponent, coefficient) in terms {
-        coefficients[exponent as usize] += coefficient;
+        coefficients[exponent as usize] += rational(coefficient);
     }
     dense::Number::new(&i64::from(order), &coefficients)
 }
@@ -58,12 +62,8 @@ fn measure(mut operation: impl FnMut(), minimum: Duration) -> (u64, f64) {
 }
 
 fn main() {
-    // Ten cases times four implementations, with exponential calibration,
-    // completes in roughly ten seconds on a development machine.
     let minimum = Duration::from_millis(100);
-    let mut context = Context::new().expect("create C reference context");
-    #[cfg(feature = "libgap")]
-    let libgap_context = LibgapContext::new().expect("initialize unmodified libgap");
+    let context = Context::new().expect("initialize unmodified libgap");
     println!("[");
     let mut first = true;
 
@@ -71,16 +71,8 @@ fn main() {
         for density in [10_u32, 100] {
             let left_terms = terms(order, density, 1);
             let right_terms = terms(order, density, 2);
-            let c_left = context.from_terms(order, &left_terms).unwrap();
-            let c_right = context.from_terms(order, &right_terms).unwrap();
-            #[cfg(feature = "libgap")]
-            let libgap_left = libgap_context
-                .from_integer_terms(order, &left_terms)
-                .unwrap();
-            #[cfg(feature = "libgap")]
-            let libgap_right = libgap_context
-                .from_integer_terms(order, &right_terms)
-                .unwrap();
+            let gap_left = context.from_terms(order, &left_terms).unwrap();
+            let gap_right = context.from_terms(order, &right_terms).unwrap();
             let sparse_left = sparse_number(order, &left_terms);
             let sparse_right = sparse_number(order, &right_terms);
             let dense_left = dense_number(order, &left_terms);
@@ -91,16 +83,9 @@ fn main() {
             let structure_right =
                 write_dense_in_basis(&mut dense_number(order, &right_terms), &field.basis);
 
-            let (c_iterations, c_ns) = measure(
+            let (gap_iterations, gap_ns) = measure(
                 || {
-                    black_box(context.mul(&c_left, &c_right).unwrap());
-                },
-                minimum,
-            );
-            #[cfg(feature = "libgap")]
-            let (libgap_iterations, libgap_ns) = measure(
-                || {
-                    black_box(libgap_context.mul(&libgap_left, &libgap_right).unwrap());
+                    black_box(context.mul(&gap_left, &gap_right).unwrap());
                 },
                 minimum,
             );
@@ -127,8 +112,8 @@ fn main() {
                 minimum,
             );
 
-            let mut measurements = vec![
-                ("gap_extracted_i64", c_iterations, c_ns),
+            for (implementation, iterations, ns) in [
+                ("gap_unmodified_libgap", gap_iterations, gap_ns),
                 ("rust_sparse_rational", sparse_iterations, sparse_ns),
                 ("rust_dense_rational", dense_iterations, dense_ns),
                 (
@@ -136,17 +121,13 @@ fn main() {
                     structure_iterations,
                     structure_ns,
                 ),
-            ];
-            #[cfg(feature = "libgap")]
-            measurements.insert(1, ("gap_unmodified_libgap", libgap_iterations, libgap_ns));
-
-            for (implementation, iterations, ns) in measurements {
+            ] {
                 if !first {
                     println!(",");
                 }
                 first = false;
                 print!(
-                    "  {{\"implementation\":\"{implementation}\",\"operation\":\"mul\",\"order\":{order},\"density\":{:.2},\"terms_per_operand\":{},\"iterations\":{iterations},\"ns_per_iter\":{ns:.3}}}",
+                    "  {{\"implementation\":\"{implementation}\",\"operation\":\"mul\",\"coefficient_kind\":\"rational\",\"order\":{order},\"density\":{:.2},\"terms_per_operand\":{},\"iterations\":{iterations},\"ns_per_iter\":{ns:.3}}}",
                     density as f64 / 100.0,
                     left_terms.len(),
                 );

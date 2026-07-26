@@ -10,6 +10,9 @@ use std::marker::PhantomData;
 use std::ptr::NonNull;
 use std::rc::Rc;
 
+#[cfg(feature = "libgap")]
+pub mod libgap;
+
 mod ffi {
     use super::c_char;
 

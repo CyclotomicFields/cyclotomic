@@ -6,6 +6,10 @@ publish = false
 license = "GPL-2.0-or-later"
 description = "Standalone GAP-derived cyclotomic arithmetic reference for benchmarks"
 
+[features]
+default = []
+libgap = []
+
 [build-dependencies]
 cc = "1"
 
@@ -16,3 +20,8 @@ rug = { version = "=1.17.0", default-features = false, features = ["integer", "r
 [[example]]
 name = "like_for_like"
 path = "examples/like_for_like.rs"
+
+[[example]]
+name = "rational_like_for_like"
+path = "examples/rational_like_for_like.rs"
+required-features = ["libgap"]

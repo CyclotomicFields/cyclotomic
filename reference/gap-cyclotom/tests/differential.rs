@@ -9,6 +9,26 @@ use gap_cyclotom_reference::{Context, Cyclotomic};
 use rug::Integer;
 use std::collections::HashMap;
 
+#[cfg(feature = "libgap")]
+fn libgap_generic(value: &gap_cyclotom_reference::libgap::Cyclotomic) -> GenericCyclotomic {
+    GenericCyclotomic {
+        order: Integer::from(value.order().unwrap()),
+        exp_coeffs: value
+            .coefficients()
+            .unwrap()
+            .into_iter()
+            .enumerate()
+            .filter(|(_, coefficient)| coefficient.0 != 0)
+            .map(|(exponent, (numerator, denominator))| {
+                (
+                    Integer::from(exponent),
+                    (numerator, u64::try_from(denominator).unwrap()),
+                )
+            })
+            .collect(),
+    }
+}
+
 fn sparse_number(order: i64, terms: &[(u32, i64)]) -> sparse::Number {
     let mut coefficients = ExpCoeffMap::default();
     for &(exponent, coefficient) in terms {
@@ -150,6 +170,103 @@ fn mixed_field_sums_agree_with_rust() {
         assert!(
             sparse::Number::from_generic(&c_generic(&c_sum)).eq(rust_sum),
             "sum mismatch for orders {left_order} and {right_order}"
+        );
+    }
+}
+
+#[cfg(feature = "libgap")]
+#[test]
+fn real_gap_rational_arithmetic_agrees_with_rust() {
+    use gap_cyclotom_reference::libgap::Context as LibgapContext;
+
+    let context = LibgapContext::new().unwrap();
+    for order in [7_u32, 8, 12, 15, 20] {
+        let lhs_terms = [
+            (1 % order, (1, 2)),
+            (2 % order, (-2, 3)),
+            (4 % order, (5, 7)),
+        ];
+        let rhs_terms = [(0, (-3, 5)), (3 % order, (7, 11)), (5 % order, (1, 13))];
+        let gap_lhs = context.from_terms(order, &lhs_terms).unwrap();
+        let gap_rhs = context.from_terms(order, &rhs_terms).unwrap();
+        let gap_sum = context.add(&gap_lhs, &gap_rhs).unwrap();
+        let gap_product = context.mul(&gap_lhs, &gap_rhs).unwrap();
+
+        let lhs_generic = GenericCyclotomic {
+            order: Integer::from(order),
+            exp_coeffs: lhs_terms
+                .into_iter()
+                .map(|(exponent, (numerator, denominator))| {
+                    (
+                        Integer::from(exponent),
+                        (numerator, u64::try_from(denominator).unwrap()),
+                    )
+                })
+                .collect(),
+        };
+        let rhs_generic = GenericCyclotomic {
+            order: Integer::from(order),
+            exp_coeffs: rhs_terms
+                .into_iter()
+                .map(|(exponent, (numerator, denominator))| {
+                    (
+                        Integer::from(exponent),
+                        (numerator, u64::try_from(denominator).unwrap()),
+                    )
+                })
+                .collect(),
+        };
+        let mut rust_lhs: sparse::Number = sparse::Number::from_generic(&lhs_generic);
+        let mut rust_rhs: sparse::Number = sparse::Number::from_generic(&rhs_generic);
+        let rust_sum = rust_lhs.clone().add(&mut rust_rhs.clone()).clone();
+        let rust_product = rust_lhs.mul(&mut rust_rhs).clone();
+        let gap_sum_generic = libgap_generic(&gap_sum);
+        let gap_product_generic = libgap_generic(&gap_product);
+
+        assert!(
+            sparse::Number::from_generic(&gap_sum_generic).eq(&mut rust_sum.clone()),
+            "real GAP/Rust rational sum mismatch for order {order}"
+        );
+        assert!(
+            sparse::Number::from_generic(&gap_product_generic).eq(&mut rust_product.clone()),
+            "real GAP/Rust rational product mismatch for order {order}"
+        );
+
+        let mut dense_lhs: dense::Number = dense::Number::from_generic(&lhs_generic);
+        let mut dense_rhs: dense::Number = dense::Number::from_generic(&rhs_generic);
+        let dense_sum = dense_lhs.clone().add(&mut dense_rhs.clone()).clone();
+        let dense_product = dense_lhs.mul(&mut dense_rhs).clone();
+        assert!(
+            dense::Number::from_generic(&gap_sum_generic).eq(&mut dense_sum.clone()),
+            "real GAP/dense rational sum mismatch for order {order}"
+        );
+        assert!(
+            dense::Number::from_generic(&gap_product_generic).eq(&mut dense_product.clone()),
+            "real GAP/dense rational product mismatch for order {order}"
+        );
+
+        let field = CyclotomicField::new(i64::from(order));
+        let structure_lhs =
+            write_dense_in_basis(&mut dense::Number::from_generic(&lhs_generic), &field.basis);
+        let structure_rhs =
+            write_dense_in_basis(&mut dense::Number::from_generic(&rhs_generic), &field.basis);
+        let structure_sum = field.add(&structure_lhs, &structure_rhs);
+        let structure_product = field.mul(&structure_lhs, &structure_rhs);
+        assert!(
+            sparse::Number::from_generic(&gap_sum_generic).eq(&mut structure_as_sparse(
+                i64::from(order),
+                &field,
+                &structure_sum,
+            )),
+            "real GAP/structure rational sum mismatch for order {order}"
+        );
+        assert!(
+            sparse::Number::from_generic(&gap_product_generic).eq(&mut structure_as_sparse(
+                i64::from(order),
+                &field,
+                &structure_product,
+            )),
+            "real GAP/structure rational product mismatch for order {order}"
         );
     }
 }
