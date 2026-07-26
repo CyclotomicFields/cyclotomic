@@ -7,48 +7,150 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 use crate::Error;
+use rug::Rational;
+use std::fmt::Debug;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Cyclotomic {
+#[doc(hidden)]
+pub struct KernelCyclotomic<C> {
     order: u32,
-    coefficients: Vec<i64>,
+    coefficients: Vec<C>,
     exponents: Vec<u32>,
 }
 
-pub struct Context {
-    result_cyc: Vec<i64>,
+#[doc(hidden)]
+pub struct KernelContext<C> {
+    result_cyc: Vec<C>,
     last_n: u32,
     phi: u32,
     is_squarefree: bool,
     number_of_primes: u32,
 }
 
-impl Default for Context {
+#[doc(hidden)]
+pub trait Coefficient: Clone + Debug + Eq {
+    fn zero() -> Self;
+    fn one() -> Self;
+    fn is_zero(&self) -> bool;
+    fn is_one(&self) -> bool;
+    fn is_minus_one(&self) -> bool;
+    fn add(&self, rhs: &Self) -> Result<Self, Error>;
+    fn sub(&self, rhs: &Self) -> Result<Self, Error>;
+    fn mul(&self, rhs: &Self) -> Result<Self, Error>;
+    fn add_assign(&mut self, rhs: &Self) -> Result<(), Error> {
+        *self = self.add(rhs)?;
+        Ok(())
+    }
+    fn sub_assign(&mut self, rhs: &Self) -> Result<(), Error> {
+        *self = self.sub(rhs)?;
+        Ok(())
+    }
+    fn neg(&self) -> Result<Self, Error> {
+        Self::zero().sub(self)
+    }
+}
+
+impl Coefficient for i64 {
+    fn zero() -> Self {
+        0
+    }
+
+    fn one() -> Self {
+        1
+    }
+
+    fn is_zero(&self) -> bool {
+        *self == 0
+    }
+
+    fn is_one(&self) -> bool {
+        *self == 1
+    }
+
+    fn is_minus_one(&self) -> bool {
+        *self == -1
+    }
+
+    fn add(&self, rhs: &Self) -> Result<Self, Error> {
+        self.checked_add(*rhs)
+            .ok_or_else(|| Error("coefficient addition overflow".into()))
+    }
+
+    fn sub(&self, rhs: &Self) -> Result<Self, Error> {
+        self.checked_sub(*rhs)
+            .ok_or_else(|| Error("coefficient subtraction overflow".into()))
+    }
+
+    fn mul(&self, rhs: &Self) -> Result<Self, Error> {
+        self.checked_mul(*rhs)
+            .ok_or_else(|| Error("coefficient multiplication overflow".into()))
+    }
+}
+
+impl Coefficient for Rational {
+    fn zero() -> Self {
+        Rational::from(0)
+    }
+
+    fn one() -> Self {
+        Rational::from(1)
+    }
+
+    fn is_zero(&self) -> bool {
+        self.numer() == &0
+    }
+
+    fn is_one(&self) -> bool {
+        self == &1
+    }
+
+    fn is_minus_one(&self) -> bool {
+        self == &-1
+    }
+
+    fn add(&self, rhs: &Self) -> Result<Self, Error> {
+        let mut value = self.clone();
+        value += rhs;
+        Ok(value)
+    }
+
+    fn sub(&self, rhs: &Self) -> Result<Self, Error> {
+        let mut value = self.clone();
+        value -= rhs;
+        Ok(value)
+    }
+
+    fn mul(&self, rhs: &Self) -> Result<Self, Error> {
+        if self.is_zero() || rhs.is_zero() {
+            return Ok(Self::zero());
+        }
+        if self.is_one() {
+            return Ok(rhs.clone());
+        }
+        if rhs.is_one() {
+            return Ok(self.clone());
+        }
+        let mut value = self.clone();
+        value *= rhs;
+        Ok(value)
+    }
+
+    fn neg(&self) -> Result<Self, Error> {
+        Ok(-self.clone())
+    }
+}
+
+impl<C: Coefficient> Default for KernelContext<C> {
     fn default() -> Self {
         Self {
             // GAP initializes ResultCyc with room for 1024 coefficients.
-            result_cyc: vec![0; 1024],
+            result_cyc: vec![C::zero(); 1024],
             last_n: 0,
             phi: 0,
             is_squarefree: false,
             number_of_primes: 0,
         }
     }
-}
-
-fn checked_add(lhs: i64, rhs: i64) -> Result<i64, Error> {
-    lhs.checked_add(rhs)
-        .ok_or_else(|| Error("coefficient addition overflow".into()))
-}
-
-fn checked_sub(lhs: i64, rhs: i64) -> Result<i64, Error> {
-    lhs.checked_sub(rhs)
-        .ok_or_else(|| Error("coefficient subtraction overflow".into()))
-}
-
-fn checked_mul(lhs: i64, rhs: i64) -> Result<i64, Error> {
-    lhs.checked_mul(rhs)
-        .ok_or_else(|| Error("coefficient multiplication overflow".into()))
 }
 
 fn gcd(mut lhs: u32, mut rhs: u32) -> u32 {
@@ -60,20 +162,20 @@ fn gcd(mut lhs: u32, mut rhs: u32) -> u32 {
     lhs
 }
 
-impl Context {
+impl<C: Coefficient> KernelContext<C> {
     pub fn new() -> Self {
         Self::default()
     }
 
     fn grow_result_cyc(&mut self, order: u32) {
         if self.result_cyc.len() < order as usize {
-            self.result_cyc.resize(order as usize, 0);
+            self.result_cyc.resize(order as usize, C::zero());
         }
     }
 
     fn reset_result_cyc(&mut self, order: u32) {
         self.grow_result_cyc(order);
-        self.result_cyc[..order as usize].fill(0);
+        self.result_cyc[..order as usize].fill(C::zero());
     }
 
     // Direct translation of GAP's ConvertToBase: eliminate every root outside
@@ -108,15 +210,15 @@ impl Context {
 
                     let mut i = residue as u32;
                     while i < n {
-                        let coefficient = self.result_cyc[i as usize];
-                        if coefficient != 0 {
-                            self.result_cyc[i as usize] = 0;
+                        let coefficient = self.result_cyc[i as usize].clone();
+                        if !coefficient.is_zero() {
+                            self.result_cyc[i as usize] = C::zero();
                             for k in 1..p {
                                 let exponent = (u64::from(i)
                                     + u64::from(k) * u64::from(n) / u64::from(p))
                                     % u64::from(n);
                                 let slot = &mut self.result_cyc[exponent as usize];
-                                *slot = checked_sub(*slot, coefficient)?;
+                                slot.sub_assign(&coefficient)?;
                             }
                         }
                         i += q;
@@ -158,22 +260,22 @@ impl Context {
 
     // Direct translation of GAP's Cyclotomic packing and minimal-conductor
     // reduction. `hint` contains prime divisors which may not be removed.
-    fn cyclotomic(&mut self, mut n: u32, hint: u32) -> Result<Cyclotomic, Error> {
+    fn cyclotomic(&mut self, mut n: u32, hint: u32) -> Result<KernelCyclotomic<C>, Error> {
         let mut len = 0_usize;
         let mut exponent_gcd = n;
         let mut coefficients_equal = true;
         let mut common_coefficient = None;
 
         for i in 0..n {
-            let coefficient = self.result_cyc[i as usize];
-            if coefficient == 0 {
+            let coefficient = self.result_cyc[i as usize].clone();
+            if coefficient.is_zero() {
                 continue;
             }
             len += 1;
             exponent_gcd = gcd(exponent_gcd, i);
             match common_coefficient {
                 None => common_coefficient = Some(coefficient),
-                Some(common) if coefficient != common => coefficients_equal = false,
+                Some(ref common) if coefficient != *common => coefficients_equal = false,
                 Some(_) => {}
             }
         }
@@ -181,22 +283,22 @@ impl Context {
         if exponent_gcd > 1 {
             let reduced_n = n / exponent_gcd;
             for i in 1..reduced_n {
-                self.result_cyc[i as usize] = self.result_cyc[(i * exponent_gcd) as usize];
-                self.result_cyc[(i * exponent_gcd) as usize] = 0;
+                self.result_cyc[i as usize] = self.result_cyc[(i * exponent_gcd) as usize].clone();
+                self.result_cyc[(i * exponent_gcd) as usize] = C::zero();
             }
             n = reduced_n;
         }
 
         let (phi, squarefree, number_of_primes) = self.field_properties(n);
         if len == phi as usize && coefficients_equal && squarefree {
-            self.result_cyc[..n as usize].fill(0);
-            let mut common = common_coefficient.unwrap_or(0);
+            self.result_cyc[..n as usize].fill(C::zero());
+            let mut common = common_coefficient.unwrap_or_else(C::zero);
             if number_of_primes % 2 != 0 {
-                common = checked_sub(0, common)?;
+                common = common.neg()?;
             }
-            self.result_cyc[0] = common;
+            self.result_cyc[0] = common.clone();
             n = 1;
-            len = usize::from(common != 0);
+            len = usize::from(!common.is_zero());
         }
 
         let divisor_gcd = gcd(phi, len as u32);
@@ -223,7 +325,7 @@ impl Context {
             let mut equal_classes = true;
             let mut i = 0;
             while i < n && equal_classes {
-                let coefficient = self.result_cyc[((i + n / p) % n) as usize];
+                let coefficient = self.result_cyc[((i + n / p) % n) as usize].clone();
                 let mut k = i + 2 * n / p;
                 while k < i + n {
                     if self.result_cyc[(k % n) as usize] != coefficient {
@@ -242,11 +344,11 @@ impl Context {
 
             let mut i = 0;
             while i < n {
-                let coefficient = self.result_cyc[((i + n / p) % n) as usize];
-                self.result_cyc[i as usize] = checked_sub(0, coefficient)?;
+                let coefficient = self.result_cyc[((i + n / p) % n) as usize].clone();
+                self.result_cyc[i as usize] = coefficient.neg()?;
                 let mut k = i + n / p;
                 while k < i + n {
-                    self.result_cyc[(k % n) as usize] = 0;
+                    self.result_cyc[(k % n) as usize] = C::zero();
                     k += n / p;
                 }
                 i += p;
@@ -254,8 +356,8 @@ impl Context {
             len /= (p - 1) as usize;
 
             for i in 1..n / p {
-                self.result_cyc[i as usize] = self.result_cyc[(i * p) as usize];
-                self.result_cyc[(i * p) as usize] = 0;
+                self.result_cyc[i as usize] = self.result_cyc[(i * p) as usize].clone();
+                self.result_cyc[(i * p) as usize] = C::zero();
             }
             n /= p;
             p += 2;
@@ -264,15 +366,15 @@ impl Context {
         let mut coefficients = Vec::with_capacity(len);
         let mut exponents = Vec::with_capacity(len);
         for i in 0..n {
-            let coefficient = self.result_cyc[i as usize];
-            if coefficient == 0 {
+            let coefficient = self.result_cyc[i as usize].clone();
+            if coefficient.is_zero() {
                 continue;
             }
             coefficients.push(coefficient);
             exponents.push(i);
-            self.result_cyc[i as usize] = 0;
+            self.result_cyc[i as usize] = C::zero();
         }
-        Ok(Cyclotomic {
+        Ok(KernelCyclotomic {
             order: n,
             coefficients,
             exponents,
@@ -287,33 +389,41 @@ impl Context {
         Ok((n / nl, n / nr, n))
     }
 
-    pub fn from_terms(&mut self, order: u32, terms: &[(u32, i64)]) -> Result<Cyclotomic, Error> {
+    pub fn from_terms(
+        &mut self,
+        order: u32,
+        terms: &[(u32, C)],
+    ) -> Result<KernelCyclotomic<C>, Error> {
         if order == 0 {
             return Err(Error("cyclotomic order must be positive".into()));
         }
         self.reset_result_cyc(order);
-        for &(exponent, coefficient) in terms {
+        for (exponent, coefficient) in terms {
             let slot = &mut self.result_cyc[(exponent % order) as usize];
-            *slot = checked_add(*slot, coefficient)?;
+            slot.add_assign(coefficient)?;
         }
         self.convert_to_base(order)?;
         self.cyclotomic(order, 1)
     }
 
-    pub fn root(&mut self, order: u32, exponent: u32) -> Result<Cyclotomic, Error> {
-        self.from_terms(order, &[(exponent, 1)])
+    pub fn root(&mut self, order: u32, exponent: u32) -> Result<KernelCyclotomic<C>, Error> {
+        self.from_terms(order, &[(exponent, C::one())])
     }
 
-    pub fn add(&mut self, lhs: &Cyclotomic, rhs: &Cyclotomic) -> Result<Cyclotomic, Error> {
+    pub fn add(
+        &mut self,
+        lhs: &KernelCyclotomic<C>,
+        rhs: &KernelCyclotomic<C>,
+    ) -> Result<KernelCyclotomic<C>, Error> {
         let (ml, mr, n) = self.find_common_field(lhs.order, rhs.order)?;
-        self.result_cyc[..n as usize].fill(0);
+        self.result_cyc[..n as usize].fill(C::zero());
 
-        for (&exponent, &coefficient) in lhs.exponents.iter().zip(&lhs.coefficients) {
-            self.result_cyc[(exponent * ml) as usize] = coefficient;
+        for (&exponent, coefficient) in lhs.exponents.iter().zip(&lhs.coefficients) {
+            self.result_cyc[(exponent * ml) as usize] = coefficient.clone();
         }
-        for (&exponent, &coefficient) in rhs.exponents.iter().zip(&rhs.coefficients) {
+        for (&exponent, coefficient) in rhs.exponents.iter().zip(&rhs.coefficients) {
             let slot = &mut self.result_cyc[(exponent * mr) as usize];
-            *slot = checked_add(*slot, coefficient)?;
+            slot.add_assign(coefficient)?;
         }
 
         if lhs.order % ml != 0 || rhs.order % mr != 0 {
@@ -322,7 +432,11 @@ impl Context {
         self.cyclotomic(n, ml * mr)
     }
 
-    pub fn mul(&mut self, lhs: &Cyclotomic, rhs: &Cyclotomic) -> Result<Cyclotomic, Error> {
+    pub fn mul(
+        &mut self,
+        lhs: &KernelCyclotomic<C>,
+        rhs: &KernelCyclotomic<C>,
+    ) -> Result<KernelCyclotomic<C>, Error> {
         // GAP deliberately uses the operand with fewer packed terms as the
         // right operand, then specializes its coefficient before scanning the
         // longer left operand.
@@ -332,20 +446,22 @@ impl Context {
             (lhs, rhs)
         };
         let (ml, mr, n) = self.find_common_field(left.order, right.order)?;
-        self.result_cyc[..n as usize].fill(0);
+        self.result_cyc[..n as usize].fill(C::zero());
 
-        for (&right_exponent, &right_coefficient) in right.exponents.iter().zip(&right.coefficients)
+        for (&right_exponent, right_coefficient) in right.exponents.iter().zip(&right.coefficients)
         {
             let offset = u64::from(right_exponent) * u64::from(mr) % u64::from(n);
-            for (&left_exponent, &left_coefficient) in left.exponents.iter().zip(&left.coefficients)
+            for (&left_exponent, left_coefficient) in left.exponents.iter().zip(&left.coefficients)
             {
                 let exponent = (offset + u64::from(left_exponent) * u64::from(ml)) % u64::from(n);
                 let slot = &mut self.result_cyc[exponent as usize];
-                *slot = match right_coefficient {
-                    1 => checked_add(*slot, left_coefficient)?,
-                    -1 => checked_sub(*slot, left_coefficient)?,
-                    _ => checked_add(*slot, checked_mul(left_coefficient, right_coefficient)?)?,
-                };
+                if right_coefficient.is_one() {
+                    slot.add_assign(left_coefficient)?;
+                } else if right_coefficient.is_minus_one() {
+                    slot.sub_assign(left_coefficient)?;
+                } else {
+                    slot.add_assign(&left_coefficient.mul(right_coefficient)?)?;
+                }
             }
         }
 
@@ -354,19 +470,22 @@ impl Context {
     }
 }
 
-impl Cyclotomic {
+impl<C: Coefficient> KernelCyclotomic<C> {
     pub fn order(&self) -> u32 {
         self.order
     }
 
-    pub fn terms(&self) -> Vec<(u32, i64)> {
+    pub fn terms(&self) -> Vec<(u32, C)> {
         self.exponents
             .iter()
             .copied()
-            .zip(self.coefficients.iter().copied())
+            .zip(self.coefficients.iter().cloned())
             .collect()
     }
 }
+
+pub type Context = KernelContext<i64>;
+pub type Cyclotomic = KernelCyclotomic<i64>;
 
 #[cfg(test)]
 mod tests {

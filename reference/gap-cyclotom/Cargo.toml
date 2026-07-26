@@ -10,12 +10,14 @@ description = "Standalone GAP-derived cyclotomic arithmetic reference for benchm
 default = []
 libgap = []
 
+[dependencies]
+rug = { version = "=1.17.0", default-features = false, features = ["integer", "rational"] }
+
 [build-dependencies]
 cc = "1"
 
 [dev-dependencies]
 cyclotomic = { path = "../.." }
-rug = { version = "=1.17.0", default-features = false, features = ["integer", "rational"] }
 
 [[example]]
 name = "like_for_like"

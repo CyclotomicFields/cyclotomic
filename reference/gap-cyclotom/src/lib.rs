@@ -14,6 +14,7 @@ use std::rc::Rc;
 pub mod libgap;
 
 pub mod literal;
+pub mod tagged;
 
 mod ffi {
     use super::c_char;
