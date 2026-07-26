@@ -53,29 +53,22 @@ where
     T: CyclotomicFieldElement<i64, Q>,
     Q: RationalCoefficient,
 {
-    let product: Vec<_> = rows[lhs]
-        .iter()
-        .zip(&rows[rhs])
-        .map(|(left, right)| {
-            let mut result = left.clone();
-            result.mul(&mut right.clone());
-            result
-        })
-        .collect();
-
-    weighted_conjugates
-        .iter()
-        .map(|irreducible| {
-            let mut sum: Option<T> = None;
-            for (value, weighted_conjugate) in product.iter().zip(irreducible) {
-                let mut term = value.clone();
-                term.mul(&mut weighted_conjugate.clone());
-                if let Some(sum) = &mut sum {
-                    sum.add(&mut term);
-                } else {
-                    sum = Some(term);
-                }
+    let mut sums: Vec<Option<T>> = vec![None; weighted_conjugates.len()];
+    for class in 0..rows[lhs].len() {
+        let mut product = rows[lhs][class].clone();
+        product.mul(&mut rows[rhs][class].clone());
+        for (sum, irreducible) in sums.iter_mut().zip(weighted_conjugates) {
+            let mut term = product.clone();
+            term.mul(&mut irreducible[class].clone());
+            if let Some(sum) = sum {
+                sum.add(&mut term);
+            } else {
+                *sum = Some(term);
             }
+        }
+    }
+    sums.into_iter()
+        .map(|sum| {
             let mut sum = sum.expect("character tables have at least one class");
             sum.scalar_mul(&Q::from((1, group_order as u64)));
             sum
@@ -110,24 +103,21 @@ fn tensor_decomposition_packed(
     rhs: usize,
     scratch: &mut sparse::mul::PackedMulScratch<HybridRational>,
 ) -> Vec<sparse::Number<i64, HybridRational>> {
-    let product: Vec<_> = rows[lhs]
-        .iter()
-        .zip(&rows[rhs])
-        .map(|(left, right)| left.mul_packed(right, scratch))
-        .collect();
-
-    weighted_conjugates
-        .iter()
-        .map(|irreducible| {
-            let mut sum: Option<sparse::Number<i64, HybridRational>> = None;
-            for (value, weighted_conjugate) in product.iter().zip(irreducible) {
-                let mut term = value.mul_packed(weighted_conjugate, scratch);
-                if let Some(sum) = &mut sum {
-                    sum.add(&mut term);
-                } else {
-                    sum = Some(term);
-                }
+    let mut sums: Vec<Option<sparse::Number<i64, HybridRational>>> =
+        vec![None; weighted_conjugates.len()];
+    for class in 0..rows[lhs].len() {
+        let product = rows[lhs][class].mul_packed(&rows[rhs][class], scratch);
+        for (sum, irreducible) in sums.iter_mut().zip(weighted_conjugates) {
+            let mut term = product.mul_packed(&irreducible[class], scratch);
+            if let Some(sum) = sum {
+                sum.add(&mut term);
+            } else {
+                *sum = Some(term);
             }
+        }
+    }
+    sums.into_iter()
+        .map(|sum| {
             let mut sum = sum.expect("character tables have at least one class");
             sum.scalar_mul(&HybridRational::from((1, group_order as u64)));
             sum
