@@ -26,9 +26,9 @@ From the repository root:
 cargo test --manifest-path reference/gap-cyclotom/Cargo.toml
 ```
 
-The integration tests evaluate deterministic inputs through both the extracted
-C and the existing Rust sparse implementation, then compare their mathematical
-values.
+The integration tests evaluate deterministic inputs through the extracted C
+and all three Rust implementations—sparse, dense, and structure constants—then
+compare exact mathematical values for addition and multiplication.
 
 ## Benchmark
 
@@ -38,14 +38,16 @@ cargo run --release \
   --example like_for_like > results.json
 ```
 
-The benchmark constructs identical deterministic integer inputs before timing
-and emits JSON records. The current labels are deliberately explicit:
+The benchmark takes roughly ten seconds after compilation, constructs identical
+deterministic integer inputs before timing, and emits JSON records for:
 
 - `gap_extracted_i64` uses checked machine integers and returns a canonical,
   minimal-conductor result on every operation.
 - `rust_sparse_rational` uses GMP-backed `rug::Rational`, clones operands to
   satisfy its mutating API, and leaves multiplication in its normal
   noncanonical internal representation.
+- `rust_dense_rational` uses the dense root-of-unity representation.
+- `rust_structure_rational` uses the nested structure-constant implementation.
 
 Those are real API costs, but they are not yet coefficient-for-coefficient
 parity. GMP rational support in the C extraction and a libgap oracle are needed
