@@ -44,7 +44,7 @@ where
 
 fn tensor_decomposition<T, Q>(
     rows: &[Vec<T>],
-    class_sizes: &[i64],
+    weighted_conjugates: &[Vec<T>],
     group_order: i64,
     lhs: usize,
     rhs: usize,
@@ -63,14 +63,13 @@ where
         })
         .collect();
 
-    rows.iter()
+    weighted_conjugates
+        .iter()
         .map(|irreducible| {
             let mut sum: Option<T> = None;
-            for ((value, character), class_size) in product.iter().zip(irreducible).zip(class_sizes)
-            {
+            for (value, weighted_conjugate) in product.iter().zip(irreducible) {
                 let mut term = value.clone();
-                term.mul(&mut character.complex_conjugate());
-                term.scalar_mul(&Q::from(*class_size));
+                term.mul(&mut weighted_conjugate.clone());
                 if let Some(sum) = &mut sum {
                     sum.add(&mut term);
                 } else {
@@ -84,9 +83,28 @@ where
         .collect()
 }
 
+fn weighted_conjugates<T, Q>(rows: &[Vec<T>], class_sizes: &[i64]) -> Vec<Vec<T>>
+where
+    T: CyclotomicFieldElement<i64, Q>,
+    Q: RationalCoefficient,
+{
+    rows.iter()
+        .map(|row| {
+            row.iter()
+                .zip(class_sizes)
+                .map(|(character, class_size)| {
+                    let mut weighted = character.complex_conjugate();
+                    weighted.scalar_mul(&Q::from(*class_size));
+                    weighted
+                })
+                .collect()
+        })
+        .collect()
+}
+
 fn tensor_decomposition_packed(
     rows: &[Vec<sparse::Number<i64, HybridRational>>],
-    class_sizes: &[i64],
+    weighted_conjugates: &[Vec<sparse::Number<i64, HybridRational>>],
     group_order: i64,
     lhs: usize,
     rhs: usize,
@@ -98,14 +116,12 @@ fn tensor_decomposition_packed(
         .map(|(left, right)| left.mul_packed(right, scratch))
         .collect();
 
-    rows.iter()
+    weighted_conjugates
+        .iter()
         .map(|irreducible| {
             let mut sum: Option<sparse::Number<i64, HybridRational>> = None;
-            for ((value, character), class_size) in product.iter().zip(irreducible).zip(class_sizes)
-            {
-                let conjugate = character.complex_conjugate();
-                let mut term = value.mul_packed(&conjugate, scratch);
-                term.scalar_mul(&HybridRational::from(*class_size));
+            for (value, weighted_conjugate) in product.iter().zip(irreducible) {
+                let mut term = value.mul_packed(weighted_conjugate, scratch);
                 if let Some(sum) = &mut sum {
                     sum.add(&mut term);
                 } else {
@@ -192,12 +208,15 @@ fn main() {
         let sparse_rows: Vec<Vec<sparse::Number<i64, HybridRational>>> =
             convert_table(&table);
         let dense_rows: Vec<Vec<dense::Number>> = convert_table(&table);
+        let sparse_weighted_conjugates =
+            weighted_conjugates(&sparse_rows, &table.class_sizes);
+        let dense_weighted_conjugates = weighted_conjugates(&dense_rows, &table.class_sizes);
         let mut sparse_scratch = sparse::mul::PackedMulScratch::new();
 
         assert_decomposition(
             &tensor_decomposition_packed(
                 &sparse_rows,
-                &table.class_sizes,
+                &sparse_weighted_conjugates,
                 table.group_order,
                 lhs,
                 rhs,
@@ -206,7 +225,13 @@ fn main() {
             &expected,
         );
         assert_decomposition(
-            &tensor_decomposition(&dense_rows, &table.class_sizes, table.group_order, lhs, rhs),
+            &tensor_decomposition(
+                &dense_rows,
+                &dense_weighted_conjugates,
+                table.group_order,
+                lhs,
+                rhs,
+            ),
             &expected,
         );
 
@@ -220,7 +245,7 @@ fn main() {
         let (sparse_iterations, sparse_ns) = measure(|| {
             black_box(tensor_decomposition_packed(
                 &sparse_rows,
-                &table.class_sizes,
+                &sparse_weighted_conjugates,
                 table.group_order,
                 lhs,
                 rhs,
@@ -230,24 +255,39 @@ fn main() {
         let (dense_iterations, dense_ns) = measure(|| {
             black_box(tensor_decomposition(
                 &dense_rows,
-                &table.class_sizes,
+                &dense_weighted_conjugates,
                 table.group_order,
                 lhs,
                 rhs,
             ));
         });
 
-        for (implementation, iterations, ns) in [
-            ("gap_unmodified_libgap", gap_iterations, gap_ns),
-            ("rust_sparse_packed_hybrid", sparse_iterations, sparse_ns),
-            ("rust_dense_rational", dense_iterations, dense_ns),
+        for (implementation, mode, iterations, ns) in [
+            (
+                "gap_unmodified_libgap",
+                "native_representation",
+                gap_iterations,
+                gap_ns,
+            ),
+            (
+                "rust_sparse_packed_hybrid",
+                "precomputed_character_data",
+                sparse_iterations,
+                sparse_ns,
+            ),
+            (
+                "rust_dense_rational",
+                "precomputed_character_data",
+                dense_iterations,
+                dense_ns,
+            ),
         ] {
             if !first_record {
                 println!(",");
             }
             first_record = false;
             print!(
-                "  {{\"family\":\"character_table\",\"table\":\"{}\",\"implementation\":\"{implementation}\",\"operation\":\"tensor_decomposition\",\"mode\":\"native_representation\",\"rows\":{},\"classes\":{},\"group_order\":{},\"lhs_row\":{lhs},\"rhs_row\":{rhs},\"iterations\":{iterations},\"ns_per_iter\":{ns:.3}}}",
+                "  {{\"family\":\"character_table\",\"table\":\"{}\",\"implementation\":\"{implementation}\",\"operation\":\"tensor_decomposition\",\"mode\":\"{mode}\",\"rows\":{},\"classes\":{},\"group_order\":{},\"lhs_row\":{lhs},\"rhs_row\":{rhs},\"iterations\":{iterations},\"ns_per_iter\":{ns:.3}}}",
                 case.name(),
                 table.rows.len(),
                 table.class_sizes.len(),
