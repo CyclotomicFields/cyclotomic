@@ -39,7 +39,8 @@ cargo run --release \
 ```
 
 The benchmark takes roughly ten seconds after compilation, constructs identical
-deterministic integer inputs before timing, and emits JSON records for:
+deterministic integer inputs before timing, guarantees at least one nonzero term
+per operand, and emits JSON records for:
 
 - `gap_extracted_i64` uses checked machine integers and returns a canonical,
   minimal-conductor result on every operation.

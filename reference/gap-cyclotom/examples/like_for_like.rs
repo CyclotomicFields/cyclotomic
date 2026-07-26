@@ -7,10 +7,20 @@ use std::hint::black_box;
 use std::time::{Duration, Instant};
 
 fn terms(order: u32, density_percent: u32, salt: u32) -> Vec<(u32, i64)> {
-    (0..order)
-        .filter(|exponent| (exponent * 37 + salt * 11 + order) % 100 < density_percent)
-        .map(|exponent| (exponent, (i64::from(exponent + salt * 3) % 11) - 5))
-        .filter(|term| term.1 != 0)
+    let count = (order * density_percent).div_ceil(100).max(1);
+    (0..count)
+        .map(|index| {
+            // 37 is coprime to every benchmark order, so this visits distinct
+            // exponents before wrapping.
+            let exponent = (index * 37 + salt * 11) % order;
+            let magnitude = i64::from((index + salt * 3) % 5 + 1);
+            let coefficient = if (index + salt) % 2 == 0 {
+                magnitude
+            } else {
+                -magnitude
+            };
+            (exponent, coefficient)
+        })
         .collect()
 }
 
@@ -113,8 +123,9 @@ fn main() {
                 }
                 first = false;
                 print!(
-                    "  {{\"implementation\":\"{implementation}\",\"operation\":\"mul\",\"order\":{order},\"density\":{:.2},\"iterations\":{iterations},\"ns_per_iter\":{ns:.3}}}",
-                    density as f64 / 100.0
+                    "  {{\"implementation\":\"{implementation}\",\"operation\":\"mul\",\"order\":{order},\"density\":{:.2},\"terms_per_operand\":{},\"iterations\":{iterations},\"ns_per_iter\":{ns:.3}}}",
+                    density as f64 / 100.0,
+                    left_terms.len(),
                 );
             }
         }
