@@ -13,7 +13,9 @@ use std::ops::Mul;
 
 // Tries to reduce to a possibly smaller cyclotomic field
 pub fn try_reduce<E: Exponent, Q: Rational>(z: &mut Number<E, Q>) {
-    let mut current_gcd: Option<E> = None;
+    // Include the conductor: a common factor of the exponents only defines a
+    // smaller root of unity when that factor also divides the conductor.
+    let mut current_gcd: Option<E> = Some(z.order.clone());
     let mut saw_exp_zero = false;
     let mut coeffs_are_equal = true;
     let mut last_nonzero_coeff: Option<Q> = None;
@@ -50,9 +52,10 @@ pub fn try_reduce<E: Exponent, Q: Rational>(z: &mut Number<E, Q>) {
         }
     }
 
-    if current_gcd.is_none() {
-        // if the current gcd was never set, then either 0 is the only exponent
-        // or there are no exponents - rational in both cases.
+    if num_nonzero_terms == E::from(0)
+        || (num_nonzero_terms == E::from(1) && saw_exp_zero)
+    {
+        // Zero and a lone constant are rational.
         z.order = E::from(1);
 
         if saw_exp_zero {
@@ -223,4 +226,38 @@ where
     }
 
     result
+}
+
+#[cfg(test)]
+mod canonical_tests {
+    use super::*;
+    use crate::fields::rational::HybridRational;
+
+    #[test]
+    fn canonicalize_reduces_basis_and_conductor() {
+        let mut value = Number::<i64, HybridRational>::new(
+            &6,
+            &[
+                (0, HybridRational::from(1)),
+                (2, HybridRational::from(1)),
+                (4, HybridRational::from(1)),
+            ]
+            .iter()
+            .cloned()
+            .collect(),
+        );
+        value.canonicalize();
+        assert_eq!(value.order, 1);
+        assert!(value.coeffs.get(&0).map_or(true, Rational::is_zero));
+    }
+
+    #[test]
+    fn multiplication_can_be_canonicalized() {
+        let mut left = Number::<i64, HybridRational>::e(&3, &1);
+        let mut right = Number::<i64, HybridRational>::e(&3, &2);
+        left.mul(&mut right);
+        left.canonicalize();
+        assert_eq!(left.order, 1);
+        assert_eq!(left.coeffs.get(&0), Some(&HybridRational::from(1)));
+    }
 }

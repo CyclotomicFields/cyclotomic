@@ -94,6 +94,29 @@ where
         Number::<E, Q>::increase_order_to(z1, &new_order);
         Number::<E, Q>::increase_order_to(z2, &new_order);
     }
+
+    /// Rewrites this value into the Zumbroich basis and reduces its conductor
+    /// until no smaller cyclotomic field can be found.
+    pub fn canonicalize(&mut self) -> &mut Self {
+        loop {
+            if self.order == E::from(1) {
+                self.coeffs.retain(|_, coefficient| !coefficient.is_zero());
+                return self;
+            }
+            let previous_order = self.order.clone();
+            let mut canonical = basis::convert_to_base(self);
+            basis::try_reduce(&mut canonical);
+            *self = canonical;
+            if self.order == previous_order {
+                return self;
+            }
+        }
+    }
+
+    pub fn canonicalized(mut self) -> Self {
+        self.canonicalize();
+        self
+    }
 }
 
 fn get_same_coeff<E: Exponent, Q: Rational>(z: &Number<E, Q>) -> Option<Q> {
