@@ -27,4 +27,21 @@ int libgap_cyc_coefficient(
     int64_t * numerator,
     int64_t * denominator);
 
+int libgap_character_table_dimensions(
+    uint32_t table,
+    size_t * rows,
+    size_t * columns);
+int libgap_character_table(
+    uint32_t table,
+    const size_t * slots,
+    size_t slots_len,
+    int64_t * class_sizes,
+    int64_t * group_order);
+int libgap_character_tensor_decomposition(
+    uint32_t table,
+    size_t lhs,
+    size_t rhs,
+    int64_t * multiplicities,
+    size_t multiplicities_len);
+
 #endif

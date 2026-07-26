@@ -368,3 +368,72 @@ fn stressed_real_gap_products_agree_with_rust() {
         }
     }
 }
+
+#[cfg(feature = "libgap")]
+#[test]
+fn character_table_tensor_decompositions_agree_with_rust() {
+    use gap_cyclotom_reference::libgap::{CharacterTableCase, Context as LibgapContext};
+
+    let _guard = LIBGAP_TEST_LOCK.lock().unwrap();
+    let context = LibgapContext::new().unwrap();
+
+    for case in CharacterTableCase::ALL {
+        let table = context.character_table(case).unwrap();
+        let rows: Vec<Vec<sparse::Number>> = table
+            .rows
+            .iter()
+            .map(|row| {
+                row.iter()
+                    .map(|value| sparse::Number::from_generic(&libgap_generic(value)))
+                    .collect()
+            })
+            .collect();
+        let interesting: Vec<_> = table
+            .rows
+            .iter()
+            .enumerate()
+            .filter(|(_, row)| row.iter().any(|value| value.order().unwrap() > 1))
+            .map(|(index, _)| index)
+            .collect();
+        let (lhs, rhs) = match interesting.as_slice() {
+            [first, second, ..] => (*first, *second),
+            [first] => (*first, *first),
+            [] => (table.rows.len() - 2, table.rows.len() - 1),
+        };
+        let expected = context
+            .character_tensor_decomposition(case, lhs, rhs, rows.len())
+            .unwrap();
+
+        let products: Vec<_> = rows[lhs]
+            .iter()
+            .zip(&rows[rhs])
+            .map(|(left, right)| left.clone().mul(&mut right.clone()).clone())
+            .collect();
+        for (irreducible, expected) in rows.iter().zip(expected) {
+            let mut sum: Option<sparse::Number> = None;
+            for ((value, character), class_size) in
+                products.iter().zip(irreducible).zip(&table.class_sizes)
+            {
+                let mut term = value.clone();
+                term.mul(&mut character.complex_conjugate());
+                term.scalar_mul(&rug::Rational::from(*class_size));
+                if let Some(sum) = &mut sum {
+                    sum.add(&mut term);
+                } else {
+                    sum = Some(term);
+                }
+            }
+            let mut actual = sum.unwrap();
+            actual.scalar_mul(&rug::Rational::from((1, table.group_order as u64)));
+            let mut expected = sparse::Number::from_generic(&GenericCyclotomic {
+                order: Integer::from(1),
+                exp_coeffs: [(Integer::from(0), (expected, 1))].into_iter().collect(),
+            });
+            assert!(
+                actual.eq(&mut expected),
+                "tensor decomposition mismatch for {}",
+                case.name()
+            );
+        }
+    }
+}

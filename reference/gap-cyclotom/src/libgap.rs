@@ -37,6 +37,25 @@ mod ffi {
             numerator: *mut i64,
             denominator: *mut i64,
         ) -> i32;
+        pub fn libgap_character_table_dimensions(
+            table: u32,
+            rows: *mut usize,
+            columns: *mut usize,
+        ) -> i32;
+        pub fn libgap_character_table(
+            table: u32,
+            slots: *const usize,
+            slots_len: usize,
+            class_sizes: *mut i64,
+            group_order: *mut i64,
+        ) -> i32;
+        pub fn libgap_character_tensor_decomposition(
+            table: u32,
+            lhs: usize,
+            rhs: usize,
+            multiplicities: *mut i64,
+            multiplicities_len: usize,
+        ) -> i32;
     }
 }
 
@@ -73,6 +92,33 @@ pub struct Cyclotomic {
     slot: usize,
     slots: Rc<RefCell<Slots>>,
     _not_send_or_sync: PhantomData<Rc<()>>,
+}
+
+#[derive(Clone, Copy, Debug)]
+#[repr(u32)]
+pub enum CharacterTableCase {
+    A5 = 0,
+    Sl2_5 = 1,
+    Psl2_11 = 2,
+}
+
+impl CharacterTableCase {
+    pub const ALL: [Self; 3] = [Self::A5, Self::Sl2_5, Self::Psl2_11];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::A5 => "A5",
+            Self::Sl2_5 => "SL(2,5)",
+            Self::Psl2_11 => "PSL(2,11)",
+        }
+    }
+}
+
+pub struct CharacterTable {
+    pub case: CharacterTableCase,
+    pub rows: Vec<Vec<Cyclotomic>>,
+    pub class_sizes: Vec<i64>,
+    pub group_order: i64,
 }
 
 impl Context {
@@ -149,6 +195,86 @@ impl Context {
     pub fn quo(&self, lhs: &Cyclotomic, rhs: &Cyclotomic) -> Result<Cyclotomic, Error> {
         self.output(|slot| unsafe { ffi::libgap_cyc_quo(slot, lhs.slot, rhs.slot) })
     }
+
+    pub fn character_table(&self, case: CharacterTableCase) -> Result<CharacterTable, Error> {
+        let mut row_count = 0;
+        let mut column_count = 0;
+        if unsafe {
+            ffi::libgap_character_table_dimensions(case as u32, &mut row_count, &mut column_count)
+        } == 0
+        {
+            return Err(error());
+        }
+
+        let slot_count = row_count
+            .checked_mul(column_count)
+            .ok_or_else(|| Error("character table is too large".into()))?;
+        let slots: Vec<_> = (0..slot_count)
+            .map(|_| self.slots.borrow_mut().allocate())
+            .collect();
+        let mut class_sizes = vec![0; column_count];
+        let mut group_order = 0;
+        if unsafe {
+            ffi::libgap_character_table(
+                case as u32,
+                slots.as_ptr(),
+                slots.len(),
+                class_sizes.as_mut_ptr(),
+                &mut group_order,
+            )
+        } == 0
+        {
+            for slot in &slots {
+                unsafe {
+                    ffi::libgap_cyc_release(*slot);
+                }
+            }
+            self.slots.borrow_mut().free.extend(slots);
+            return Err(error());
+        }
+
+        let values: Vec<_> = slots
+            .into_iter()
+            .map(|slot| Cyclotomic {
+                slot,
+                slots: Rc::clone(&self.slots),
+                _not_send_or_sync: PhantomData,
+            })
+            .collect();
+        let mut values = values.into_iter();
+        let rows = (0..row_count)
+            .map(|_| values.by_ref().take(column_count).collect())
+            .collect();
+        Ok(CharacterTable {
+            case,
+            rows,
+            class_sizes,
+            group_order,
+        })
+    }
+
+    pub fn character_tensor_decomposition(
+        &self,
+        case: CharacterTableCase,
+        lhs: usize,
+        rhs: usize,
+        row_count: usize,
+    ) -> Result<Vec<i64>, Error> {
+        let mut multiplicities = vec![0; row_count];
+        if unsafe {
+            ffi::libgap_character_tensor_decomposition(
+                case as u32,
+                lhs,
+                rhs,
+                multiplicities.as_mut_ptr(),
+                multiplicities.len(),
+            )
+        } == 0
+        {
+            return Err(error());
+        }
+        Ok(multiplicities)
+    }
 }
 
 impl Cyclotomic {
@@ -204,9 +330,13 @@ impl Eq for Cyclotomic {}
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    static LIBGAP_TEST_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn unmodified_gap_handles_rational_cyclotomics() {
+        let _guard = LIBGAP_TEST_LOCK.lock().unwrap();
         let context = Context::new().unwrap();
         let value = context.from_terms(5, &[(1, (1, 2)), (2, (2, 3))]).unwrap();
         let square = context.mul(&value, &value).unwrap();
@@ -217,5 +347,22 @@ mod tests {
         );
         let recovered = context.quo(&square, &value).unwrap();
         assert!(recovered == value);
+    }
+
+    #[test]
+    fn unmodified_gap_exposes_character_tables_and_tensor_products() {
+        let _guard = LIBGAP_TEST_LOCK.lock().unwrap();
+        let context = Context::new().unwrap();
+        let table = context.character_table(CharacterTableCase::A5).unwrap();
+        assert_eq!(table.group_order, 60);
+        assert_eq!(table.class_sizes, [1, 15, 20, 12, 12]);
+        assert_eq!(table.rows.len(), 5);
+        assert!(table.rows.iter().all(|row| row.len() == 5));
+        assert_eq!(
+            context
+                .character_tensor_decomposition(CharacterTableCase::A5, 1, 1, table.rows.len())
+                .unwrap(),
+            [1, 1, 1, 1, 1]
+        );
     }
 }

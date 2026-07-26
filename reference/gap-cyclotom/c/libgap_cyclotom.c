@@ -10,12 +10,30 @@ static Obj FuncConductor;
 static Obj FuncCoeffs;
 static Obj FuncNumerator;
 static Obj FuncDenominator;
+static Obj FuncAlternatingGroup;
+static Obj FuncSL;
+static Obj FuncPSL;
+static Obj FuncCharacterTable;
+static Obj FuncIrr;
+static Obj FuncValuesOfClassFunction;
+static Obj FuncSizesConjugacyClasses;
+static Obj FuncSize;
+static Obj FuncScalarProduct;
+enum { CharacterTableCount = 3 };
+static Obj CharacterTables[CharacterTableCount];
+static Obj Irreducibles[CharacterTableCount];
 static const char * LastError;
 
-static void MarkRoots(void)
+static void MarkRootsAndCharacterTables(void)
 {
     if (Roots)
         GAP_MarkBag(Roots);
+    for (size_t i = 0; i < CharacterTableCount; i++) {
+        if (CharacterTables[i])
+            GAP_MarkBag(CharacterTables[i]);
+        if (Irreducibles[i])
+            GAP_MarkBag(Irreducibles[i]);
+    }
 }
 
 static void RecordError(void)
@@ -58,7 +76,7 @@ int libgap_cyc_init(const char * gap_root)
         (char *)"-A",
         0,
     };
-    GAP_Initialize(6, argv, MarkRoots, RecordError, 0);
+    GAP_Initialize(6, argv, MarkRootsAndCharacterTables, RecordError, 0);
 
     int ok = GAP_Enter();
     if (ok) {
@@ -69,8 +87,22 @@ int libgap_cyc_init(const char * gap_root)
         FuncCoeffs = GAP_ValueGlobalVariable("COEFFS_CYC");
         FuncNumerator = GAP_ValueGlobalVariable("NumeratorRat");
         FuncDenominator = GAP_ValueGlobalVariable("DenominatorRat");
+        FuncAlternatingGroup = GAP_ValueGlobalVariable("AlternatingGroup");
+        FuncSL = GAP_ValueGlobalVariable("SL");
+        FuncPSL = GAP_ValueGlobalVariable("PSL");
+        FuncCharacterTable = GAP_ValueGlobalVariable("CharacterTable");
+        FuncIrr = GAP_ValueGlobalVariable("Irr");
+        FuncValuesOfClassFunction =
+            GAP_ValueGlobalVariable("ValuesOfClassFunction");
+        FuncSizesConjugacyClasses =
+            GAP_ValueGlobalVariable("SizesConjugacyClasses");
+        FuncSize = GAP_ValueGlobalVariable("Size");
+        FuncScalarProduct = GAP_ValueGlobalVariable("ScalarProduct");
         ok = Roots && FuncE && FuncConductor && FuncCoeffs
-            && FuncNumerator && FuncDenominator;
+            && FuncNumerator && FuncDenominator && FuncAlternatingGroup
+            && FuncSL && FuncPSL && FuncCharacterTable && FuncIrr
+            && FuncValuesOfClassFunction && FuncSizesConjugacyClasses
+            && FuncSize && FuncScalarProduct;
         if (!ok)
             LastError = "required GAP cyclotomic globals are unavailable";
     }
@@ -81,6 +113,37 @@ int libgap_cyc_init(const char * gap_root)
 const char * libgap_cyc_error(void)
 {
     return LastError ? LastError : "unknown libgap error";
+}
+
+static int EnsureCharacterTable(uint32_t table)
+{
+    if (table >= CharacterTableCount) {
+        LastError = "unknown character table";
+        return 0;
+    }
+    if (CharacterTables[table])
+        return 1;
+
+    Obj two = GAP_NewObjIntFromInt(2);
+    Obj parameter = GAP_NewObjIntFromInt(table == 2 ? 11 : 5);
+    Obj group;
+    if (table == 0)
+        group = GAP_CallFunc1Args(FuncAlternatingGroup, parameter);
+    else if (table == 1)
+        group = GAP_CallFunc2Args(FuncSL, two, parameter);
+    else
+        group = GAP_CallFunc2Args(FuncPSL, two, parameter);
+    if (!group) {
+        LastError = "failed to construct character table group";
+        return 0;
+    }
+    CharacterTables[table] = GAP_CallFunc1Args(FuncCharacterTable, group);
+    Irreducibles[table] = GAP_CallFunc1Args(FuncIrr, CharacterTables[table]);
+    if (!CharacterTables[table] || !Irreducibles[table]) {
+        LastError = "failed to construct character table";
+        return 0;
+    }
+    return 1;
 }
 
 int libgap_cyc_from_terms(
@@ -235,6 +298,130 @@ int libgap_cyc_coefficient(
             Int den_value = GAP_ValueInt(den);
             *numerator = (int64_t)num_value;
             *denominator = (int64_t)den_value;
+        }
+    }
+    GAP_Leave();
+    return ok;
+}
+
+int libgap_character_table_dimensions(
+    uint32_t table,
+    size_t * rows,
+    size_t * columns)
+{
+    LastError = 0;
+    if (!rows || !columns) {
+        LastError = "character table dimensions need output pointers";
+        return 0;
+    }
+    int ok = GAP_Enter();
+    if (ok) {
+        ok = EnsureCharacterTable(table);
+        if (ok) {
+            *rows = GAP_LenList(Irreducibles[table]);
+            Obj first = GAP_ElmList(Irreducibles[table], 1);
+            Obj values = GAP_CallFunc1Args(FuncValuesOfClassFunction, first);
+            *columns = GAP_LenList(values);
+        }
+    }
+    GAP_Leave();
+    return ok;
+}
+
+int libgap_character_table(
+    uint32_t table,
+    const size_t * slots,
+    size_t slots_len,
+    int64_t * class_sizes,
+    int64_t * group_order)
+{
+    LastError = 0;
+    if (!slots || !class_sizes || !group_order) {
+        LastError = "character table needs output buffers";
+        return 0;
+    }
+    int ok = GAP_Enter();
+    if (ok)
+        ok = EnsureCharacterTable(table);
+    if (ok) {
+        size_t rows = GAP_LenList(Irreducibles[table]);
+        Obj first = GAP_ElmList(Irreducibles[table], 1);
+        Obj first_values =
+            GAP_CallFunc1Args(FuncValuesOfClassFunction, first);
+        size_t columns = GAP_LenList(first_values);
+        if (slots_len != rows * columns) {
+            LastError = "wrong number of character table slots";
+            ok = 0;
+        }
+        Obj sizes =
+            GAP_CallFunc1Args(FuncSizesConjugacyClasses, CharacterTables[table]);
+        Obj size = GAP_CallFunc1Args(FuncSize, CharacterTables[table]);
+        if (ok && !GAP_IsSmallInt(size)) {
+            LastError = "character table group order does not fit an integer";
+            ok = 0;
+        }
+        if (ok)
+            *group_order = GAP_ValueInt(size);
+        for (size_t column = 0; column < columns && ok; column++) {
+            Obj class_size = GAP_ElmList(sizes, column + 1);
+            if (!GAP_IsSmallInt(class_size)) {
+                LastError = "conjugacy class size does not fit an integer";
+                ok = 0;
+            }
+            else {
+                class_sizes[column] = GAP_ValueInt(class_size);
+            }
+        }
+        for (size_t row = 0; row < rows && ok; row++) {
+            Obj character = GAP_ElmList(Irreducibles[table], row + 1);
+            Obj values =
+                GAP_CallFunc1Args(FuncValuesOfClassFunction, character);
+            for (size_t column = 0; column < columns && ok; column++) {
+                ok = Store(
+                    slots[row * columns + column],
+                    GAP_ElmList(values, column + 1));
+            }
+        }
+    }
+    GAP_Leave();
+    return ok;
+}
+
+int libgap_character_tensor_decomposition(
+    uint32_t table,
+    size_t lhs,
+    size_t rhs,
+    int64_t * multiplicities,
+    size_t multiplicities_len)
+{
+    LastError = 0;
+    if (!multiplicities) {
+        LastError = "tensor decomposition needs an output buffer";
+        return 0;
+    }
+    int ok = GAP_Enter();
+    if (ok)
+        ok = EnsureCharacterTable(table);
+    if (ok) {
+        size_t rows = GAP_LenList(Irreducibles[table]);
+        if (lhs >= rows || rhs >= rows || multiplicities_len != rows) {
+            LastError = "invalid character row or multiplicity length";
+            ok = 0;
+        }
+        Obj left = ok ? GAP_ElmList(Irreducibles[table], lhs + 1) : 0;
+        Obj right = ok ? GAP_ElmList(Irreducibles[table], rhs + 1) : 0;
+        Obj product = ok ? GAP_PROD(left, right) : 0;
+        for (size_t row = 0; row < rows && ok; row++) {
+            Obj character = GAP_ElmList(Irreducibles[table], row + 1);
+            Obj scalar =
+                GAP_CallFunc2Args(FuncScalarProduct, product, character);
+            if (!GAP_IsSmallInt(scalar)) {
+                LastError = "character multiplicity does not fit an integer";
+                ok = 0;
+            }
+            else {
+                multiplicities[row] = GAP_ValueInt(scalar);
+            }
         }
     }
     GAP_Leave();

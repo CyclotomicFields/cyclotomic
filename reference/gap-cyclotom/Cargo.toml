@@ -30,3 +30,8 @@ required-features = ["libgap"]
 name = "stress_like_for_like"
 path = "examples/stress_like_for_like.rs"
 required-features = ["libgap"]
+
+[[example]]
+name = "character_table_workloads"
+path = "examples/character_table_workloads.rs"
+required-features = ["libgap"]
