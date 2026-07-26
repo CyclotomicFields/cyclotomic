@@ -35,3 +35,8 @@ required-features = ["libgap"]
 name = "character_table_workloads"
 path = "examples/character_table_workloads.rs"
 required-features = ["libgap"]
+
+[[example]]
+name = "literal_gap_vs_libgap"
+path = "examples/literal_gap_vs_libgap.rs"
+required-features = ["libgap"]

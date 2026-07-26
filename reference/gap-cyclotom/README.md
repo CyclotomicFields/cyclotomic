@@ -82,6 +82,37 @@ cargo run --release \
   --example character_table_workloads > character-table-results.json
 ```
 
+For the isolated GAP-algorithm comparison requested here:
+
+```sh
+cargo run --release \
+  --manifest-path reference/gap-cyclotom/Cargo.toml \
+  --example literal_gap_port > literal-c-vs-rust.json
+
+LIBGAP_ROOT="$PWD/reference/gap-cyclotom/target/libgap-d2134de71521c62512b8351c42ec16bfbac21744" \
+cargo run --release \
+  --manifest-path reference/gap-cyclotom/Cargo.toml \
+  --features libgap \
+  --example literal_gap_vs_libgap > literal-rust-vs-libgap.json
+```
+
+`literal_gap_port` compares the standalone C extraction with its direct Rust
+translation, using the same checked `i64` coefficient model.
+`literal_gap_vs_libgap` compares only that Rust translation with unmodified
+GAP. The Rust source mirrors `ConvertToBase`, `Cyclotomic`, `FindCommonField`,
+and `ProdCyc`: it keeps the dense reusable `ResultCyc` buffer, packed sorted
+outputs, the smaller-right-operand loop order, the zero/±1 coefficient cases,
+cached field properties, and eager minimal-conductor reduction. Exact tests
+compare canonical order and every packed term with the C extraction, then
+compare mathematical equality with unmodified libgap.
+
+The translation intentionally uses checked `i64`, so this is a comparison of
+the kernel algorithm for GAP immediate-integer-sized inputs. It does not yet
+translate GAP's tagged `Obj` representation, garbage collector, or automatic
+promotion to arbitrary integers and rationals. Consequently the two paths run
+the same mathematical control flow but need not have identical allocation and
+coefficient-operation costs.
+
 This asks unmodified GAP to construct the character tables of `A5`, `SL(2,5)`,
 and `PSL(2,11)`. Before timing, it transfers the exact table entries and class
 sizes into both Rust representations. The timed operation decomposes the
