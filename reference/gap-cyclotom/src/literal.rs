@@ -14,8 +14,7 @@ use std::fmt::Debug;
 #[doc(hidden)]
 pub struct KernelCyclotomic<C> {
     order: u32,
-    coefficients: Vec<C>,
-    exponents: Vec<u32>,
+    terms: Vec<(u32, C)>,
 }
 
 #[doc(hidden)]
@@ -363,22 +362,16 @@ impl<C: Coefficient> KernelContext<C> {
             p += 2;
         }
 
-        let mut coefficients = Vec::with_capacity(len);
-        let mut exponents = Vec::with_capacity(len);
+        let mut terms = Vec::with_capacity(len);
         for i in 0..n {
             let coefficient = self.result_cyc[i as usize].clone();
             if coefficient.is_zero() {
                 continue;
             }
-            coefficients.push(coefficient);
-            exponents.push(i);
+            terms.push((i, coefficient));
             self.result_cyc[i as usize] = C::zero();
         }
-        Ok(KernelCyclotomic {
-            order: n,
-            coefficients,
-            exponents,
-        })
+        Ok(KernelCyclotomic { order: n, terms })
     }
 
     fn find_common_field(&mut self, nl: u32, nr: u32) -> Result<(u32, u32, u32), Error> {
@@ -418,11 +411,11 @@ impl<C: Coefficient> KernelContext<C> {
         let (ml, mr, n) = self.find_common_field(lhs.order, rhs.order)?;
         self.result_cyc[..n as usize].fill(C::zero());
 
-        for (&exponent, coefficient) in lhs.exponents.iter().zip(&lhs.coefficients) {
-            self.result_cyc[(exponent * ml) as usize] = coefficient.clone();
+        for (exponent, coefficient) in &lhs.terms {
+            self.result_cyc[(*exponent * ml) as usize] = coefficient.clone();
         }
-        for (&exponent, coefficient) in rhs.exponents.iter().zip(&rhs.coefficients) {
-            let slot = &mut self.result_cyc[(exponent * mr) as usize];
+        for (exponent, coefficient) in &rhs.terms {
+            let slot = &mut self.result_cyc[(*exponent * mr) as usize];
             slot.add_assign(coefficient)?;
         }
 
@@ -440,7 +433,7 @@ impl<C: Coefficient> KernelContext<C> {
         // GAP deliberately uses the operand with fewer packed terms as the
         // right operand, then specializes its coefficient before scanning the
         // longer left operand.
-        let (left, right) = if lhs.coefficients.len() < rhs.coefficients.len() {
+        let (left, right) = if lhs.terms.len() < rhs.terms.len() {
             (rhs, lhs)
         } else {
             (lhs, rhs)
@@ -448,12 +441,10 @@ impl<C: Coefficient> KernelContext<C> {
         let (ml, mr, n) = self.find_common_field(left.order, right.order)?;
         self.result_cyc[..n as usize].fill(C::zero());
 
-        for (&right_exponent, right_coefficient) in right.exponents.iter().zip(&right.coefficients)
-        {
-            let offset = u64::from(right_exponent) * u64::from(mr) % u64::from(n);
-            for (&left_exponent, left_coefficient) in left.exponents.iter().zip(&left.coefficients)
-            {
-                let exponent = (offset + u64::from(left_exponent) * u64::from(ml)) % u64::from(n);
+        for (right_exponent, right_coefficient) in &right.terms {
+            let offset = u64::from(*right_exponent) * u64::from(mr) % u64::from(n);
+            for (left_exponent, left_coefficient) in &left.terms {
+                let exponent = (offset + u64::from(*left_exponent) * u64::from(ml)) % u64::from(n);
                 let slot = &mut self.result_cyc[exponent as usize];
                 if right_coefficient.is_one() {
                     slot.add_assign(left_coefficient)?;
@@ -472,8 +463,8 @@ impl<C: Coefficient> KernelContext<C> {
     pub fn conjugate(&mut self, value: &KernelCyclotomic<C>) -> Result<KernelCyclotomic<C>, Error> {
         let n = value.order;
         self.reset_result_cyc(n);
-        for (&exponent, coefficient) in value.exponents.iter().zip(&value.coefficients) {
-            self.result_cyc[((n - exponent) % n) as usize] = coefficient.clone();
+        for (exponent, coefficient) in &value.terms {
+            self.result_cyc[((n - *exponent) % n) as usize] = coefficient.clone();
         }
         self.convert_to_base(n)?;
         self.cyclotomic(n, 1)
@@ -486,8 +477,8 @@ impl<C: Coefficient> KernelContext<C> {
     ) -> Result<KernelCyclotomic<C>, Error> {
         let n = value.order;
         self.reset_result_cyc(n);
-        for (&exponent, coefficient) in value.exponents.iter().zip(&value.coefficients) {
-            self.result_cyc[exponent as usize] = coefficient.mul(scalar)?;
+        for (exponent, coefficient) in &value.terms {
+            self.result_cyc[*exponent as usize] = coefficient.mul(scalar)?;
         }
         // Scalar multiplication preserves a canonical basis representation.
         self.cyclotomic(n, n)
@@ -500,11 +491,7 @@ impl<C: Coefficient> KernelCyclotomic<C> {
     }
 
     pub fn terms(&self) -> Vec<(u32, C)> {
-        self.exponents
-            .iter()
-            .copied()
-            .zip(self.coefficients.iter().cloned())
-            .collect()
+        self.terms.clone()
     }
 
     pub(crate) fn map_coefficients<D: Coefficient>(
@@ -513,8 +500,11 @@ impl<C: Coefficient> KernelCyclotomic<C> {
     ) -> KernelCyclotomic<D> {
         KernelCyclotomic {
             order: self.order,
-            coefficients: self.coefficients.iter().map(&mut map).collect(),
-            exponents: self.exponents.clone(),
+            terms: self
+                .terms
+                .iter()
+                .map(|(exponent, coefficient)| (*exponent, map(coefficient)))
+                .collect(),
         }
     }
 }
