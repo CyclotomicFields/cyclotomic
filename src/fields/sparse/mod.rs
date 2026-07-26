@@ -117,6 +117,16 @@ where
         self.canonicalize();
         self
     }
+
+    /// Returns the rational coefficient when this value lies in Q, after
+    /// canonical basis and conductor reduction.
+    pub fn into_rational(mut self) -> Option<Q> {
+        self.canonicalize();
+        if self.order != E::from(1) {
+            return None;
+        }
+        Some(self.coeffs.remove(&E::from(0)).unwrap_or_else(Q::zero))
+    }
 }
 
 fn get_same_coeff<E: Exponent, Q: Rational>(z: &Number<E, Q>) -> Option<Q> {

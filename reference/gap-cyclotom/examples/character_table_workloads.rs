@@ -125,23 +125,59 @@ fn tensor_decomposition_packed(
         .collect()
 }
 
-fn integer(value: i64) -> GenericCyclotomic {
-    GenericCyclotomic {
-        order: Integer::from(1),
-        exp_coeffs: [(Integer::from(0), (value, 1))].into_iter().collect(),
-    }
+fn sparse_multiplicities(
+    rows: &[Vec<sparse::Number<i64, HybridRational>>],
+    weighted_conjugates: &[Vec<sparse::Number<i64, HybridRational>>],
+    group_order: i64,
+    lhs: usize,
+    rhs: usize,
+    scratch: &mut sparse::mul::PackedMulScratch<HybridRational>,
+) -> Vec<HybridRational> {
+    tensor_decomposition_packed(
+        rows,
+        weighted_conjugates,
+        group_order,
+        lhs,
+        rhs,
+        scratch,
+    )
+    .into_iter()
+    .map(|value| {
+        value
+            .into_rational()
+            .expect("character inner products are rational")
+    })
+    .collect()
 }
 
-fn assert_decomposition<T, Q>(actual: &[T], expected: &[i64])
-where
-    T: CyclotomicFieldElement<i64, Q>,
-    Q: RationalCoefficient,
-{
+fn dense_multiplicities(
+    rows: &[Vec<dense::Number>],
+    weighted_conjugates: &[Vec<dense::Number>],
+    group_order: i64,
+    lhs: usize,
+    rhs: usize,
+) -> Vec<rug::Rational> {
+    tensor_decomposition(
+        rows,
+        weighted_conjugates,
+        group_order,
+        lhs,
+        rhs,
+    )
+    .into_iter()
+    .map(|value| {
+        value
+            .into_rational()
+            .expect("character inner products are rational")
+    })
+    .collect()
+}
+
+fn assert_rational_decomposition<Q: RationalCoefficient>(actual: &[Q], expected: &[i64]) {
     assert_eq!(actual.len(), expected.len());
     for (actual, expected) in actual.iter().zip(expected) {
-        let mut actual = actual.clone();
-        let mut expected = T::from_generic(&integer(*expected));
-        assert!(actual.eq(&mut expected));
+        assert_eq!(actual.numer(), Integer::from(*expected));
+        assert_eq!(actual.denom(), Integer::from(1));
     }
 }
 
@@ -203,8 +239,8 @@ fn main() {
         let dense_weighted_conjugates = weighted_conjugates(&dense_rows, &table.class_sizes);
         let mut sparse_scratch = sparse::mul::PackedMulScratch::new();
 
-        assert_decomposition(
-            &tensor_decomposition_packed(
+        assert_rational_decomposition(
+            &sparse_multiplicities(
                 &sparse_rows,
                 &sparse_weighted_conjugates,
                 table.group_order,
@@ -214,8 +250,8 @@ fn main() {
             ),
             &expected,
         );
-        assert_decomposition(
-            &tensor_decomposition(
+        assert_rational_decomposition(
+            &dense_multiplicities(
                 &dense_rows,
                 &dense_weighted_conjugates,
                 table.group_order,
@@ -233,7 +269,7 @@ fn main() {
             );
         });
         let (sparse_iterations, sparse_ns) = measure(|| {
-            black_box(tensor_decomposition_packed(
+            black_box(sparse_multiplicities(
                 &sparse_rows,
                 &sparse_weighted_conjugates,
                 table.group_order,
@@ -243,7 +279,7 @@ fn main() {
             ));
         });
         let (dense_iterations, dense_ns) = measure(|| {
-            black_box(tensor_decomposition(
+            black_box(dense_multiplicities(
                 &dense_rows,
                 &dense_weighted_conjugates,
                 table.group_order,
@@ -261,13 +297,13 @@ fn main() {
             ),
             (
                 "rust_sparse_packed_hybrid",
-                "precomputed_character_data",
+                "precomputed_canonical_integer",
                 sparse_iterations,
                 sparse_ns,
             ),
             (
                 "rust_dense_rational",
-                "precomputed_character_data",
+                "precomputed_canonical_integer",
                 dense_iterations,
                 dense_ns,
             ),

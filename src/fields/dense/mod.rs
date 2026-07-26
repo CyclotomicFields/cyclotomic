@@ -82,6 +82,30 @@ impl Number {
         Number::increase_order_to(z1, new_order);
         Number::increase_order_to(z2, new_order);
     }
+
+    pub fn canonicalize(&mut self) -> &mut Self {
+        loop {
+            if self.order == 1 {
+                return self;
+            }
+            let previous_order = self.order;
+            let mut canonical = basis::convert_to_base(self);
+            basis::try_reduce(&mut canonical);
+            *self = canonical;
+            if self.order == previous_order {
+                return self;
+            }
+        }
+    }
+
+    pub fn into_rational(mut self) -> Option<Q> {
+        self.canonicalize();
+        if self.order == 1 {
+            Some(self.coeffs[0].clone())
+        } else {
+            None
+        }
+    }
 }
 
 fn get_same_coeff(z: &Number) -> Option<Q> {

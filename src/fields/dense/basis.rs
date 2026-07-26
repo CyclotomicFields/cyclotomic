@@ -13,7 +13,7 @@ use crate::fields::CyclotomicFieldElement;
 
 // Tries to reduce to a possibly smaller cyclotomic field
 pub fn try_reduce(z: &mut Number) {
-    let mut current_gcd: Option<u64> = None;
+    let mut current_gcd: Option<u64> = Some(z.order as u64);
     let mut saw_exp_zero = false;
     let mut num_nonzero_terms = 0;
     let mut coeffs_are_equal = true;
@@ -51,9 +51,8 @@ pub fn try_reduce(z: &mut Number) {
         }
     }
 
-    if current_gcd.is_none() {
-        // if the current gcd was never set, then either 0 is the only exponent
-        // or there are no exponents - rational in both cases.
+    if num_nonzero_terms == 0 || (num_nonzero_terms == 1 && saw_exp_zero) {
+        // Zero and a lone constant are rational.
         z.order = 1;
 
         if saw_exp_zero {
