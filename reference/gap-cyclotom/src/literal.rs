@@ -474,9 +474,14 @@ impl<C: Coefficient> KernelContext<C> {
         self.result_cyc[..n as usize].fill(C::zero());
 
         for (right_exponent, right_coefficient) in &right.terms {
-            let offset = u64::from(*right_exponent) * u64::from(mr) % u64::from(n);
+            let offset = *right_exponent * mr;
             for (left_exponent, left_coefficient) in &left.terms {
-                let exponent = (offset + u64::from(*left_exponent) * u64::from(ml)) % u64::from(n);
+                let exponent = offset + *left_exponent * ml;
+                let exponent = if exponent >= n {
+                    exponent - n
+                } else {
+                    exponent
+                };
                 let slot = &mut self.result_cyc[exponent as usize];
                 if right_coefficient.is_one() {
                     slot.add_assign(left_coefficient)?;
@@ -522,10 +527,14 @@ impl<C: Coefficient> KernelContext<C> {
         let left_scale = n / left.order;
         let right_scale = n / right.order;
         for (right_exponent, right_coefficient) in &right.terms {
-            let offset = u64::from(*right_exponent) * u64::from(right_scale) % u64::from(n);
+            let offset = *right_exponent * right_scale;
             for (left_exponent, left_coefficient) in &left.terms {
-                let exponent =
-                    (offset + u64::from(*left_exponent) * u64::from(left_scale)) % u64::from(n);
+                let exponent = offset + *left_exponent * left_scale;
+                let exponent = if exponent >= n {
+                    exponent - n
+                } else {
+                    exponent
+                };
                 let slot = &mut self.result_cyc[exponent as usize];
                 if right_coefficient.is_one() {
                     slot.add_assign(left_coefficient)?;
