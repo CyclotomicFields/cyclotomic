@@ -421,6 +421,36 @@ impl Context {
         Ok(())
     }
 
+    pub fn sum_products(
+        &mut self,
+        products: &[(&Cyclotomic, &Cyclotomic)],
+    ) -> Result<Cyclotomic, Error> {
+        if products.iter().all(|(lhs, rhs)| {
+            matches!(lhs, Cyclotomic::Small(_)) && matches!(rhs, Cyclotomic::Small(_))
+        }) {
+            let small_products: Vec<_> = products
+                .iter()
+                .map(|(lhs, rhs)| match (lhs, rhs) {
+                    (Cyclotomic::Small(lhs), Cyclotomic::Small(rhs)) => (lhs, rhs),
+                    _ => unreachable!(),
+                })
+                .collect();
+            if let Ok(result) = self.small_kernel.sum_products(&small_products) {
+                return Ok(Cyclotomic::Small(result));
+            }
+        }
+
+        let exact_products: Vec<_> = products
+            .iter()
+            .map(|(lhs, rhs)| (Self::promote(lhs), Self::promote(rhs)))
+            .collect();
+        let exact_product_refs: Vec<_> =
+            exact_products.iter().map(|(lhs, rhs)| (lhs, rhs)).collect();
+        self.exact_kernel
+            .sum_products(&exact_product_refs)
+            .map(Cyclotomic::Exact)
+    }
+
     pub fn conjugate(&mut self, value: &Cyclotomic) -> Result<Cyclotomic, Error> {
         match value {
             Cyclotomic::Small(value) => self.small_kernel.conjugate(value).map(Cyclotomic::Small),

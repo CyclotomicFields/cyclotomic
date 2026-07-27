@@ -543,6 +543,54 @@ impl<C: Coefficient> KernelContext<C> {
         Ok(())
     }
 
+    pub fn sum_products(
+        &mut self,
+        products: &[(&KernelCyclotomic<C>, &KernelCyclotomic<C>)],
+    ) -> Result<KernelCyclotomic<C>, Error> {
+        let mut n = 1_u32;
+        for (lhs, rhs) in products {
+            for order in [lhs.order, rhs.order] {
+                let common = u64::from(n) * u64::from(order / gcd(n, order));
+                n = u32::try_from(common)
+                    .map_err(|_| Error("common cyclotomic field exceeds uint32_t".into()))?;
+            }
+        }
+        self.grow_result_cyc(n);
+        self.result_cyc[..n as usize].fill(C::zero());
+
+        for (lhs, rhs) in products {
+            let (left, right) = if lhs.terms.len() < rhs.terms.len() {
+                (*rhs, *lhs)
+            } else {
+                (*lhs, *rhs)
+            };
+            let left_scale = n / left.order;
+            let right_scale = n / right.order;
+            for (right_exponent, right_coefficient) in &right.terms {
+                let offset = *right_exponent * right_scale;
+                for (left_exponent, left_coefficient) in &left.terms {
+                    let exponent = offset + *left_exponent * left_scale;
+                    let exponent = if exponent >= n {
+                        exponent - n
+                    } else {
+                        exponent
+                    };
+                    let slot = &mut self.result_cyc[exponent as usize];
+                    if right_coefficient.is_one() {
+                        slot.add_assign(left_coefficient)?;
+                    } else if right_coefficient.is_minus_one() {
+                        slot.sub_assign(left_coefficient)?;
+                    } else {
+                        slot.add_assign(&left_coefficient.mul(right_coefficient)?)?;
+                    }
+                }
+            }
+        }
+
+        self.convert_to_base(n)?;
+        self.cyclotomic(n, 1)
+    }
+
     pub fn conjugate(&mut self, value: &KernelCyclotomic<C>) -> Result<KernelCyclotomic<C>, Error> {
         let n = value.order;
         self.reset_result_cyc(n);
@@ -626,5 +674,37 @@ mod tests {
             context.mul_add_assign(&mut actual, &lhs, &rhs).unwrap();
             assert_eq!(actual, expected, "order {order}");
         }
+    }
+
+    #[test]
+    fn delayed_sum_of_products_matches_separate_operations() {
+        let mut context = Context::new();
+        let values: Vec<_> = [5_u32, 8, 9, 12]
+            .into_iter()
+            .enumerate()
+            .map(|(index, order)| {
+                context
+                    .from_terms(
+                        order,
+                        &[
+                            (index as u32 % order, index as i64 + 1),
+                            ((index as u32 * 3 + 1) % order, index as i64 - 3),
+                        ],
+                    )
+                    .unwrap()
+            })
+            .collect();
+        let pairs = [
+            (&values[0], &values[1]),
+            (&values[2], &values[3]),
+            (&values[0], &values[3]),
+        ];
+        let mut expected = context.mul(pairs[0].0, pairs[0].1).unwrap();
+        for (lhs, rhs) in &pairs[1..] {
+            let product = context.mul(lhs, rhs).unwrap();
+            expected = context.add(&expected, &product).unwrap();
+        }
+        let actual = context.sum_products(&pairs).unwrap();
+        assert_eq!(actual, expected);
     }
 }

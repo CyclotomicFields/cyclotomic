@@ -199,6 +199,21 @@ fn tagged_optimized_operations_match_composition_and_algebraic_laws() {
             "case {case_index}: fused multiply-add"
         );
 
+        let delayed_pairs = [
+            (&left, &right),
+            (&right, &accumulator),
+            (&accumulator, &left),
+        ];
+        let delayed_actual = tagged.sum_products(&delayed_pairs).unwrap();
+        let right_accumulator = tagged.mul(&right, &accumulator).unwrap();
+        let accumulator_left = tagged.mul(&accumulator, &left).unwrap();
+        let first_two_products = tagged.add(&product, &right_accumulator).unwrap();
+        let delayed_expected = tagged.add(&first_two_products, &accumulator_left).unwrap();
+        assert_eq!(
+            delayed_actual, delayed_expected,
+            "case {case_index}: delayed sum of products"
+        );
+
         let conjugate_left = tagged.conjugate(&left).unwrap();
         let conjugate_twice = tagged.conjugate(&conjugate_left).unwrap();
         assert_eq!(
@@ -363,7 +378,7 @@ fn tagged_operation_matrix_matches_unmodified_gap_canonically() {
         let gap_fused = gap
             .add(&gap_accumulator, &gap.mul(&gap_left, &gap_right).unwrap())
             .unwrap();
-        let mut tagged_fused = tagged_accumulator;
+        let mut tagged_fused = tagged_accumulator.clone();
         tagged
             .mul_add_assign(&mut tagged_fused, &tagged_left, &tagged_right)
             .unwrap();
@@ -371,6 +386,20 @@ fn tagged_operation_matrix_matches_unmodified_gap_canonically() {
             &tagged_fused,
             &gap_fused,
             &format!("{prefix}: fused multiply-add"),
+        );
+
+        let gap_right_accumulator = gap.mul(&gap_right, &gap_accumulator).unwrap();
+        let gap_delayed = gap.add(&gap_product, &gap_right_accumulator).unwrap();
+        let tagged_delayed = tagged
+            .sum_products(&[
+                (&tagged_left, &tagged_right),
+                (&tagged_right, &tagged_accumulator),
+            ])
+            .unwrap();
+        assert_tagged_matches_gap(
+            &tagged_delayed,
+            &gap_delayed,
+            &format!("{prefix}: delayed sum of products"),
         );
 
         let conjugate_terms: Vec<_> = left_terms
