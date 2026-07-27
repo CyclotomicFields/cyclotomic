@@ -7,7 +7,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 use crate::Error;
-use rug::Rational;
+use rug::{Integer, Rational};
 use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -268,6 +268,21 @@ fn gcd(mut lhs: u32, mut rhs: u32) -> u32 {
         rhs = next;
     }
     lhs
+}
+
+fn modular_inverse(value: u64, modulus: u64) -> u64 {
+    let (mut old_r, mut r) = (value as i64, modulus as i64);
+    let (mut old_s, mut s) = (1_i64, 0_i64);
+    while r != 0 {
+        let quotient = old_r / r;
+        (old_r, r) = (r, old_r - quotient * r);
+        (old_s, s) = (s, old_s - quotient * s);
+    }
+    old_s.rem_euclid(modulus as i64) as u64
+}
+
+fn signed_residue(value: i64, modulus: u64) -> u64 {
+    (i128::from(value).rem_euclid(i128::from(modulus))) as u64
 }
 
 impl<C: Coefficient> KernelContext<C> {
@@ -614,6 +629,18 @@ impl<C: Coefficient> KernelContext<C> {
         self.cyclotomic(order, 1)
     }
 
+    pub(crate) fn from_basis_terms(
+        &mut self,
+        order: u32,
+        terms: &[(u32, C)],
+    ) -> Result<KernelCyclotomic<C>, Error> {
+        self.reset_result_cyc(order);
+        for (exponent, coefficient) in terms {
+            self.result_cyc[*exponent as usize] = coefficient.clone();
+        }
+        self.cyclotomic(order, 1)
+    }
+
     pub fn root(&mut self, order: u32, exponent: u32) -> Result<KernelCyclotomic<C>, Error> {
         self.from_terms(order, &[(exponent, C::one())])
     }
@@ -835,6 +862,146 @@ impl<C: Coefficient> KernelContext<C> {
 }
 
 impl KernelContext<i64> {
+    const CRT_PRIMES: [u32; 6] = [
+        167_772_161,
+        469_762_049,
+        754_974_721,
+        998_244_353,
+        1_004_535_809,
+        2_013_265_921,
+    ];
+
+    pub(crate) fn sum_products_crt_basis(
+        &mut self,
+        products: &[(&KernelCyclotomic<i64>, &KernelCyclotomic<i64>)],
+    ) -> Result<Option<(u32, Vec<Integer>)>, Error> {
+        let mut n = 1_u32;
+        let mut bound = Integer::from(0);
+        for (lhs, rhs) in products {
+            for order in [lhs.order, rhs.order] {
+                let common = u64::from(n) * u64::from(order / gcd(n, order));
+                n = u32::try_from(common)
+                    .map_err(|_| Error("common cyclotomic field exceeds uint32_t".into()))?;
+            }
+            let left_l1 = lhs.terms.iter().fold(Integer::from(0), |sum, (_, value)| {
+                sum + Integer::from(value.unsigned_abs())
+            });
+            let right_l1 = rhs.terms.iter().fold(Integer::from(0), |sum, (_, value)| {
+                sum + Integer::from(value.unsigned_abs())
+            });
+            bound += left_l1 * right_l1;
+        }
+
+        let mut remaining = n;
+        let mut radical = Integer::from(1);
+        let mut factor = 2_u32;
+        while factor <= remaining {
+            if remaining % factor == 0 {
+                radical *= factor;
+                while remaining % factor == 0 {
+                    remaining /= factor;
+                }
+            }
+            factor += if factor == 2 { 1 } else { 2 };
+        }
+        bound *= radical;
+        bound *= 2;
+
+        if bound == 0 {
+            return Ok(Some((n, vec![Integer::from(0); n as usize])));
+        }
+        let mut combined_modulus = Integer::from(1);
+        let mut prime_count = 0;
+        for prime in Self::CRT_PRIMES {
+            combined_modulus *= prime;
+            prime_count += 1;
+            if combined_modulus > bound {
+                break;
+            }
+        }
+        if combined_modulus <= bound {
+            return Ok(None);
+        }
+
+        let plan = self.conversion_plan(n);
+        let mut residue_sets = Vec::with_capacity(prime_count);
+        for &prime in &Self::CRT_PRIMES[..prime_count] {
+            let modulus = u64::from(prime);
+            let mut coefficients = vec![0_u64; n as usize];
+            for (lhs, rhs) in products {
+                let left_scale = n / lhs.order;
+                let right_scale = n / rhs.order;
+                for (left_exponent, left_coefficient) in &lhs.terms {
+                    for (right_exponent, right_coefficient) in &rhs.terms {
+                        let exponent = *left_exponent * left_scale + *right_exponent * right_scale;
+                        let exponent = if exponent >= n {
+                            exponent - n
+                        } else {
+                            exponent
+                        };
+                        let product = (u128::from(signed_residue(*left_coefficient, modulus))
+                            * u128::from(signed_residue(*right_coefficient, modulus)))
+                            % u128::from(modulus);
+                        coefficients[exponent as usize] =
+                            ((u128::from(coefficients[exponent as usize]) + product)
+                                % u128::from(modulus)) as u64;
+                    }
+                }
+            }
+            for step in plan.iter() {
+                for raw in step.start_bad..=step.end_bad {
+                    let mut residue = (i64::from(n / step.q) * raw) % i64::from(step.q);
+                    if residue < 0 {
+                        residue += i64::from(step.q);
+                    }
+                    let mut i = residue as u32;
+                    while i < n {
+                        let coefficient = coefficients[i as usize];
+                        if coefficient != 0 {
+                            coefficients[i as usize] = 0;
+                            for k in 1..step.p {
+                                let exponent = (u64::from(i)
+                                    + u64::from(k) * u64::from(n) / u64::from(step.p))
+                                    % u64::from(n);
+                                let slot = &mut coefficients[exponent as usize];
+                                *slot = (*slot + modulus - coefficient) % modulus;
+                            }
+                        }
+                        i += step.q;
+                    }
+                }
+            }
+            residue_sets.push(coefficients);
+        }
+
+        let mut prefixes = Vec::with_capacity(prime_count.saturating_sub(1));
+        let mut prefix = Integer::from(Self::CRT_PRIMES[0]);
+        for &prime in &Self::CRT_PRIMES[1..prime_count] {
+            let inverse = modular_inverse(prefix.mod_u(prime) as u64, u64::from(prime));
+            prefixes.push((prefix.clone(), prime, inverse));
+            prefix *= prime;
+        }
+        let half_modulus = Integer::from(&combined_modulus >> 1);
+        let mut reconstructed = Vec::with_capacity(n as usize);
+        for index in 0..n as usize {
+            let mut value = Integer::from(residue_sets[0][index]);
+            for (stage, (prefix, prime, inverse)) in prefixes.iter().enumerate() {
+                let modulus = u64::from(*prime);
+                let current = u64::from(value.mod_u(*prime));
+                let target = residue_sets[stage + 1][index];
+                let delta = ((u128::from((target + modulus - current) % modulus)
+                    * u128::from(*inverse))
+                    % u128::from(modulus)) as u64;
+                value += prefix * delta;
+            }
+            if value > half_modulus {
+                value -= &combined_modulus;
+            }
+            reconstructed.push(value);
+        }
+        Ok(Some((n, reconstructed)))
+    }
+
     fn integer_quotient_from_result(&mut self, n: u32, divisor: i64) -> Result<i64, Error> {
         let numerator = self.result_cyc[0];
         if self.result_cyc.is_scalar() {
@@ -1064,5 +1231,31 @@ mod tests {
                 .unwrap(),
             vec![4, 2]
         );
+    }
+
+    #[test]
+    fn crt_basis_reconstruction_matches_exact_overflowing_product() {
+        let mut small = Context::new();
+        let left = small
+            .from_terms(5, &[(0, i64::MAX), (1, i64::MAX - 2)])
+            .unwrap();
+        let right = small.from_terms(5, &[(0, 2), (2, -3)]).unwrap();
+        let (order, coefficients) = small
+            .sum_products_crt_basis(&[(&left, &right)])
+            .unwrap()
+            .unwrap();
+
+        let mut exact = KernelContext::<Rational>::new();
+        let basis_terms: Vec<_> = coefficients
+            .into_iter()
+            .enumerate()
+            .filter(|(_, coefficient)| coefficient != &0)
+            .map(|(exponent, coefficient)| (exponent as u32, Rational::from(coefficient)))
+            .collect();
+        let actual = exact.from_basis_terms(order, &basis_terms).unwrap();
+        let exact_left = left.map_coefficients(|coefficient| Rational::from(*coefficient));
+        let exact_right = right.map_coefficients(|coefficient| Rational::from(*coefficient));
+        let expected = exact.sum_products(&[(&exact_left, &exact_right)]).unwrap();
+        assert_eq!(actual, expected);
     }
 }

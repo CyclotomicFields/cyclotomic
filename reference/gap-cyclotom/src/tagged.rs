@@ -566,6 +566,22 @@ impl Context {
             {
                 return Ok(result);
             }
+            if let Some((order, coefficients)) =
+                self.small_kernel.sum_products_crt_basis(&small_products)?
+            {
+                let terms: Vec<_> = coefficients
+                    .into_iter()
+                    .enumerate()
+                    .filter(|(_, coefficient)| coefficient != &0)
+                    .map(|(exponent, coefficient)| {
+                        (exponent as u32, TaggedRational::from_integer(coefficient))
+                    })
+                    .collect();
+                let sum = self.exact_kernel.from_basis_terms(order, &terms)?;
+                let sum = Cyclotomic::Exact(sum);
+                let quotient = self.scale_fraction(&sum, 1, divisor)?;
+                return integer_i64(&quotient);
+            }
         }
 
         let sum = self.sum_products(products)?;
