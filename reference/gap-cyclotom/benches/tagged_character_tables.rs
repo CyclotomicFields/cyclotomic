@@ -1,6 +1,8 @@
 use gap_cyclotom_reference::libgap::{CharacterTableCase, Context as LibgapContext};
 use gap_cyclotom_reference::tagged::Context as TaggedContext;
-use gap_cyclotom_reference::tagged_character::PreparedCharacterTable;
+use gap_cyclotom_reference::tagged_character::{
+    PreparedCharacterTable, PreparedRepresentationRing,
+};
 use std::hint::black_box;
 use std::time::{Duration, Instant};
 
@@ -89,6 +91,16 @@ fn main() {
                 .expect("decompose tensor product in tagged Rust");
             assert_eq!(actual, expected, "{} rows {lhs}, {rhs}", case.name());
         }
+        let ring = PreparedRepresentationRing::build(&prepared, &mut tagged)
+            .expect("precompute representation ring");
+        for &(lhs, rhs) in &pairs {
+            assert_eq!(
+                ring.basis_product(lhs, rhs).unwrap(),
+                prepared
+                    .tensor_multiplicities(&mut tagged, lhs, rhs)
+                    .unwrap()
+            );
+        }
 
         if selected("gap", &implementation_filter) {
             let measurement = measure(
@@ -121,6 +133,32 @@ fn main() {
                 samples,
             );
             print_measurement(case, "rust", pairs.len(), &measurement);
+
+            let lookup = measure(
+                || {
+                    for &(lhs, rhs) in &pairs {
+                        black_box(ring.basis_product(lhs, rhs).unwrap());
+                    }
+                },
+                sample_time,
+                samples,
+            );
+            print_measurement(case, "rust-ring-lookup", pairs.len(), &lookup);
+
+            let mut left = vec![0_i64; ring.rank()];
+            let mut right = vec![0_i64; ring.rank()];
+            for index in 0..ring.rank() {
+                left[index] = i64::from(index % 3 == 0);
+                right[index] = if index % 4 == 0 { -1 } else { 0 };
+            }
+            let virtual_product = measure(
+                || {
+                    black_box(ring.multiply(&left, &right).unwrap());
+                },
+                sample_time,
+                samples,
+            );
+            print_measurement(case, "rust-ring-vector", 1, &virtual_product);
         }
     }
 }

@@ -525,7 +525,9 @@ fn tagged_overflow_promotion_round_trips_against_unmodified_gap() {
 #[test]
 fn tagged_character_tensor_decompositions_equal_unmodified_gap() {
     use gap_cyclotom_reference::libgap::{CharacterTableCase, Context as LibgapContext};
-    use gap_cyclotom_reference::tagged_character::PreparedCharacterTable;
+    use gap_cyclotom_reference::tagged_character::{
+        PreparedCharacterTable, PreparedRepresentationRing,
+    };
 
     let _guard = LIBGAP_TEST_LOCK.lock().unwrap();
     let gap = LibgapContext::new().unwrap();
@@ -533,6 +535,8 @@ fn tagged_character_tensor_decompositions_equal_unmodified_gap() {
     for case in CharacterTableCase::ALL {
         let table = gap.character_table(case).unwrap();
         let prepared = PreparedCharacterTable::import(&mut tagged, &table).unwrap();
+        let ring = PreparedRepresentationRing::build(&prepared, &mut tagged).unwrap();
+        assert_eq!(ring.rank(), table.rows.len());
 
         for lhs in 0..table.rows.len() {
             for rhs in lhs..table.rows.len() {
@@ -542,6 +546,7 @@ fn tagged_character_tensor_decompositions_equal_unmodified_gap() {
                 let actual = prepared
                     .tensor_multiplicities(&mut tagged, lhs, rhs)
                     .unwrap();
+                assert_eq!(ring.basis_product(lhs, rhs).unwrap(), expected);
                 assert_eq!(
                     actual,
                     expected,
@@ -549,6 +554,28 @@ fn tagged_character_tensor_decompositions_equal_unmodified_gap() {
                     case.name()
                 );
             }
+        }
+
+        if ring.rank() >= 3 {
+            let mut left = vec![0; ring.rank()];
+            let mut right = vec![0; ring.rank()];
+            left[0] = 1;
+            left[1] = 1;
+            right[0] = 1;
+            right[2] = -1;
+            let actual = ring.multiply(&left, &right).unwrap();
+            let mut expected = vec![0; ring.rank()];
+            for (lhs, left_coefficient) in [(0, 1_i64), (1, 1)] {
+                for (rhs, right_coefficient) in [(0, 1_i64), (2, -1)] {
+                    for (slot, coefficient) in expected
+                        .iter_mut()
+                        .zip(ring.basis_product(lhs, rhs).unwrap())
+                    {
+                        *slot += left_coefficient * right_coefficient * coefficient;
+                    }
+                }
+            }
+            assert_eq!(actual, expected);
         }
     }
 }

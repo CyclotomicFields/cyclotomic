@@ -10,6 +10,11 @@ pub struct PreparedCharacterTable {
     group_order: i64,
 }
 
+pub struct PreparedRepresentationRing {
+    rank: usize,
+    structure_constants: Vec<i64>,
+}
+
 impl PreparedCharacterTable {
     pub fn import(context: &mut Context, table: &CharacterTable) -> Result<Self, Error> {
         let mut rows = Vec::with_capacity(table.rows.len());
@@ -93,6 +98,86 @@ impl PreparedCharacterTable {
                 }
                 let multiplicity = context.scale_fraction(&sum, 1, self.group_order)?;
                 integer_value(&multiplicity)
+            })
+            .collect()
+    }
+}
+
+impl PreparedRepresentationRing {
+    pub fn build(table: &PreparedCharacterTable, context: &mut Context) -> Result<Self, Error> {
+        let rank = table.rows.len();
+        let length = rank
+            .checked_mul(rank)
+            .and_then(|value| value.checked_mul(rank))
+            .ok_or_else(|| Error("representation ring is too large".into()))?;
+        let mut structure_constants = vec![0_i64; length];
+        for lhs in 0..rank {
+            for rhs in lhs..rank {
+                let product = table.tensor_multiplicities(context, lhs, rhs)?;
+                let forward = (lhs * rank + rhs) * rank;
+                structure_constants[forward..forward + rank].copy_from_slice(&product);
+                if lhs != rhs {
+                    let reverse = (rhs * rank + lhs) * rank;
+                    structure_constants[reverse..reverse + rank].copy_from_slice(&product);
+                }
+            }
+        }
+        Ok(Self {
+            rank,
+            structure_constants,
+        })
+    }
+
+    pub fn rank(&self) -> usize {
+        self.rank
+    }
+
+    pub fn basis_product(&self, lhs: usize, rhs: usize) -> Result<&[i64], Error> {
+        if lhs >= self.rank || rhs >= self.rank {
+            return Err(Error(
+                "representation-ring basis index is out of range".into(),
+            ));
+        }
+        let start = (lhs * self.rank + rhs) * self.rank;
+        Ok(&self.structure_constants[start..start + self.rank])
+    }
+
+    pub fn multiply(&self, lhs: &[i64], rhs: &[i64]) -> Result<Vec<i64>, Error> {
+        if lhs.len() != self.rank || rhs.len() != self.rank {
+            return Err(Error(
+                "representation-ring vector has the wrong dimension".into(),
+            ));
+        }
+        let mut result = vec![0_i128; self.rank];
+        for (left_index, &left) in lhs.iter().enumerate() {
+            if left == 0 {
+                continue;
+            }
+            for (right_index, &right) in rhs.iter().enumerate() {
+                if right == 0 {
+                    continue;
+                }
+                let scalar = i128::from(left)
+                    .checked_mul(i128::from(right))
+                    .ok_or_else(|| Error("representation-ring coefficient overflow".into()))?;
+                for (slot, &coefficient) in result
+                    .iter_mut()
+                    .zip(self.basis_product(left_index, right_index)?)
+                {
+                    let contribution = scalar
+                        .checked_mul(i128::from(coefficient))
+                        .ok_or_else(|| Error("representation-ring coefficient overflow".into()))?;
+                    *slot = slot
+                        .checked_add(contribution)
+                        .ok_or_else(|| Error("representation-ring coefficient overflow".into()))?;
+                }
+            }
+        }
+        result
+            .into_iter()
+            .map(|coefficient| {
+                i64::try_from(coefficient)
+                    .map_err(|_| Error("representation-ring coefficient does not fit i64".into()))
             })
             .collect()
     }
