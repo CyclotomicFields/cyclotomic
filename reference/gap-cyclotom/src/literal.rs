@@ -9,8 +9,10 @@
 use crate::Error;
 use rug::Rational;
 use smallvec::SmallVec;
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::ops::{Index, IndexMut};
+use std::sync::Arc;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[doc(hidden)]
@@ -26,6 +28,17 @@ pub struct KernelContext<C> {
     phi: u32,
     is_squarefree: bool,
     number_of_primes: u32,
+    field_properties_cache: HashMap<u32, (u32, bool, u32)>,
+    common_field_cache: HashMap<(u32, u32), (u32, u32, u32)>,
+    conversion_plan_cache: HashMap<u32, Arc<[ConversionStep]>>,
+}
+
+#[derive(Clone, Copy)]
+struct ConversionStep {
+    p: u32,
+    q: u32,
+    start_bad: i64,
+    end_bad: i64,
 }
 
 struct Scratch<C> {
@@ -241,6 +254,9 @@ impl<C: Coefficient> Default for KernelContext<C> {
             phi: 0,
             is_squarefree: false,
             number_of_primes: 0,
+            field_properties_cache: HashMap::new(),
+            common_field_cache: HashMap::new(),
+            conversion_plan_cache: HashMap::new(),
         }
     }
 }
@@ -255,6 +271,8 @@ fn gcd(mut lhs: u32, mut rhs: u32) -> u32 {
 }
 
 impl<C: Coefficient> KernelContext<C> {
+    const CACHE_THRESHOLD: u32 = 256;
+
     pub fn new() -> Self {
         Self::default()
     }
@@ -267,9 +285,12 @@ impl<C: Coefficient> KernelContext<C> {
         self.result_cyc.reset(order as usize);
     }
 
-    // Direct translation of GAP's ConvertToBase: eliminate every root outside
-    // the Zumbroich basis with 1 + e_p + ... + e_p^(p-1) = 0.
-    fn convert_to_base(&mut self, n: u32) -> Result<(), Error> {
+    fn conversion_plan(&mut self, n: u32) -> Arc<[ConversionStep]> {
+        if let Some(plan) = self.conversion_plan_cache.get(&n) {
+            return Arc::clone(plan);
+        }
+
+        let mut steps = Vec::new();
         let mut nn = n;
         let mut p = 2;
         while p <= nn {
@@ -290,31 +311,99 @@ impl<C: Coefficient> KernelContext<C> {
                 } else {
                     (i64::from(q / p) - 1) / 2
                 };
-
-                for raw in start_bad..=end_bad {
-                    let mut residue = (i64::from(n / q) * raw) % i64::from(q);
-                    if residue < 0 {
-                        residue += i64::from(q);
-                    }
-
-                    let mut i = residue as u32;
-                    while i < n {
-                        let coefficient = self.result_cyc[i as usize].clone();
-                        if !coefficient.is_zero() {
-                            self.result_cyc[i as usize] = C::zero();
-                            for k in 1..p {
-                                let exponent = (u64::from(i)
-                                    + u64::from(k) * u64::from(n) / u64::from(p))
-                                    % u64::from(n);
-                                let slot = &mut self.result_cyc[exponent as usize];
-                                slot.sub_assign(&coefficient)?;
-                            }
-                        }
-                        i += q;
-                    }
-                }
+                steps.push(ConversionStep {
+                    p,
+                    q,
+                    start_bad,
+                    end_bad,
+                });
             }
             p += if p == 2 { 1 } else { 2 };
+        }
+        let plan: Arc<[ConversionStep]> = steps.into();
+        self.conversion_plan_cache.insert(n, Arc::clone(&plan));
+        plan
+    }
+
+    // Direct translation of GAP's ConvertToBase: eliminate every root outside
+    // the Zumbroich basis with 1 + e_p + ... + e_p^(p-1) = 0.
+    fn convert_to_base(&mut self, n: u32) -> Result<(), Error> {
+        if n <= Self::CACHE_THRESHOLD {
+            let mut nn = n;
+            let mut p = 2;
+            while p <= nn {
+                if nn % p == 0 {
+                    let mut q = p;
+                    while (nn / q) % p == 0 {
+                        q *= p;
+                    }
+                    nn /= q;
+                    let start_bad = if p == 2 {
+                        i64::from(q / 2)
+                    } else {
+                        -(i64::from(q / p) - 1) / 2
+                    };
+                    let end_bad = if p == 2 {
+                        i64::from(q) - 1
+                    } else {
+                        (i64::from(q / p) - 1) / 2
+                    };
+                    for raw in start_bad..=end_bad {
+                        let mut residue = (i64::from(n / q) * raw) % i64::from(q);
+                        if residue < 0 {
+                            residue += i64::from(q);
+                        }
+                        let mut i = residue as u32;
+                        while i < n {
+                            let coefficient = self.result_cyc[i as usize].clone();
+                            if !coefficient.is_zero() {
+                                self.result_cyc[i as usize] = C::zero();
+                                for k in 1..p {
+                                    let exponent = (u64::from(i)
+                                        + u64::from(k) * u64::from(n) / u64::from(p))
+                                        % u64::from(n);
+                                    let slot = &mut self.result_cyc[exponent as usize];
+                                    slot.sub_assign(&coefficient)?;
+                                }
+                            }
+                            i += q;
+                        }
+                    }
+                }
+                p += if p == 2 { 1 } else { 2 };
+            }
+            return Ok(());
+        }
+
+        let plan = self.conversion_plan(n);
+        for step in plan.iter() {
+            self.apply_conversion_step(n, *step)?;
+        }
+        Ok(())
+    }
+
+    #[inline(always)]
+    fn apply_conversion_step(&mut self, n: u32, step: ConversionStep) -> Result<(), Error> {
+        for raw in step.start_bad..=step.end_bad {
+            let mut residue = (i64::from(n / step.q) * raw) % i64::from(step.q);
+            if residue < 0 {
+                residue += i64::from(step.q);
+            }
+            let mut i = residue as u32;
+            while i < n {
+                let coefficient = self.result_cyc[i as usize].clone();
+                if !coefficient.is_zero() {
+                    self.result_cyc[i as usize] = C::zero();
+                    for k in 1..step.p {
+                        let exponent = (u64::from(i)
+                            + u64::from(k) * u64::from(n) / u64::from(step.p))
+                            % u64::from(n);
+                        let slot = &mut self.result_cyc[exponent as usize];
+                        slot.sub_assign(&coefficient)?;
+                    }
+                }
+                i += step.q;
+            }
         }
         Ok(())
     }
@@ -322,6 +411,17 @@ impl<C: Coefficient> KernelContext<C> {
     fn field_properties(&mut self, n: u32) -> (u32, bool, u32) {
         if n == self.last_n {
             return (self.phi, self.is_squarefree, self.number_of_primes);
+        }
+        if n > Self::CACHE_THRESHOLD {
+            if let Some(&(phi, is_squarefree, number_of_primes)) =
+                self.field_properties_cache.get(&n)
+            {
+                self.last_n = n;
+                self.phi = phi;
+                self.is_squarefree = is_squarefree;
+                self.number_of_primes = number_of_primes;
+                return (phi, is_squarefree, number_of_primes);
+            }
         }
         self.last_n = n;
         self.phi = n;
@@ -344,7 +444,11 @@ impl<C: Coefficient> KernelContext<C> {
             }
             p += 1;
         }
-        (self.phi, self.is_squarefree, self.number_of_primes)
+        let properties = (self.phi, self.is_squarefree, self.number_of_primes);
+        if n > Self::CACHE_THRESHOLD {
+            self.field_properties_cache.insert(n, properties);
+        }
+        properties
     }
 
     // Direct translation of GAP's Cyclotomic packing and minimal-conductor
@@ -479,8 +583,18 @@ impl<C: Coefficient> KernelContext<C> {
         let common = u64::from(nl) * u64::from(nr / gcd(nl, nr));
         let n = u32::try_from(common)
             .map_err(|_| Error("common cyclotomic field exceeds uint32_t".into()))?;
+        if n > Self::CACHE_THRESHOLD {
+            if let Some(&field) = self.common_field_cache.get(&(nl, nr)) {
+                self.grow_result_cyc(field.2);
+                return Ok(field);
+            }
+        }
         self.grow_result_cyc(n);
-        Ok((n / nl, n / nr, n))
+        let field = (n / nl, n / nr, n);
+        if n > Self::CACHE_THRESHOLD {
+            self.common_field_cache.insert((nl, nr), field);
+        }
+        Ok(field)
     }
 
     pub fn from_terms(
