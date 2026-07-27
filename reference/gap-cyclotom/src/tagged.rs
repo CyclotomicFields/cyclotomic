@@ -428,12 +428,56 @@ impl Context {
         order: u32,
         terms: &[(u32, (i64, i64))],
     ) -> Result<Cyclotomic, Error> {
+        if terms.iter().any(|(_, (_, denominator))| *denominator == 0) {
+            return Err(Error("rational denominator must be nonzero".into()));
+        }
         if terms.iter().all(|(_, (_, denominator))| *denominator == 1) {
             let integer_terms: Vec<_> = terms
                 .iter()
                 .map(|&(exponent, (numerator, _))| (exponent, numerator))
                 .collect();
             return self.from_integer_terms(order, &integer_terms);
+        }
+        let mut common_denominator = 1_i128;
+        let mut valid_common_denominator = true;
+        for (_, (_, denominator)) in terms {
+            let denominator = i128::from(*denominator).abs();
+            let mut left = common_denominator;
+            let mut right = denominator;
+            while right != 0 {
+                (left, right) = (right, left % right);
+            }
+            match common_denominator
+                .checked_div(left)
+                .and_then(|value| value.checked_mul(denominator))
+            {
+                Some(value) if value <= i128::from(i64::MAX) => common_denominator = value,
+                _ => {
+                    valid_common_denominator = false;
+                    break;
+                }
+            }
+        }
+        if valid_common_denominator {
+            let integer_terms: Option<Vec<_>> = terms
+                .iter()
+                .map(|&(exponent, (numerator, denominator))| {
+                    let sign = if denominator < 0 { -1_i128 } else { 1_i128 };
+                    let multiplier = common_denominator / i128::from(denominator).abs();
+                    let coefficient = i128::from(numerator)
+                        .checked_mul(sign)?
+                        .checked_mul(multiplier)?;
+                    Some((exponent, i64::try_from(coefficient).ok()?))
+                })
+                .collect();
+            if let Some(integer_terms) = integer_terms {
+                let integer = self.from_integer_terms(order, &integer_terms)?;
+                return self.scale_fraction(
+                    &integer,
+                    1,
+                    i64::try_from(common_denominator).unwrap(),
+                );
+            }
         }
         let terms: Vec<_> = terms
             .iter()
