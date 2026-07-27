@@ -55,41 +55,39 @@ impl PreparedCharacterTable {
         rhs: usize,
     ) -> Result<Vec<i64>, Error> {
         let workload = self.rows[lhs].len() * self.weighted_conjugates.len();
-        let sums = if workload <= 25 {
-            let mut sums: Vec<Option<Cyclotomic>> = (0..self.rows.len()).map(|_| None).collect();
-            for class in 0..self.rows[lhs].len() {
-                let product = context.mul(&self.rows[lhs][class], &self.rows[rhs][class])?;
-                for (sum, irreducible) in sums.iter_mut().zip(&self.weighted_conjugates) {
-                    match sum {
-                        Some(sum) => {
-                            context.mul_add_assign(sum, &product, &irreducible[class])?;
-                        }
-                        None => {
-                            *sum = Some(context.mul(&product, &irreducible[class])?);
-                        }
-                    }
-                }
-            }
-            sums.into_iter()
-                .map(|sum| sum.ok_or_else(|| Error("character table has no classes".into())))
-                .collect::<Result<Vec<_>, _>>()?
-        } else {
+        if workload > 25 {
             let products: Vec<_> = self.rows[lhs]
                 .iter()
                 .zip(&self.rows[rhs])
                 .map(|(left, right)| context.mul(left, right))
                 .collect::<Result<_, _>>()?;
-            self.weighted_conjugates
+            return self
+                .weighted_conjugates
                 .iter()
                 .map(|irreducible| {
                     let terms: Vec<_> = products.iter().zip(irreducible).collect();
-                    context.sum_products(&terms)
+                    context.sum_products_integer_quotient(&terms, self.group_order)
                 })
-                .collect::<Result<Vec<_>, _>>()?
-        };
+                .collect();
+        }
 
+        let mut sums: Vec<Option<Cyclotomic>> = (0..self.rows.len()).map(|_| None).collect();
+        for class in 0..self.rows[lhs].len() {
+            let product = context.mul(&self.rows[lhs][class], &self.rows[rhs][class])?;
+            for (sum, irreducible) in sums.iter_mut().zip(&self.weighted_conjugates) {
+                match sum {
+                    Some(sum) => {
+                        context.mul_add_assign(sum, &product, &irreducible[class])?;
+                    }
+                    None => {
+                        *sum = Some(context.mul(&product, &irreducible[class])?);
+                    }
+                }
+            }
+        }
         sums.into_iter()
             .map(|sum| {
+                let sum = sum.ok_or_else(|| Error("character table has no classes".into()))?;
                 if matches!(&sum, Cyclotomic::Small(_)) {
                     let numerator = integer_value(&sum)?;
                     if numerator % self.group_order == 0 {

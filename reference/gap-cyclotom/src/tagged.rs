@@ -451,6 +451,34 @@ impl Context {
             .map(Cyclotomic::Exact)
     }
 
+    pub fn sum_products_integer_quotient(
+        &mut self,
+        products: &[(&Cyclotomic, &Cyclotomic)],
+        divisor: i64,
+    ) -> Result<i64, Error> {
+        if products.iter().all(|(lhs, rhs)| {
+            matches!(lhs, Cyclotomic::Small(_)) && matches!(rhs, Cyclotomic::Small(_))
+        }) {
+            let small_products: Vec<_> = products
+                .iter()
+                .map(|(lhs, rhs)| match (lhs, rhs) {
+                    (Cyclotomic::Small(lhs), Cyclotomic::Small(rhs)) => (lhs, rhs),
+                    _ => unreachable!(),
+                })
+                .collect();
+            if let Ok(result) = self
+                .small_kernel
+                .sum_products_integer_quotient(&small_products, divisor)
+            {
+                return Ok(result);
+            }
+        }
+
+        let sum = self.sum_products(products)?;
+        let quotient = self.scale_fraction(&sum, 1, divisor)?;
+        integer_i64(&quotient)
+    }
+
     pub fn conjugate(&mut self, value: &Cyclotomic) -> Result<Cyclotomic, Error> {
         match value {
             Cyclotomic::Small(value) => self.small_kernel.conjugate(value).map(Cyclotomic::Small),
@@ -495,6 +523,21 @@ impl Context {
             }
             Cyclotomic::Exact(value) => value.clone(),
         }
+    }
+}
+
+fn integer_i64(value: &Cyclotomic) -> Result<i64, Error> {
+    if value.order() != 1 {
+        return Err(Error("cyclotomic is not rational".into()));
+    }
+    let terms = value.rational_terms();
+    match terms.as_slice() {
+        [] => Ok(0),
+        [(0, coefficient)] if coefficient.denom() == &1 => coefficient
+            .numer()
+            .to_i64()
+            .ok_or_else(|| Error("integer does not fit i64".into())),
+        _ => Err(Error("cyclotomic is not an integer".into())),
     }
 }
 
@@ -561,5 +604,19 @@ mod tests {
         assert!(!overflow.is_small());
         assert_eq!(overflow.numerator(), Integer::from(i64::MAX) + 1);
         assert_eq!(overflow.denominator(), 1);
+    }
+
+    #[test]
+    fn integer_quotient_promotes_on_intermediate_overflow() {
+        let mut context = Context::new();
+        let maximum = context.from_terms(1, &[(0, (i64::MAX, 1))]).unwrap();
+        let two = context.from_terms(1, &[(0, (2, 1))]).unwrap();
+
+        assert_eq!(
+            context
+                .sum_products_integer_quotient(&[(&maximum, &two)], 2)
+                .unwrap(),
+            i64::MAX
+        );
     }
 }

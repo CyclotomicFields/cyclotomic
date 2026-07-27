@@ -547,6 +547,14 @@ impl<C: Coefficient> KernelContext<C> {
         &mut self,
         products: &[(&KernelCyclotomic<C>, &KernelCyclotomic<C>)],
     ) -> Result<KernelCyclotomic<C>, Error> {
+        let n = self.sum_products_to_result(products)?;
+        self.cyclotomic(n, 1)
+    }
+
+    fn sum_products_to_result(
+        &mut self,
+        products: &[(&KernelCyclotomic<C>, &KernelCyclotomic<C>)],
+    ) -> Result<u32, Error> {
         let mut n = 1_u32;
         for (lhs, rhs) in products {
             for order in [lhs.order, rhs.order] {
@@ -588,7 +596,7 @@ impl<C: Coefficient> KernelContext<C> {
         }
 
         self.convert_to_base(n)?;
-        self.cyclotomic(n, 1)
+        Ok(n)
     }
 
     pub fn conjugate(&mut self, value: &KernelCyclotomic<C>) -> Result<KernelCyclotomic<C>, Error> {
@@ -613,6 +621,42 @@ impl<C: Coefficient> KernelContext<C> {
         }
         // Scalar multiplication preserves a canonical basis representation.
         self.cyclotomic(n, n)
+    }
+}
+
+impl KernelContext<i64> {
+    pub fn sum_products_integer_quotient(
+        &mut self,
+        products: &[(&KernelCyclotomic<i64>, &KernelCyclotomic<i64>)],
+        divisor: i64,
+    ) -> Result<i64, Error> {
+        if divisor == 0 {
+            return Err(Error("integer quotient divisor must be nonzero".into()));
+        }
+        let n = self.sum_products_to_result(products)?;
+        let numerator = self.result_cyc[0];
+        let is_scalar = self.result_cyc[1..n as usize]
+            .iter()
+            .all(|coefficient| *coefficient == 0);
+        if is_scalar {
+            self.result_cyc[..n as usize].fill(0);
+            if numerator % divisor != 0 {
+                return Err(Error("sum of products is not integrally divisible".into()));
+            }
+            return Ok(numerator / divisor);
+        }
+
+        let value = self.cyclotomic(n, 1)?;
+        match value.terms.as_slice() {
+            [] => Ok(0),
+            [(0, numerator)] if value.order == 1 && numerator % divisor == 0 => {
+                Ok(numerator / divisor)
+            }
+            [(0, _)] if value.order == 1 => {
+                Err(Error("sum of products is not integrally divisible".into()))
+            }
+            _ => Err(Error("sum of products is not rational".into())),
+        }
     }
 }
 
@@ -706,5 +750,18 @@ mod tests {
         }
         let actual = context.sum_products(&pairs).unwrap();
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn integer_quotient_extracts_scalar_without_packing() {
+        let mut context = Context::new();
+        let six = context.from_terms(1, &[(0, 6)]).unwrap();
+        let two = context.from_terms(1, &[(0, 2)]).unwrap();
+        let three = context.from_terms(1, &[(0, 3)]).unwrap();
+        let four = context.from_terms(1, &[(0, 4)]).unwrap();
+        let pairs = [(&six, &two), (&three, &four)];
+
+        assert_eq!(context.sum_products_integer_quotient(&pairs, 6).unwrap(), 4);
+        assert!(context.sum_products_integer_quotient(&pairs, 5).is_err());
     }
 }
