@@ -720,18 +720,9 @@ impl<C: Coefficient> KernelContext<C> {
 }
 
 impl KernelContext<i64> {
-    pub fn sum_products_integer_quotient(
-        &mut self,
-        products: &[(&KernelCyclotomic<i64>, &KernelCyclotomic<i64>)],
-        divisor: i64,
-    ) -> Result<i64, Error> {
-        if divisor == 0 {
-            return Err(Error("integer quotient divisor must be nonzero".into()));
-        }
-        let n = self.sum_products_to_result(products)?;
+    fn integer_quotient_from_result(&mut self, n: u32, divisor: i64) -> Result<i64, Error> {
         let numerator = self.result_cyc[0];
-        let is_scalar = self.result_cyc.is_scalar();
-        if is_scalar {
+        if self.result_cyc.is_scalar() {
             if numerator % divisor != 0 {
                 return Err(Error("sum of products is not integrally divisible".into()));
             }
@@ -749,6 +740,75 @@ impl KernelContext<i64> {
             }
             _ => Err(Error("sum of products is not rational".into())),
         }
+    }
+
+    pub fn sum_products_integer_quotient(
+        &mut self,
+        products: &[(&KernelCyclotomic<i64>, &KernelCyclotomic<i64>)],
+        divisor: i64,
+    ) -> Result<i64, Error> {
+        if divisor == 0 {
+            return Err(Error("integer quotient divisor must be nonzero".into()));
+        }
+        let n = self.sum_products_to_result(products)?;
+        self.integer_quotient_from_result(n, divisor)
+    }
+
+    pub fn sum_product_rows_integer_quotients(
+        &mut self,
+        products: &[&KernelCyclotomic<i64>],
+        weights: &[&KernelCyclotomic<i64>],
+        divisor: i64,
+    ) -> Result<Vec<i64>, Error> {
+        if divisor == 0 {
+            return Err(Error("integer quotient divisor must be nonzero".into()));
+        }
+        if products.is_empty() || weights.len() % products.len() != 0 {
+            return Err(Error("invalid product-row dimensions".into()));
+        }
+
+        let mut results = Vec::with_capacity(weights.len() / products.len());
+        for row in weights.chunks_exact(products.len()) {
+            let mut n = 1_u32;
+            for value in products.iter().chain(row.iter()) {
+                let common = u64::from(n) * u64::from(value.order / gcd(n, value.order));
+                n = u32::try_from(common)
+                    .map_err(|_| Error("common cyclotomic field exceeds uint32_t".into()))?;
+            }
+            self.reset_result_cyc(n);
+            for (left, right) in products.iter().zip(row) {
+                let (left, right) = if left.terms.len() < right.terms.len() {
+                    (*right, *left)
+                } else {
+                    (*left, *right)
+                };
+                let left_scale = n / left.order;
+                let right_scale = n / right.order;
+                for (right_exponent, right_coefficient) in &right.terms {
+                    let offset = *right_exponent * right_scale;
+                    for (left_exponent, left_coefficient) in &left.terms {
+                        let exponent = offset + *left_exponent * left_scale;
+                        let exponent = if exponent >= n {
+                            exponent - n
+                        } else {
+                            exponent
+                        };
+                        let slot = &mut self.result_cyc[exponent as usize];
+                        if right_coefficient.is_one() {
+                            slot.add_assign(left_coefficient)?;
+                        } else if right_coefficient.is_minus_one() {
+                            slot.sub_assign(left_coefficient)?;
+                        } else {
+                            slot.add_assign(&left_coefficient.mul(right_coefficient)?)?;
+                        }
+                    }
+                }
+            }
+            self.convert_to_base(n)?;
+            results.push(self.integer_quotient_from_result(n, divisor)?);
+        }
+
+        Ok(results)
     }
 }
 
@@ -869,5 +929,24 @@ mod tests {
         let mut fresh = Context::new();
         let expected = fresh.from_terms(5003, &[(1, 3)]).unwrap();
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn multi_output_integer_quotients_match_individual_dot_products() {
+        let mut context = Context::new();
+        let six = context.from_terms(1, &[(0, 6)]).unwrap();
+        let three = context.from_terms(1, &[(0, 3)]).unwrap();
+        let one = context.from_terms(1, &[(0, 1)]).unwrap();
+        let two = context.from_terms(1, &[(0, 2)]).unwrap();
+        let four = context.from_terms(1, &[(0, 4)]).unwrap();
+        let products = [&six, &three];
+        let weights = [&two, &four, &one, &two];
+
+        assert_eq!(
+            context
+                .sum_product_rows_integer_quotients(&products, &weights, 6)
+                .unwrap(),
+            vec![4, 2]
+        );
     }
 }

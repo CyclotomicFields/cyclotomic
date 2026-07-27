@@ -61,14 +61,11 @@ impl PreparedCharacterTable {
                 .zip(&self.rows[rhs])
                 .map(|(left, right)| context.mul(left, right))
                 .collect::<Result<_, _>>()?;
-            return self
-                .weighted_conjugates
-                .iter()
-                .map(|irreducible| {
-                    let terms: Vec<_> = products.iter().zip(irreducible).collect();
-                    context.sum_products_integer_quotient(&terms, self.group_order)
-                })
-                .collect();
+            return context.sum_product_rows_integer_quotients(
+                &products,
+                &self.weighted_conjugates,
+                self.group_order,
+            );
         }
 
         let mut sums: Vec<Option<Cyclotomic>> = (0..self.rows.len()).map(|_| None).collect();

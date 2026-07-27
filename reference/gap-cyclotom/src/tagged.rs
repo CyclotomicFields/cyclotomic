@@ -479,6 +479,53 @@ impl Context {
         integer_i64(&quotient)
     }
 
+    pub fn sum_product_rows_integer_quotients(
+        &mut self,
+        products: &[Cyclotomic],
+        weights: &[Vec<Cyclotomic>],
+        divisor: i64,
+    ) -> Result<Vec<i64>, Error> {
+        if products
+            .iter()
+            .all(|value| matches!(value, Cyclotomic::Small(_)))
+            && weights
+                .iter()
+                .flatten()
+                .all(|value| matches!(value, Cyclotomic::Small(_)))
+        {
+            let small_products: Vec<_> = products
+                .iter()
+                .map(|value| match value {
+                    Cyclotomic::Small(value) => value,
+                    _ => unreachable!(),
+                })
+                .collect();
+            let small_weights: Vec<_> = weights
+                .iter()
+                .flatten()
+                .map(|value| match value {
+                    Cyclotomic::Small(value) => value,
+                    _ => unreachable!(),
+                })
+                .collect();
+            if let Ok(results) = self.small_kernel.sum_product_rows_integer_quotients(
+                &small_products,
+                &small_weights,
+                divisor,
+            ) {
+                return Ok(results);
+            }
+        }
+
+        weights
+            .iter()
+            .map(|row| {
+                let terms: Vec<_> = products.iter().zip(row).collect();
+                self.sum_products_integer_quotient(&terms, divisor)
+            })
+            .collect()
+    }
+
     pub fn conjugate(&mut self, value: &Cyclotomic) -> Result<Cyclotomic, Error> {
         match value {
             Cyclotomic::Small(value) => self.small_kernel.conjugate(value).map(Cyclotomic::Small),
@@ -617,6 +664,24 @@ mod tests {
                 .sum_products_integer_quotient(&[(&maximum, &two)], 2)
                 .unwrap(),
             i64::MAX
+        );
+    }
+
+    #[test]
+    fn multi_output_integer_quotient_preserves_overflow_fallback() {
+        let mut context = Context::new();
+        let maximum = context.from_terms(1, &[(0, (i64::MAX, 1))]).unwrap();
+        let two = context.from_terms(1, &[(0, (2, 1))]).unwrap();
+
+        assert_eq!(
+            context
+                .sum_product_rows_integer_quotients(
+                    std::slice::from_ref(&maximum),
+                    &[vec![two]],
+                    2,
+                )
+                .unwrap(),
+            vec![i64::MAX]
         );
     }
 }
