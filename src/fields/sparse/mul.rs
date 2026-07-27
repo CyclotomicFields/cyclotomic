@@ -1,12 +1,12 @@
 use super::num::Zero;
+use crate::fields::exponent::Exponent;
+use crate::fields::rational::Rational;
 use crate::fields::sparse::basis::{convert_to_base, try_reduce};
 use crate::fields::sparse::*;
+use crate::fields::util::Sign;
 use crate::fields::{CyclotomicFieldElement, MultiplicativeGroupElement, Q};
 use galois::apply_automorphism;
 use std::convert::TryFrom;
-use crate::fields::util::Sign;
-use crate::fields::exponent::Exponent;
-use crate::fields::rational::Rational;
 
 /// Reusable dense accumulator for sparse products. Only touched slots are
 /// cleared between calls, so callers can amortize allocation across a workload.
@@ -51,11 +51,7 @@ impl<Q: Rational> Number<i64, Q> {
         Self::mul_packed_same_order(&left, &right, scratch)
     }
 
-    fn mul_packed_same_order(
-        left: &Self,
-        right: &Self,
-        scratch: &mut PackedMulScratch<Q>,
-    ) -> Self {
+    fn mul_packed_same_order(left: &Self, right: &Self, scratch: &mut PackedMulScratch<Q>) -> Self {
         let order = usize::try_from(left.order).expect("cyclotomic order fits usize");
         scratch.prepare(order);
         for (left_exp, left_coeff) in &left.coeffs {
@@ -80,7 +76,11 @@ impl<Q: Rational> Number<i64, Q> {
     }
 }
 
-impl<E, Q> MultiplicativeGroupElement for Number<E, Q> where E: Exponent, Q: Rational {
+impl<E, Q> MultiplicativeGroupElement for Number<E, Q>
+where
+    E: Exponent,
+    Q: Rational,
+{
     /// Multiplies term by term, not bothering to do anything interesting.
     fn mul(&mut self, rhs: &mut Self) -> &mut Self {
         let z1 = self;
@@ -125,10 +125,10 @@ impl<E, Q> MultiplicativeGroupElement for Number<E, Q> where E: Exponent, Q: Rat
 
         let mut i = E::from(2);
         while &i != n {
-            if Exponent::gcd(n ,&i) == E::from(1) {
+            if Exponent::gcd(n, &i) == E::from(1) {
                 x.mul(&mut apply_automorphism(&z, &i));
             }
-            i =  i + E::from(1);
+            i = i + E::from(1);
         }
 
         // The full product:
@@ -160,17 +160,11 @@ mod packed_tests {
     fn packed_products_match_the_general_implementation_and_reuse_scratch() {
         let left = Number::<i64, HybridRational>::new(
             &5,
-            &[(1, 2.into()), (4, (-3).into())]
-                .iter()
-                .cloned()
-                .collect(),
+            &[(1, 2.into()), (4, (-3).into())].iter().cloned().collect(),
         );
         let right = Number::<i64, HybridRational>::new(
             &3,
-            &[(0, 7.into()), (2, 1.into())]
-                .iter()
-                .cloned()
-                .collect(),
+            &[(0, 7.into()), (2, 1.into())].iter().cloned().collect(),
         );
         let mut expected = left.clone();
         expected.mul(&mut right.clone());

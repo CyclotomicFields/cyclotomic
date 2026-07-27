@@ -5,11 +5,11 @@
 use super::num::Zero;
 use crate::fields::dense::*;
 
+use crate::fields::exponent::Exponent;
+use crate::fields::util::Sign;
+use crate::fields::CyclotomicFieldElement;
 use std::convert::TryInto;
 use std::ops::Mul;
-use crate::fields::util::Sign;
-use crate::fields::exponent::Exponent;
-use crate::fields::CyclotomicFieldElement;
 
 // Tries to reduce to a possibly smaller cyclotomic field
 pub fn try_reduce(z: &mut Number) {
@@ -133,7 +133,6 @@ pub fn convert_to_base(z: &Number) -> Number {
     // the Zumbroich basis
     let mut result = z.clone();
     let mut n_div_powers = Exponent::factorise(&n);
-
 
     for (p, power) in &n_div_powers {
         // the maximal power of p that divides n

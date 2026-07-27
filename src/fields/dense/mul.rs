@@ -1,11 +1,11 @@
 use super::num::Zero;
 use crate::fields::dense::*;
+use crate::fields::exponent::Exponent;
+use crate::fields::rational::Rational;
+use crate::fields::util::Sign;
 use crate::fields::{CyclotomicFieldElement, MultiplicativeGroupElement};
 use basis::{convert_to_base, try_reduce};
 use galois::apply_automorphism;
-use crate::fields::exponent::Exponent;
-use crate::fields::util::Sign;
-use crate::fields::rational::Rational;
 
 impl MultiplicativeGroupElement for Number {
     /// Multiplies term by term, not bothering to do anything interesting.

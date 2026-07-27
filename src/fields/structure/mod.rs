@@ -1,8 +1,8 @@
 use crate::fields::dense::basis::convert_to_base;
 use crate::fields::dense::*;
+use crate::fields::exponent::Exponent;
 use crate::fields::util::*;
 use crate::fields::*;
-use crate::fields::exponent::Exponent;
 use num::Zero;
 use quickcheck::{Arbitrary, Gen};
 use rand::RngExt;
@@ -119,13 +119,17 @@ fn zumbroich_basis(order: i64) -> Vec<i64> {
 
             if *p == 2 {
                 for bad_exp in (q / 2)..q - 1 + 1 {
-                    if Exponent::math_mod(&i, &q) == Exponent::math_mod(&((order / q) * bad_exp), &q) {
+                    if Exponent::math_mod(&i, &q)
+                        == Exponent::math_mod(&((order / q) * bad_exp), &q)
+                    {
                         return false;
                     }
                 }
             } else {
                 for bad_exp in -(q / *p - 1) / 2..(q / *p - 1) / 2 + 1 {
-                    if Exponent::math_mod(&i, &q) == Exponent::math_mod(&((order / q) * bad_exp), &q) {
+                    if Exponent::math_mod(&i, &q)
+                        == Exponent::math_mod(&((order / q) * bad_exp), &q)
+                    {
                         return false;
                     }
                 }

@@ -52,9 +52,7 @@ pub fn try_reduce<E: Exponent, Q: Rational>(z: &mut Number<E, Q>) {
         }
     }
 
-    if num_nonzero_terms == E::from(0)
-        || (num_nonzero_terms == E::from(1) && saw_exp_zero)
-    {
+    if num_nonzero_terms == E::from(0) || (num_nonzero_terms == E::from(1) && saw_exp_zero) {
         // Zero and a lone constant are rational.
         z.order = E::from(1);
 
@@ -108,7 +106,10 @@ pub fn try_reduce<E: Exponent, Q: Rational>(z: &mut Number<E, Q>) {
         z.coeffs.clear();
         let new_coeff = last_nonzero_coeff
             .unwrap()
-            .mul(&mut Q::from((i64::pow(-1, num_primes.try_into().unwrap()), 1)))
+            .mul(&mut Q::from((
+                i64::pow(-1, num_primes.try_into().unwrap()),
+                1,
+            )))
             .clone();
         z.coeffs.insert(E::from(0), new_coeff);
         return;
@@ -212,10 +213,8 @@ where
                 result.coeffs.remove(&i);
                 let mut k = E::from(1);
                 while k.clone() != p.clone() {
-                    let new_exp = Exponent::math_mod(
-                        &((k.clone() * n.clone()) / p.clone() + i.clone()),
-                        &n,
-                    );
+                    let new_exp =
+                        Exponent::math_mod(&((k.clone() * n.clone()) / p.clone() + i.clone()), &n);
                     add_single(&mut result.coeffs, &new_exp, &coeff, Sign::Minus);
                     k = k + E::from(1);
                 }

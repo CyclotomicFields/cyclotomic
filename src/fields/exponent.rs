@@ -1,8 +1,8 @@
 use crate::fields::Z;
+use rug::ops::Pow;
 use std::fmt::{Debug, Display};
 use std::hash::Hash;
 use std::ops::{Add, Div, Mul, Neg, Rem, Sub};
-use rug::ops::Pow;
 
 pub trait Power {
     fn power(&self, i: u32) -> Self;

@@ -1,6 +1,6 @@
+use crate::fields::exponent::Exponent;
 use crate::fields::{CyclotomicFieldElement, FieldElement};
 use std::marker::PhantomData;
-use crate::fields::exponent::Exponent;
 
 /// Terrible implementation of a matrix (not contiguous)
 pub struct Matrix<T, E> {
@@ -18,7 +18,7 @@ where
     pub fn zero_matrix(N: usize, M: usize) -> Self {
         Matrix {
             value: vec![vec![T::zero_order(&E::from(1)); M]; N],
-            exp: PhantomData
+            exp: PhantomData,
         }
     }
 
@@ -98,7 +98,7 @@ where
 
         Matrix {
             value: result,
-            exp: PhantomData
+            exp: PhantomData,
         }
     }
 }

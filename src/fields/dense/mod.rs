@@ -109,12 +109,7 @@ impl Number {
 }
 
 fn get_same_coeff(z: &Number) -> Option<Q> {
-    let nonzero_coeffs: HashSet<Q> = z
-        .coeffs
-        .clone()
-        .into_iter()
-        .filter(|q| *q != 0)
-        .collect();
+    let nonzero_coeffs: HashSet<Q> = z.coeffs.clone().into_iter().filter(|q| *q != 0).collect();
 
     if nonzero_coeffs.len() == 0 {
         // all coeffs are zero
@@ -191,7 +186,7 @@ impl CyclotomicFieldElement<i64> for Number {
 
         new_coeffs[0] = self.coeffs[0].clone();
         for exp in 1..n {
-            new_coeffs[(n-exp) as usize] = self.coeffs[exp as usize].clone();
+            new_coeffs[(n - exp) as usize] = self.coeffs[exp as usize].clone();
         }
 
         Self::new(&self.order, &new_coeffs)
