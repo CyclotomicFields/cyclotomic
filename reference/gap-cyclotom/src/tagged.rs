@@ -9,12 +9,15 @@ use std::fmt;
 /// One-word exact coefficient, analogous to GAP's tagged `Obj`.
 ///
 /// The low bit distinguishes an immediate signed integer from an aligned
-/// pointer to a boxed GMP rational. Like GAP immediate integers, the inline
-/// range is one bit narrower than the machine word; larger integers promote.
+/// pointer to a boxed GMP integer or rational. Like GAP immediate integers,
+/// the inline range is one bit narrower than the machine word; larger integers
+/// promote without entering rational arithmetic.
 pub struct TaggedRational(usize);
 
 impl TaggedRational {
     const TAG_SMALL: usize = 1;
+    const TAG_INTEGER: usize = 2;
+    const TAG_MASK: usize = 3;
 
     fn small_value(&self) -> Option<i64> {
         if self.0 & Self::TAG_SMALL == 0 {
@@ -33,17 +36,39 @@ impl TaggedRational {
     }
 
     fn big_ref(&self) -> &Rational {
-        debug_assert_eq!(self.0 & Self::TAG_SMALL, 0);
+        debug_assert_eq!(self.0 & Self::TAG_MASK, 0);
         // SAFETY: every untagged word is created with Box::into_raw below,
         // remains owned by this value, and is freed exactly once in Drop.
         unsafe { &*(self.0 as *const Rational) }
     }
 
     fn big_mut(&mut self) -> &mut Rational {
-        debug_assert_eq!(self.0 & Self::TAG_SMALL, 0);
+        debug_assert_eq!(self.0 & Self::TAG_MASK, 0);
         // SAFETY: coefficients deep-clone boxed rationals, so this value is
         // the unique owner of the pointed-to allocation.
         unsafe { &mut *(self.0 as *mut Rational) }
+    }
+
+    fn integer_ref(&self) -> &Integer {
+        debug_assert_eq!(self.0 & Self::TAG_MASK, Self::TAG_INTEGER);
+        let pointer = self.0 & !Self::TAG_MASK;
+        // SAFETY: tagged integer pointers come exclusively from from_integer.
+        unsafe { &*(pointer as *const Integer) }
+    }
+
+    fn integer_mut(&mut self) -> &mut Integer {
+        debug_assert_eq!(self.0 & Self::TAG_MASK, Self::TAG_INTEGER);
+        let pointer = self.0 & !Self::TAG_MASK;
+        // SAFETY: Clone creates a distinct allocation, so ownership is unique.
+        unsafe { &mut *(pointer as *mut Integer) }
+    }
+
+    fn is_integer_pointer(&self) -> bool {
+        self.0 & Self::TAG_MASK == Self::TAG_INTEGER
+    }
+
+    fn is_integer(&self) -> bool {
+        self.is_small() || self.is_integer_pointer()
     }
 
     pub fn from_fraction(numerator: i64, denominator: i64) -> Self {
@@ -56,11 +81,7 @@ impl TaggedRational {
 
     fn from_big(value: Rational) -> Self {
         if value.is_integer() {
-            if let Some(value) = value.numer().to_i64() {
-                if let Some(encoded) = Self::encode_small(value) {
-                    return Self(encoded);
-                }
-            }
+            return Self::from_integer(value.numer().clone());
         }
         let pointer = Box::into_raw(Box::new(value)) as usize;
         debug_assert_ne!(pointer, 0);
@@ -68,9 +89,30 @@ impl TaggedRational {
         Self(pointer)
     }
 
+    fn from_integer(value: Integer) -> Self {
+        if let Some(value) = value.to_i64() {
+            if let Some(encoded) = Self::encode_small(value) {
+                return Self(encoded);
+            }
+        }
+        let pointer = Box::into_raw(Box::new(value)) as usize;
+        debug_assert_ne!(pointer, 0);
+        debug_assert_eq!(pointer & Self::TAG_MASK, 0);
+        Self(pointer | Self::TAG_INTEGER)
+    }
+
+    fn to_integer(&self) -> Integer {
+        match self.small_value() {
+            Some(value) => Integer::from(value),
+            None if self.is_integer_pointer() => self.integer_ref().clone(),
+            None => unreachable!("rational coefficient is not an integer"),
+        }
+    }
+
     fn to_big(&self) -> Rational {
         match self.small_value() {
             Some(value) => Rational::from(value),
+            None if self.is_integer_pointer() => Rational::from(self.integer_ref().clone()),
             None => self.big_ref().clone(),
         }
     }
@@ -82,6 +124,7 @@ impl TaggedRational {
     pub fn numerator(&self) -> Integer {
         match self.small_value() {
             Some(value) => Integer::from(value),
+            None if self.is_integer_pointer() => self.integer_ref().clone(),
             None => self.big_ref().numer().clone(),
         }
     }
@@ -89,6 +132,7 @@ impl TaggedRational {
     pub fn denominator(&self) -> Integer {
         match self.small_value() {
             Some(_) => Integer::from(1),
+            None if self.is_integer_pointer() => Integer::from(1),
             None => self.big_ref().denom().clone(),
         }
     }
@@ -102,7 +146,7 @@ impl From<i64> for TaggedRational {
     fn from(value: i64) -> Self {
         match Self::encode_small(value) {
             Some(encoded) => Self(encoded),
-            None => Self::from_big(Rational::from(value)),
+            None => Self::from_integer(Integer::from(value)),
         }
     }
 }
@@ -111,6 +155,7 @@ impl Clone for TaggedRational {
     fn clone(&self) -> Self {
         match self.small_value() {
             Some(_) => Self(self.0),
+            None if self.is_integer_pointer() => Self::from_integer(self.integer_ref().clone()),
             None => Self::from_big(self.big_ref().clone()),
         }
     }
@@ -118,7 +163,13 @@ impl Clone for TaggedRational {
 
 impl Drop for TaggedRational {
     fn drop(&mut self) {
-        if self.0 & Self::TAG_SMALL == 0 {
+        if self.is_integer_pointer() {
+            let pointer = self.0 & !Self::TAG_MASK;
+            // SAFETY: this is the unique pointer allocated in from_integer.
+            unsafe {
+                drop(Box::from_raw(pointer as *mut Integer));
+            }
+        } else if self.0 & Self::TAG_SMALL == 0 {
             // SAFETY: this is the unique pointer created by Box::into_raw in
             // from_big. Clone allocates a distinct box.
             unsafe {
@@ -132,7 +183,9 @@ impl PartialEq for TaggedRational {
     fn eq(&self, other: &Self) -> bool {
         match (self.small_value(), other.small_value()) {
             (Some(left), Some(right)) => left == right,
-            (None, None) => self.big_ref() == other.big_ref(),
+            (None, None) if self.is_integer_pointer() && other.is_integer_pointer() => {
+                self.integer_ref() == other.integer_ref()
+            }
             _ => self.to_big() == other.to_big(),
         }
     }
@@ -144,6 +197,7 @@ impl fmt::Debug for TaggedRational {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.small_value() {
             Some(value) => fmt::Debug::fmt(&value, formatter),
+            None if self.is_integer_pointer() => fmt::Debug::fmt(self.integer_ref(), formatter),
             None => fmt::Debug::fmt(self.big_ref(), formatter),
         }
     }
@@ -161,6 +215,7 @@ impl Coefficient for TaggedRational {
     fn is_zero(&self) -> bool {
         match self.small_value() {
             Some(value) => value == 0,
+            None if self.is_integer_pointer() => self.integer_ref() == &0,
             None => self.big_ref().numer() == &0,
         }
     }
@@ -179,9 +234,13 @@ impl Coefficient for TaggedRational {
                 return Ok(Self::from(value));
             }
         }
+        if self.is_integer() && rhs.is_integer() {
+            return Ok(Self::from_integer(self.to_integer() + rhs.to_integer()));
+        }
         let mut value = self.to_big();
         match rhs.small_value() {
             Some(rhs) => value += rhs,
+            None if rhs.is_integer_pointer() => value += rhs.integer_ref(),
             None => value += rhs.big_ref(),
         }
         Ok(Self::from_big(value))
@@ -193,9 +252,13 @@ impl Coefficient for TaggedRational {
                 return Ok(Self::from(value));
             }
         }
+        if self.is_integer() && rhs.is_integer() {
+            return Ok(Self::from_integer(self.to_integer() - rhs.to_integer()));
+        }
         let mut value = self.to_big();
         match rhs.small_value() {
             Some(rhs) => value -= rhs,
+            None if rhs.is_integer_pointer() => value -= rhs.integer_ref(),
             None => value -= rhs.big_ref(),
         }
         Ok(Self::from_big(value))
@@ -209,17 +272,29 @@ impl Coefficient for TaggedRational {
                     return Ok(());
                 }
             }
-            *self = Self::from_big(Rational::from(left) + right);
+            *self = Self::from_integer(Integer::from(left) + right);
             return Ok(());
         }
-        if !self.is_small() {
+        if self.is_integer_pointer() && rhs.is_integer() {
+            match rhs.small_value() {
+                Some(rhs) => *self.integer_mut() += rhs,
+                None => *self.integer_mut() += rhs.integer_ref(),
+            }
+            return Ok(());
+        }
+        if !self.is_integer() {
             match rhs.small_value() {
                 Some(rhs) => *self.big_mut() += rhs,
+                None if rhs.is_integer_pointer() => *self.big_mut() += rhs.integer_ref(),
                 None => *self.big_mut() += rhs.big_ref(),
             }
             return Ok(());
         }
-        *self = Self::from_big(self.to_big() + rhs.big_ref());
+        *self = if rhs.is_integer() {
+            Self::from_integer(self.to_integer() + rhs.to_integer())
+        } else {
+            Self::from_big(self.to_big() + rhs.big_ref())
+        };
         Ok(())
     }
 
@@ -231,17 +306,29 @@ impl Coefficient for TaggedRational {
                     return Ok(());
                 }
             }
-            *self = Self::from_big(Rational::from(left) - right);
+            *self = Self::from_integer(Integer::from(left) - right);
             return Ok(());
         }
-        if !self.is_small() {
+        if self.is_integer_pointer() && rhs.is_integer() {
+            match rhs.small_value() {
+                Some(rhs) => *self.integer_mut() -= rhs,
+                None => *self.integer_mut() -= rhs.integer_ref(),
+            }
+            return Ok(());
+        }
+        if !self.is_integer() {
             match rhs.small_value() {
                 Some(rhs) => *self.big_mut() -= rhs,
+                None if rhs.is_integer_pointer() => *self.big_mut() -= rhs.integer_ref(),
                 None => *self.big_mut() -= rhs.big_ref(),
             }
             return Ok(());
         }
-        *self = Self::from_big(self.to_big() - rhs.big_ref());
+        *self = if rhs.is_integer() {
+            Self::from_integer(self.to_integer() - rhs.to_integer())
+        } else {
+            Self::from_big(self.to_big() - rhs.big_ref())
+        };
         Ok(())
     }
 
@@ -266,9 +353,13 @@ impl Coefficient for TaggedRational {
                 return Ok(Self::from(value));
             }
         }
+        if self.is_integer() && rhs.is_integer() {
+            return Ok(Self::from_integer(self.to_integer() * rhs.to_integer()));
+        }
         let mut value = self.to_big();
         match rhs.small_value() {
             Some(rhs) => value *= rhs,
+            None if rhs.is_integer_pointer() => value *= rhs.integer_ref(),
             None => value *= rhs.big_ref(),
         }
         Ok(Self::from_big(value))
@@ -278,8 +369,11 @@ impl Coefficient for TaggedRational {
         match self.small_value() {
             Some(value) => match value.checked_neg() {
                 Some(value) => Ok(Self::from(value)),
-                None => Ok(Self::from_big(-self.to_big())),
+                None => Ok(Self::from_integer(-self.to_integer())),
             },
+            None if self.is_integer_pointer() => {
+                Ok(Self::from_integer(-self.integer_ref().clone()))
+            }
             None => Ok(Self::from_big(-self.to_big())),
         }
     }
@@ -649,8 +743,10 @@ mod tests {
             .add(&TaggedRational::from(1))
             .unwrap();
         assert!(!overflow.is_small());
+        assert!(overflow.is_integer_pointer());
         assert_eq!(overflow.numerator(), Integer::from(i64::MAX) + 1);
         assert_eq!(overflow.denominator(), 1);
+        assert!(!fraction.is_integer_pointer());
     }
 
     #[test]
