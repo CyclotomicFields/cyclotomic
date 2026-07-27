@@ -8,6 +8,7 @@
 
 use crate::Error;
 use rug::Rational;
+use smallvec::SmallVec;
 use std::fmt::Debug;
 use std::ops::{Index, IndexMut};
 
@@ -15,7 +16,7 @@ use std::ops::{Index, IndexMut};
 #[doc(hidden)]
 pub struct KernelCyclotomic<C> {
     order: u32,
-    terms: Vec<(u32, C)>,
+    terms: SmallVec<[(u32, C); 4]>,
 }
 
 #[doc(hidden)]
@@ -352,7 +353,7 @@ impl<C: Coefficient> KernelContext<C> {
         &mut self,
         mut n: u32,
         hint: u32,
-        terms: &mut Vec<(u32, C)>,
+        terms: &mut SmallVec<[(u32, C); 4]>,
     ) -> Result<u32, Error> {
         let mut len = 0_usize;
         let mut exponent_gcd = n;
@@ -469,7 +470,7 @@ impl<C: Coefficient> KernelContext<C> {
     }
 
     fn cyclotomic(&mut self, n: u32, hint: u32) -> Result<KernelCyclotomic<C>, Error> {
-        let mut terms = Vec::new();
+        let mut terms = SmallVec::new();
         let order = self.cyclotomic_into(n, hint, &mut terms)?;
         Ok(KernelCyclotomic { order, terms })
     }
@@ -818,7 +819,7 @@ impl<C: Coefficient> KernelCyclotomic<C> {
     }
 
     pub fn terms(&self) -> Vec<(u32, C)> {
-        self.terms.clone()
+        self.terms.to_vec()
     }
 
     pub(crate) fn map_coefficients<D: Coefficient>(
@@ -848,6 +849,7 @@ mod tests {
         let mut context = Context::new();
         let e6 = context.root(6, 1).unwrap();
         assert_eq!(e6.order(), 3);
+        assert!(!e6.terms.spilled());
 
         let e2 = context.root(5, 2).unwrap();
         let e4 = context.root(5, 4).unwrap();

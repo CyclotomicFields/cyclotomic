@@ -12,6 +12,7 @@ libgap = []
 
 [dependencies]
 rug = { version = "=1.17.0", default-features = false, features = ["integer", "rational"] }
+smallvec = "1.15.1"
 
 [build-dependencies]
 cc = "1"
