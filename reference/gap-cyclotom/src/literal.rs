@@ -9,6 +9,7 @@
 use crate::Error;
 use rug::Rational;
 use std::fmt::Debug;
+use std::ops::{Index, IndexMut};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[doc(hidden)]
@@ -19,11 +20,102 @@ pub struct KernelCyclotomic<C> {
 
 #[doc(hidden)]
 pub struct KernelContext<C> {
-    result_cyc: Vec<C>,
+    result_cyc: Scratch<C>,
     last_n: u32,
     phi: u32,
     is_squarefree: bool,
     number_of_primes: u32,
+}
+
+struct Scratch<C> {
+    values: Vec<C>,
+    generations: Vec<u32>,
+    generation: u32,
+    touched: Vec<usize>,
+    active_length: usize,
+    track_touched: bool,
+}
+
+impl<C: Coefficient> Scratch<C> {
+    const TRACKING_THRESHOLD: usize = 4096;
+
+    fn new(capacity: usize) -> Self {
+        Self {
+            values: vec![C::zero(); capacity],
+            generations: vec![0; capacity],
+            generation: 0,
+            touched: Vec::new(),
+            active_length: 0,
+            track_touched: false,
+        }
+    }
+
+    fn grow(&mut self, length: usize) {
+        if self.values.len() < length {
+            self.values.resize(length, C::zero());
+            self.generations.resize(length, 0);
+        }
+    }
+
+    fn reset(&mut self, length: usize) {
+        self.grow(length);
+        if self.track_touched {
+            for &index in &self.touched {
+                self.values[index] = C::zero();
+            }
+        } else {
+            self.values[..self.active_length].fill(C::zero());
+        }
+        self.generation = self.generation.wrapping_add(1);
+        if self.generation == 0 {
+            self.generations.fill(0);
+            self.generation = 1;
+        }
+        self.touched.clear();
+        self.active_length = length;
+        self.track_touched = length > Self::TRACKING_THRESHOLD;
+    }
+
+    fn clear_touched(&mut self) {
+        if self.track_touched {
+            for &index in &self.touched {
+                self.values[index] = C::zero();
+            }
+        } else {
+            self.values[..self.active_length].fill(C::zero());
+        }
+    }
+
+    fn is_scalar(&self) -> bool {
+        if self.track_touched {
+            self.touched
+                .iter()
+                .all(|&index| index == 0 || self.values[index].is_zero())
+        } else {
+            self.values[1..self.active_length]
+                .iter()
+                .all(Coefficient::is_zero)
+        }
+    }
+}
+
+impl<C: Coefficient> Index<usize> for Scratch<C> {
+    type Output = C;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.values[index]
+    }
+}
+
+impl<C: Coefficient> IndexMut<usize> for Scratch<C> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        if self.track_touched && self.generations[index] != self.generation {
+            self.generations[index] = self.generation;
+            self.values[index] = C::zero();
+            self.touched.push(index);
+        }
+        &mut self.values[index]
+    }
 }
 
 #[doc(hidden)]
@@ -143,7 +235,7 @@ impl<C: Coefficient> Default for KernelContext<C> {
     fn default() -> Self {
         Self {
             // GAP initializes ResultCyc with room for 1024 coefficients.
-            result_cyc: vec![C::zero(); 1024],
+            result_cyc: Scratch::new(1024),
             last_n: 0,
             phi: 0,
             is_squarefree: false,
@@ -167,14 +259,11 @@ impl<C: Coefficient> KernelContext<C> {
     }
 
     fn grow_result_cyc(&mut self, order: u32) {
-        if self.result_cyc.len() < order as usize {
-            self.result_cyc.resize(order as usize, C::zero());
-        }
+        self.result_cyc.grow(order as usize);
     }
 
     fn reset_result_cyc(&mut self, order: u32) {
-        self.grow_result_cyc(order);
-        self.result_cyc[..order as usize].fill(C::zero());
+        self.result_cyc.reset(order as usize);
     }
 
     // Direct translation of GAP's ConvertToBase: eliminate every root outside
@@ -295,7 +384,7 @@ impl<C: Coefficient> KernelContext<C> {
 
         let (phi, squarefree, number_of_primes) = self.field_properties(n);
         if len == phi as usize && coefficients_equal && squarefree {
-            self.result_cyc[..n as usize].fill(C::zero());
+            self.result_cyc.clear_touched();
             let mut common = common_coefficient.unwrap_or_else(C::zero);
             if number_of_primes % 2 != 0 {
                 common = common.neg()?;
@@ -375,7 +464,6 @@ impl<C: Coefficient> KernelContext<C> {
                 continue;
             }
             terms.push((i, coefficient));
-            self.result_cyc[i as usize] = C::zero();
         }
         Ok(n)
     }
@@ -430,7 +518,7 @@ impl<C: Coefficient> KernelContext<C> {
         rhs: &KernelCyclotomic<C>,
     ) -> Result<(u32, u32), Error> {
         let (ml, mr, n) = self.find_common_field(lhs.order, rhs.order)?;
-        self.result_cyc[..n as usize].fill(C::zero());
+        self.reset_result_cyc(n);
 
         for (exponent, coefficient) in &lhs.terms {
             self.result_cyc[(*exponent * ml) as usize] = coefficient.clone();
@@ -471,7 +559,7 @@ impl<C: Coefficient> KernelContext<C> {
             (lhs, rhs)
         };
         let (ml, mr, n) = self.find_common_field(left.order, right.order)?;
-        self.result_cyc[..n as usize].fill(C::zero());
+        self.reset_result_cyc(n);
 
         for (right_exponent, right_coefficient) in &right.terms {
             let offset = *right_exponent * mr;
@@ -511,8 +599,7 @@ impl<C: Coefficient> KernelContext<C> {
             * u64::from(accumulator.order / gcd(common_product, accumulator.order));
         let n = u32::try_from(n)
             .map_err(|_| Error("common cyclotomic field exceeds uint32_t".into()))?;
-        self.grow_result_cyc(n);
-        self.result_cyc[..n as usize].fill(C::zero());
+        self.reset_result_cyc(n);
 
         let accumulator_scale = n / accumulator.order;
         for (exponent, coefficient) in &accumulator.terms {
@@ -572,8 +659,7 @@ impl<C: Coefficient> KernelContext<C> {
                     .map_err(|_| Error("common cyclotomic field exceeds uint32_t".into()))?;
             }
         }
-        self.grow_result_cyc(n);
-        self.result_cyc[..n as usize].fill(C::zero());
+        self.reset_result_cyc(n);
 
         for (lhs, rhs) in products {
             let (left, right) = if lhs.terms.len() < rhs.terms.len() {
@@ -644,11 +730,8 @@ impl KernelContext<i64> {
         }
         let n = self.sum_products_to_result(products)?;
         let numerator = self.result_cyc[0];
-        let is_scalar = self.result_cyc[1..n as usize]
-            .iter()
-            .all(|coefficient| *coefficient == 0);
+        let is_scalar = self.result_cyc.is_scalar();
         if is_scalar {
-            self.result_cyc[..n as usize].fill(0);
             if numerator % divisor != 0 {
                 return Err(Error("sum of products is not integrally divisible".into()));
             }
@@ -772,5 +855,19 @@ mod tests {
 
         assert_eq!(context.sum_products_integer_quotient(&pairs, 6).unwrap(), 4);
         assert!(context.sum_products_integer_quotient(&pairs, 5).is_err());
+    }
+
+    #[test]
+    fn generation_stamped_scratch_discards_large_sparse_results_and_errors() {
+        let mut context = Context::new();
+        context.from_terms(5003, &[(4999, 7)]).unwrap();
+        assert!(context
+            .from_terms(5003, &[(17, i64::MAX), (17, 1)])
+            .is_err());
+        let actual = context.from_terms(5003, &[(1, 3)]).unwrap();
+
+        let mut fresh = Context::new();
+        let expected = fresh.from_terms(5003, &[(1, 3)]).unwrap();
+        assert_eq!(actual, expected);
     }
 }
