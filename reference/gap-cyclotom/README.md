@@ -132,11 +132,25 @@ cargo run --release \
 This path dispatches an all-integer cyclotomic to the checked packed `i64`
 kernel. An overflowing operation or rational input promotes transparently to
 the exact kernel. Its scalar `TaggedRational` is one machine word: the low bit
-marks an immediate signed integer, while an aligned pointer refers to a boxed
-`rug::Rational`. The hot accumulator mutates promoted rationals in place.
-This deliberately improves on a mechanically generic translation: integer
-workloads pay no per-coefficient enum or destructor cost, while arbitrary
-integers and fractions remain exact.
+marks an immediate signed integer, while the second tag bit distinguishes
+boxed `rug::Integer` from boxed `rug::Rational`. Integral overflow therefore
+does not enter rational arithmetic. Rational imports are staged through a
+common denominator when that denominator and the scaled numerators fit `i64`.
+The hot accumulator mutates promoted GMP values in place.
+
+The Rust port also includes the low-level optimizations used by the current
+benchmarks:
+
+- modulo-free convolution indices;
+- inline storage for up to four packed terms;
+- adaptive generation-stamped/touched-index scratch clearing;
+- cached high-order factorization, embedding, and basis-conversion plans;
+- delayed normalization and direct integer extraction for character scalar
+  products;
+- a batched multi-output character kernel;
+- exact, bound-checked CRT reconstruction for overflowing integer dot
+  products, with a big-integer fallback when the fixed prime budget is
+  insufficient.
 
 `tagged_character_tables` imports GAP's exact character tables for `A5`,
 `SL(2,5)`, and `PSL(2,11)` into that adaptive kernel. It precomputes the
@@ -161,6 +175,24 @@ It reports median and range over 15 calibrated samples per table and
 implementation. `CYCLOTOMIC_BENCH_TABLE`, `CYCLOTOMIC_BENCH_IMPL`,
 `CYCLOTOMIC_BENCH_SAMPLE_MS`, and `CYCLOTOMIC_BENCH_SAMPLES` filter or extend
 the run for profiling.
+
+`PreparedRepresentationRing::build` computes the full symmetric table of
+irreducible tensor-product structure constants once. It then supports
+allocation-free basis-product lookup and checked multiplication of arbitrary
+signed virtual-character coefficient vectors. The benchmark reports these as
+`rust-ring-lookup` and `rust-ring-vector`; precomputation is intentionally
+outside those hot timings.
+
+One indicative 15-sample run with a 20 ms target per sample gave:
+
+| table | GAP | Rust arithmetic | speedup | ring basis lookup | ring vector |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| A5 | 3.547 us | 0.844 us | 4.20x | 0.001 us | 0.062 us |
+| SL(2,5) | 7.151 us | 1.119 us | 6.39x | 0.001 us | 0.133 us |
+| PSL(2,11) | 5.378 us | 1.133 us | 4.75x | 0.001 us | 0.087 us |
+
+These numbers are deliberately short and indicative. Correctness against
+unmodified GAP is checked before every timed table.
 
 This asks unmodified GAP to construct the character tables of `A5`, `SL(2,5)`,
 and `PSL(2,11)`. Before timing, it transfers the exact table entries and class
@@ -245,11 +277,17 @@ execution must be reported separately rather than silently mixed. Correctness
 checks run before timing and compare exact cyclotomic values or exact integer
 multiplicities.
 
-## Remaining implementation work
+## Remaining application-level work
 
-1. Add GMP integer and rational coefficients to the standalone extraction.
-2. Add subtraction, scalar multiplication, Galois action, and inversion there.
-3. Extend differential tests to more GAP edge cases and large coefficients.
-4. Continue the representative workload plan above.
-5. Add batch-workload benchmarks on top of the implemented prepared-arithmetic
-   and allocation-inclusive modes.
+The extracted kernel, adaptive integer/rational runtime, exact overflow paths,
+character batching, and precomputed representation-ring mode are implemented.
+The next work is deliberately application-facing:
+
+1. Continue the representative workload plan with repeated tensor powers,
+   HeLP-style traces, and Galois-orbit batches.
+2. Extend the table corpus to generated cyclic/dihedral families and optional
+   CTblLib tables.
+3. Report cold precomputation separately from hot representation-ring queries
+   for larger tables.
+4. Add subtraction, inversion, and general Galois action to the small public
+   reference API when a benchmark workload needs them.
