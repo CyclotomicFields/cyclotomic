@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="860" height="470" viewBox="0 0 860 470">
+<rect width="100%" height="100%" fill="white"/>
+<text x="88" y="30" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#111827">Multiplication throughput at 25% density</text>
+<text x="88" y="52" font-family="Arial, sans-serif" font-size="13" fill="#4b5563">Exact rug::Rational coefficients; log scale; higher is better</text>
+<line x1="88" y1="406" x2="836" y2="406" stroke="#111827" stroke-width="1"/>
+<line x1="88" y1="72" x2="88" y2="406" stroke="#111827" stroke-width="1"/>
+<line x1="88.0" y1="72" x2="88.0" y2="406" stroke="#e5e7eb" stroke-width="1"/>
+<text x="88.0" y="432" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#374151">4</text>
+<line x1="150.3" y1="72" x2="150.3" y2="406" stroke="#e5e7eb" stroke-width="1"/>
+<text x="150.3" y="432" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#374151">12</text>
+<line x1="204.9" y1="72" x2="204.9" y2="406" stroke="#e5e7eb" stroke-width="1"/>
+<text x="204.9" y="432" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#374151">19</text>
+<line x1="298.4" y1="72" x2="298.4" y2="406" stroke="#e5e7eb" stroke-width="1"/>
+<text x="298.4" y="432" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#374151">31</text>
+<line x1="391.9" y1="72" x2="391.9" y2="406" stroke="#e5e7eb" stroke-width="1"/>
+<text x="391.9" y="432" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#374151">43</text>
+<line x1="555.5" y1="72" x2="555.5" y2="406" stroke="#e5e7eb" stroke-width="1"/>
+<text x="555.5" y="432" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#374151">64</text>
+<line x1="758.1" y1="72" x2="758.1" y2="406" stroke="#e5e7eb" stroke-width="1"/>
+<text x="758.1" y="432" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#374151">90</text>
+<line x1="88" y1="445.4" x2="836" y2="445.4" stroke="#e5e7eb" stroke-width="1"/>
+<text x="78" y="449.4" text-anchor="end" font-family="Arial, sans-serif" font-size="11" fill="#374151">1.0k</text>
+<line x1="88" y1="361.0" x2="836" y2="361.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="78" y="365.0" text-anchor="end" font-family="Arial, sans-serif" font-size="11" fill="#374151">10.0k</text>
+<line x1="88" y1="276.7" x2="836" y2="276.7" stroke="#e5e7eb" stroke-width="1"/>
+<text x="78" y="280.7" text-anchor="end" font-family="Arial, sans-serif" font-size="11" fill="#374151">100.0k</text>
+<line x1="88" y1="192.3" x2="836" y2="192.3" stroke="#e5e7eb" stroke-width="1"/>
+<text x="78" y="196.3" text-anchor="end" font-family="Arial, sans-serif" font-size="11" fill="#374151">1.00M</text>
+<line x1="88" y1="108.0" x2="836" y2="108.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="78" y="112.0" text-anchor="end" font-family="Arial, sans-serif" font-size="11" fill="#374151">10.00M</text>
+<line x1="88" y1="23.6" x2="836" y2="23.6" stroke="#e5e7eb" stroke-width="1"/>
+<text x="78" y="27.6" text-anchor="end" font-family="Arial, sans-serif" font-size="11" fill="#374151">100.00M</text>
+<path d="M 88.0 186.3 L 95.8 195.3 L 111.4 214.9 L 119.2 228.6 L 142.5 246.9 L 150.3 258.2 L 158.1 262.5 L 181.5 276.1 L 189.3 279.0 L 197.1 283.8 L 204.9 285.6 L 236.0 301.2 L 243.8 302.2 L 282.8 317.3 L 290.6 319.4 L 298.4 322.8 L 306.2 321.7 L 337.3 330.0 L 345.1 333.7 L 368.5 338.5 L 391.9 345.6 L 430.8 354.8 L 469.8 360.9 L 524.3 369.3 L 532.1 370.6 L 555.5 373.3 L 610.0 381.9 L 617.8 383.3 L 703.5 392.6 L 711.3 393.1 L 758.1 400.3 L 804.8 405.3 L 812.6 403.7 L 836.0 406.0" fill="none" stroke="#2563eb" stroke-width="2.4"/>
+<circle cx="88.0" cy="186.3" r="3.2" fill="#2563eb"/>
+<circle cx="95.8" cy="195.3" r="3.2" fill="#2563eb"/>
+<circle cx="111.4" cy="214.9" r="3.2" fill="#2563eb"/>
+<circle cx="119.2" cy="228.6" r="3.2" fill="#2563eb"/>
+<circle cx="142.5" cy="246.9" r="3.2" fill="#2563eb"/>
+<circle cx="150.3" cy="258.2" r="3.2" fill="#2563eb"/>
+<circle cx="158.1" cy="262.5" r="3.2" fill="#2563eb"/>
+<circle cx="181.5" cy="276.1" r="3.2" fill="#2563eb"/>
+<circle cx="189.3" cy="279.0" r="3.2" fill="#2563eb"/>
+<circle cx="197.1" cy="283.8" r="3.2" fill="#2563eb"/>
+<circle cx="204.9" cy="285.6" r="3.2" fill="#2563eb"/>
+<circle cx="236.0" cy="301.2" r="3.2" fill="#2563eb"/>
+<circle cx="243.8" cy="302.2" r="3.2" fill="#2563eb"/>
+<circle cx="282.8" cy="317.3" r="3.2" fill="#2563eb"/>
+<circle cx="290.6" cy="319.4" r="3.2" fill="#2563eb"/>
+<circle cx="298.4" cy="322.8" r="3.2" fill="#2563eb"/>
+<circle cx="306.2" cy="321.7" r="3.2" fill="#2563eb"/>
+<circle cx="337.3" cy="330.0" r="3.2" fill="#2563eb"/>
+<circle cx="345.1" cy="333.7" r="3.2" fill="#2563eb"/>
+<circle cx="368.5" cy="338.5" r="3.2" fill="#2563eb"/>
+<circle cx="391.9" cy="345.6" r="3.2" fill="#2563eb"/>
+<circle cx="430.8" cy="354.8" r="3.2" fill="#2563eb"/>
+<circle cx="469.8" cy="360.9" r="3.2" fill="#2563eb"/>
+<circle cx="524.3" cy="369.3" r="3.2" fill="#2563eb"/>
+<circle cx="532.1" cy="370.6" r="3.2" fill="#2563eb"/>
+<circle cx="555.5" cy="373.3" r="3.2" fill="#2563eb"/>
+<circle cx="610.0" cy="381.9" r="3.2" fill="#2563eb"/>
+<circle cx="617.8" cy="383.3" r="3.2" fill="#2563eb"/>
+<circle cx="703.5" cy="392.6" r="3.2" fill="#2563eb"/>
+<circle cx="711.3" cy="393.1" r="3.2" fill="#2563eb"/>
+<circle cx="758.1" cy="400.3" r="3.2" fill="#2563eb"/>
+<circle cx="804.8" cy="405.3" r="3.2" fill="#2563eb"/>
+<circle cx="812.6" cy="403.7" r="3.2" fill="#2563eb"/>
+<circle cx="836.0" cy="406.0" r="3.2" fill="#2563eb"/>
+<line x1="98" y1="448" x2="120" y2="448" stroke="#2563eb" stroke-width="3"/>
+<text x="126" y="452" font-family="Arial, sans-serif" font-size="12" fill="#111827">dense</text>
+<path d="M 88.0 135.2 L 95.8 126.7 L 111.4 72.0 L 119.2 156.5 L 142.5 178.1 L 150.3 220.4 L 158.1 229.1 L 181.5 231.9 L 189.3 235.5 L 197.1 240.2 L 204.9 246.2 L 236.0 261.3 L 243.8 263.9 L 282.8 273.2 L 290.6 282.4 L 298.4 283.0 L 306.2 270.3 L 337.3 280.2 L 345.1 286.8 L 368.5 297.9 L 391.9 306.0 L 430.8 320.1 L 469.8 319.6 L 524.3 328.0 L 532.1 325.8 L 555.5 329.1 L 610.0 341.7 L 617.8 341.2 L 703.5 351.8 L 711.3 352.9 L 758.1 362.6 L 804.8 365.7 L 812.6 363.6 L 836.0 367.9" fill="none" stroke="#dc2626" stroke-width="2.4"/>
+<circle cx="88.0" cy="135.2" r="3.2" fill="#dc2626"/>
+<circle cx="95.8" cy="126.7" r="3.2" fill="#dc2626"/>
+<circle cx="111.4" cy="72.0" r="3.2" fill="#dc2626"/>
+<circle cx="119.2" cy="156.5" r="3.2" fill="#dc2626"/>
+<circle cx="142.5" cy="178.1" r="3.2" fill="#dc2626"/>
+<circle cx="150.3" cy="220.4" r="3.2" fill="#dc2626"/>
+<circle cx="158.1" cy="229.1" r="3.2" fill="#dc2626"/>
+<circle cx="181.5" cy="231.9" r="3.2" fill="#dc2626"/>
+<circle cx="189.3" cy="235.5" r="3.2" fill="#dc2626"/>
+<circle cx="197.1" cy="240.2" r="3.2" fill="#dc2626"/>
+<circle cx="204.9" cy="246.2" r="3.2" fill="#dc2626"/>
+<circle cx="236.0" cy="261.3" r="3.2" fill="#dc2626"/>
+<circle cx="243.8" cy="263.9" r="3.2" fill="#dc2626"/>
+<circle cx="282.8" cy="273.2" r="3.2" fill="#dc2626"/>
+<circle cx="290.6" cy="282.4" r="3.2" fill="#dc2626"/>
+<circle cx="298.4" cy="283.0" r="3.2" fill="#dc2626"/>
+<circle cx="306.2" cy="270.3" r="3.2" fill="#dc2626"/>
+<circle cx="337.3" cy="280.2" r="3.2" fill="#dc2626"/>
+<circle cx="345.1" cy="286.8" r="3.2" fill="#dc2626"/>
+<circle cx="368.5" cy="297.9" r="3.2" fill="#dc2626"/>
+<circle cx="391.9" cy="306.0" r="3.2" fill="#dc2626"/>
+<circle cx="430.8" cy="320.1" r="3.2" fill="#dc2626"/>
+<circle cx="469.8" cy="319.6" r="3.2" fill="#dc2626"/>
+<circle cx="524.3" cy="328.0" r="3.2" fill="#dc2626"/>
+<circle cx="532.1" cy="325.8" r="3.2" fill="#dc2626"/>
+<circle cx="555.5" cy="329.1" r="3.2" fill="#dc2626"/>
+<circle cx="610.0" cy="341.7" r="3.2" fill="#dc2626"/>
+<circle cx="617.8" cy="341.2" r="3.2" fill="#dc2626"/>
+<circle cx="703.5" cy="351.8" r="3.2" fill="#dc2626"/>
+<circle cx="711.3" cy="352.9" r="3.2" fill="#dc2626"/>
+<circle cx="758.1" cy="362.6" r="3.2" fill="#dc2626"/>
+<circle cx="804.8" cy="365.7" r="3.2" fill="#dc2626"/>
+<circle cx="812.6" cy="363.6" r="3.2" fill="#dc2626"/>
+<circle cx="836.0" cy="367.9" r="3.2" fill="#dc2626"/>
+<line x1="308" y1="448" x2="330" y2="448" stroke="#dc2626" stroke-width="3"/>
+<text x="336" y="452" font-family="Arial, sans-serif" font-size="12" fill="#111827">sparse</text>
+<text x="462.0" y="460" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#111827">cyclotomic order n</text>
+<text transform="translate(18 239.0) rotate(-90)" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#111827">operations per second</text>
+</svg>

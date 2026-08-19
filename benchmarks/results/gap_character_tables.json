@@ -1,0 +1,26 @@
+[
+  {
+    "table": "A5",
+    "gap_us": 3.547,
+    "rust_us": 0.844,
+    "speedup": 4.20,
+    "ring_basis_lookup_us": 0.001,
+    "ring_vector_us": 0.062
+  },
+  {
+    "table": "SL(2,5)",
+    "gap_us": 7.151,
+    "rust_us": 1.119,
+    "speedup": 6.39,
+    "ring_basis_lookup_us": 0.001,
+    "ring_vector_us": 0.133
+  },
+  {
+    "table": "PSL(2,11)",
+    "gap_us": 5.378,
+    "rust_us": 1.133,
+    "speedup": 4.75,
+    "ring_basis_lookup_us": 0.001,
+    "ring_vector_us": 0.087
+  }
+]

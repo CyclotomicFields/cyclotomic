@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="430" viewBox="0 0 760 430">
+<rect width="100%" height="100%" fill="white"/>
+<text x="78" y="30" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#111827">Character-table tensor decomposition</text>
+<text x="78" y="52" font-family="Arial, sans-serif" font-size="13" fill="#4b5563">Rust arithmetic speedup over GAP; higher is better</text>
+<line x1="78" y1="358.0" x2="732" y2="358.0" stroke="#e5e7eb"/>
+<text x="68" y="362.0" text-anchor="end" font-family="Arial, sans-serif" font-size="11" fill="#374151">0x</text>
+<line x1="78" y1="319.1" x2="732" y2="319.1" stroke="#e5e7eb"/>
+<text x="68" y="323.1" text-anchor="end" font-family="Arial, sans-serif" font-size="11" fill="#374151">1x</text>
+<line x1="78" y1="280.2" x2="732" y2="280.2" stroke="#e5e7eb"/>
+<text x="68" y="284.2" text-anchor="end" font-family="Arial, sans-serif" font-size="11" fill="#374151">2x</text>
+<line x1="78" y1="241.2" x2="732" y2="241.2" stroke="#e5e7eb"/>
+<text x="68" y="245.2" text-anchor="end" font-family="Arial, sans-serif" font-size="11" fill="#374151">3x</text>
+<line x1="78" y1="202.3" x2="732" y2="202.3" stroke="#e5e7eb"/>
+<text x="68" y="206.3" text-anchor="end" font-family="Arial, sans-serif" font-size="11" fill="#374151">4x</text>
+<line x1="78" y1="163.4" x2="732" y2="163.4" stroke="#e5e7eb"/>
+<text x="68" y="167.4" text-anchor="end" font-family="Arial, sans-serif" font-size="11" fill="#374151">5x</text>
+<line x1="78" y1="124.5" x2="732" y2="124.5" stroke="#e5e7eb"/>
+<text x="68" y="128.5" text-anchor="end" font-family="Arial, sans-serif" font-size="11" fill="#374151">6x</text>
+<line x1="78" y1="85.6" x2="732" y2="85.6" stroke="#e5e7eb"/>
+<text x="68" y="89.6" text-anchor="end" font-family="Arial, sans-serif" font-size="11" fill="#374151">7x</text>
+<rect x="127.0" y="194.5" width="119.9" height="163.5" rx="4" fill="#2563eb"/>
+<text x="187.0" y="185.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="700" fill="#1f2937">4.20x</text>
+<text x="187.0" y="388" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#111827">A5</text>
+<rect x="345.1" y="109.3" width="119.9" height="248.7" rx="4" fill="#2563eb"/>
+<text x="405.0" y="100.3" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="700" fill="#1f2937">6.39x</text>
+<text x="405.0" y="388" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#111827">SL(2,5)</text>
+<rect x="563.0" y="173.1" width="119.9" height="184.9" rx="4" fill="#2563eb"/>
+<text x="623.0" y="164.1" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="700" fill="#1f2937">4.75x</text>
+<text x="623.0" y="388" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#111827">PSL(2,11)</text>
+<line x1="78" y1="358" x2="732" y2="358" stroke="#111827"/>
+<line x1="78" y1="72" x2="78" y2="358" stroke="#111827"/>
+<text transform="translate(18 215.0) rotate(-90)" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#111827">speedup over GAP</text>
+</svg>
